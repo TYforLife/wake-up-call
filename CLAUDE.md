@@ -1,4 +1,4 @@
-# Bus Alarm: agent instructions
+# Nodstop (bus alarm): agent instructions
 
 Android app that wakes the owner (Tae) before his bus stop so he can sleep on the bus.
 The full spec is in `docs/DESIGN.md`. Read it before any work; it wins over your instincts.
@@ -24,6 +24,7 @@ The full spec is in `docs/DESIGN.md`. Read it before any work; it wins over your
 4. **When in doubt, ring earlier.** Every approximation must err early. If a change could make
    any alarm later, it needs a test proving the invariant in DESIGN §2 still holds.
 5. No new dependencies beyond DESIGN §5 without a one-line reason in the PR.
+6. Live data (AT, roadmap) may only make an alarm earlier, never later. GPS stays the guaranteed fallback.
 
 ## Commands
 
@@ -51,5 +52,6 @@ network allowlist.
 ## Device facts to respect
 
 - Samsung phone; One UI kills background apps aggressively. Readiness screen and Samsung steps are part of v0.
-- Owner usually wears earbuds: the ring starts in the earbuds, then goes to the speaker at 30 s (DESIGN §5).
-- Commute is two legs: 10 min ride, about 8 min wait, 25 min ride.
+- Owner usually wears earbuds: the ring escalates in the earbuds with vibration; without earbuds it is vibration only.
+  The phone speaker is an opt-in last resort, off by default (DESIGN §5).
+- Commute: "To work" is two legs (10 min ride, about 8 min wait, 25 min ride); "From work" is three legs (DESIGN §1).
