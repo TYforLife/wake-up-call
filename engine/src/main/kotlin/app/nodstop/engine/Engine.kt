@@ -385,6 +385,7 @@ class Engine(val cfg: Config = Config()) {
             onLearnedRoute = s.onLearned,
             learnedRides = s.leg?.learned?.rides ?: 0,
             startDistanceM = s.startD,
+            position = s.lastPos,
         )
     }
 

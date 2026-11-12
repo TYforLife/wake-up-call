@@ -250,7 +250,9 @@ Kotlin, Jetpack Compose (Material 3), single activity plus `AlarmActivity`.
 No DI framework, no Room, no Hilt: manual wiring (`App`), JSON in app storage.
 
 Dependencies: Compose BOM, `activity-compose` (hosts Compose), `play-services-location`,
-`kotlinx-serialization-json`; JUnit 5 for tests. Nothing else without a reason written in the PR.
+`kotlinx-serialization-json`, `maplibre` (the map: open source, no account or API key); JUnit 5 for
+tests. Nothing else without a reason written in the PR. Test builds include only `arm64-v8a` native
+code (the owner's phone), which keeps MapLibre to about +14 MB.
 
 `minSdk 31`, `targetSdk`/`compileSdk` 36. Package `app.nodstop`.
 
@@ -301,7 +303,8 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 `FOREGROUND_SERVICE_LOCATION`, `FOREGROUND_SERVICE_SYSTEM_EXEMPTED`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`,
 `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`, `WAKE_LOCK`, `VIBRATE`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `MODIFY_AUDIO_SETTINGS` (media volume during the ring),
-`POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates).
+`POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `INTERNET` (map tiles only, from
+OpenFreeMap; the tile server sees roughly which area you're looking at, nothing else is sent).
 
 ### Screens (v0)
 
@@ -325,6 +328,12 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
   - Settings → Battery → Background usage limits → make sure it's not in Sleeping / Deep sleeping apps;
     add it to Never sleeping apps
   - Never Force stop the app; Android cancels its alarms when you do.
+- **Map** (from Home, and "Show on map" on the Trip screen): MapLibre with OpenFreeMap's "liberty"
+  style. Shows you as a blue dot (waiting, no trip, or off the bus) or a bus icon (on the bus: RIDING,
+  or still at bus speed while ringing/awake), every pinned stop (the trip's current stop highlighted),
+  faint suggested stops with a dashed line to their pin, and faint learned routes. Frames you and the
+  current stop; "Follow me" toggle. With no trip running it gets your position only while open.
+  It's for checking the pins sit on the right spots; it doesn't change any alarm.
 - **Debug**: Test ring in 30 s (the real AlarmManager path; disabled during a trip), Simulated trip
   (§5 LocationSource), **Kill app now** (`Process.killProcess`), Forget all learned stops, Share last
   trip log, a view of the last 200 trace events.
@@ -372,7 +381,9 @@ Anything device-only goes on the couch-test checklist in the PR description.
 5. Kill test: simulated trip, **Kill app now** after 1 min → it must still ring (note when). Hold
    "I'm awake" → the Trip screen shows the trip again and it carries on to stop 2.
 6. Route editor: stand somewhere and tap **Use my location**: a ✓ point appears.
-7. Share the log and confirm the file opens.
+7. Map: your blue dot is where you are; your pins sit on the right stops; during a simulated trip the
+   dot turns into a bus once it moves.
+8. Share the log and confirm the file opens.
 
 ### Rides
 

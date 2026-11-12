@@ -24,6 +24,7 @@ import app.nodstop.engine.Engine
 import app.nodstop.engine.EngineState
 import app.nodstop.engine.Fix
 import app.nodstop.engine.Input
+import app.nodstop.engine.LatLng
 import app.nodstop.engine.Leg
 import app.nodstop.engine.Output
 import app.nodstop.engine.Phase
@@ -46,6 +47,7 @@ class TripService : Service() {
     data class TripUi(
         val routeName: String,
         val legNames: List<String>,
+        val legStops: List<LatLng>,
         val legIndex: Int,
         val status: Status,
         val simulated: Boolean,
@@ -207,7 +209,7 @@ class TripService : Service() {
             app.trips.save(updated); lastPersistMs = now
         }
 
-        val ui = TripUi(updated.routeName, updated.legs.map { it.name }, updated.legIndex, out.status, updated.simulated, updated.startedMs)
+        val ui = TripUi(updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, out.status, updated.simulated, updated.startedMs)
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now

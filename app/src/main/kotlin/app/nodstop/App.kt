@@ -20,6 +20,7 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        org.maplibre.android.MapLibre.getInstance(this)
         routes = RouteStore(this)
         learned = LearnedStore(this)
         trips = TripStore(this)

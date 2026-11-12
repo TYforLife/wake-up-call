@@ -100,6 +100,7 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
         OutlinedButton(onClick = { go(Screen.Edit(null)) }) { Text("+ Add route") }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(onClick = { go(Screen.Map) }) { Text("Map") }
             FilledTonalButton(onClick = { go(Screen.Readiness) }) { Text("Readiness") }
             FilledTonalButton(onClick = { go(Screen.Debug) }) { Text("Debug") }
         }

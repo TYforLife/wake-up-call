@@ -35,6 +35,7 @@ sealed interface Screen {
     data object Trip : Screen
     data object Readiness : Screen
     data object Debug : Screen
+    data object Map : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -108,6 +109,7 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
             Screen.Trip -> TripScreen(go)
             Screen.Readiness -> ReadinessScreen(resumeTick, go)
             Screen.Debug -> DebugScreen(go)
+            Screen.Map -> app.nodstop.map.MapScreen(go)
         }
     }
     ring?.let { r ->
