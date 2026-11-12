@@ -24,9 +24,10 @@ Owner's commute (the first test):
 | | 3 | Bond Crescent (3230), boarding at Smales Farm Stop C (3362) |
 
 Both routes are seeded with stop names only. **There are no time inputs anywhere**: you set where
-you get off (paste a Google Maps point, or stand at the stop and tap "Use my location"; close is
-fine), and GPS does the rest. After a ride or two the app learns where you really get off and the
-way the bus goes (§2.3). Personal coordinates stay on the phone, never in the repo.
+you get off (paste a Google Maps point, or stand at the stop and tap "Use my location"), and GPS
+does the rest. **Your pin is always the stop.** After a ride or two the app learns the way the bus
+goes and *suggests* where the stop really is (§2.3); you choose whether to move the pin.
+Personal coordinates stay on the phone, never in the repo.
 
 Earbuds are usually in; otherwise the phone is in hand, pocket or bag.
 
@@ -54,7 +55,7 @@ On every good GPS fix (time `ft`) for the leg you might sleep on, the engine sch
 
 - **wakeAt**: `ft + d / v_est − LEAD`, with `LEAD` = 45 s (owner's target: 30–60 s before the stop).
   - `d`: distance left **along the learned route** (× 0.95) when the fix matches a past ride, else the
-    straight line, to the stop (the learned one if known, else the pasted one).
+    straight line, to **your pin**.
   - `v_est = max(V_FLOOR, avg15, v_route)`:
     - `avg15`: current speed, path length ÷ time over the last 15 s.
     - `v_route` on a learned route: `d ÷ the fastest time any past ride took from here`. That's how fast a
@@ -103,7 +104,7 @@ all, a **No GPS** alarm rings 3 min in: you're unprotected, stay awake.
 | Phone silent / DND | System alarm, alarm-usage vibration, earbuds (media stream), plus a full-screen intent. |
 | Bus faster than expected | `V_MAX` in the failsafe, `avg15`, and past rides' fastest times in wakeAt. |
 | Bus slower than expected | Rings a bit early. |
-| Roughly pasted stop | Learned from where you got off (§2.3); until then, a point past the real stop costs ~d/v seconds. |
+| Roughly pasted stop | A pin past the real stop costs ~d/v seconds (e.g. 150 m at 40 km/h ≈ 14 s). The app suggests a better spot (§2.3); you decide. |
 
 There is a single ring path: `AlarmManager` → `AlarmReceiver` → `RingService` → `AlarmActivity`.
 "Ring now" means scheduling the alarm at `now`. The at-stop nudge is a single short vibration and a
@@ -112,11 +113,13 @@ notification, not the alarm.
 ### 2.3 Route learning
 
 When a leg ends with you getting off (and you'd boarded), the engine emits a ride: the trail (a point
-every ~25 m from boarding to the point nearest where you got off, each with the distance and time
-left on that ride) and the get-off spot. The app stores it per pasted stop (`learned.json`, on the
-phone only):
+every ~25 m from boarding to the point nearest **your pin**, each with the distance and time left on
+that ride) and the get-off spot. The app stores it per pin (`learned.json`, on the phone only):
 
-- **Stop**: a running average of where you got off (ignored if > 300 m from the pasted stop).
+- **Suggested stop**: a running average of where you got off (ignored if > 300 m from your pin).
+  It's only a suggestion: GPS-detected getting off varies with where you stood or walked, so the alarm
+  never uses it. The route editor (and the map) show it faintly with **Use suggestion**, which moves
+  your pin there and starts learning afresh.
 - **Tracks**: the newest 5 rides.
 
 On later rides each fix is matched onto the tracks (nearest segment within 60 m). The distance left is
@@ -233,7 +236,7 @@ Extra tests:
 - motorway then slow city (the 866 complaint): 64 s first ride, 44 s learned
 - a red light near the stop, with and without a learned route
 - **the evening commute regression**: an alarm-off hop, two transfers, rings for both sleep legs, none while waiting
-- a roughly pasted stop corrected by where you got off
+- your pin stays the stop; the suggested spot, once used, gives 30–60 s
 - an early failsafe ring that doesn't use up the leg
 - riding past after an ack
 - the at-stop nudge, boarding detection, resume awake

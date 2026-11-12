@@ -302,7 +302,8 @@ class Engine(val cfg: Config = Config()) {
             }
             if (dwellSince != null && ft - dwellSince >= cfg.alightDwellS * 1000) {
                 val stop = dwellPos ?: pos
-                if (boarded) e.learned = LearnedUpdate(leg.dest, stop, Learning.buildTrack(trail, stop))
+                // The track ends at your pin (what the alarm aims for); where you got off is only a suggestion.
+                if (boarded) e.learned = LearnedUpdate(leg.dest, stop, Learning.buildTrack(trail, leg.dest))
                 return advance(st, now)
             }
             return scheduleNextLeg(st, now, ft, pos)

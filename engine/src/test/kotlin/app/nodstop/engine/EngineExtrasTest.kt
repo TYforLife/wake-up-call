@@ -85,7 +85,7 @@ class EngineExtrasTest {
     }
 
     @Test
-    fun `a roughly pasted stop is corrected by where you actually get off`() {
+    fun `your pin stays the stop - where you got off is only a suggestion`() {
         // You paste a point 150 m past the real stop; the bus stops at the real one and you get off there.
         val route = TestRoute(listOf(0.0 to -6_000.0, 0.0 to 0.0, 0.0 to 150.0, 0.0 to 1_000.0))
         val realStop = route.waypointAlong[1]
@@ -96,11 +96,18 @@ class EngineExtrasTest {
         val lead1 = Trips.leadS(sim, first)
         assertTrue(lead1 >= 25.0, "first ride lead $lead1")
         val learned = Trips.learnInto(legs, first)
-        val stop = learned[0].learned!!.stop
-        assertTrue(Geo.distanceM(stop, route.point(1)) < 30.0, "learned stop ${Geo.distanceM(stop, route.point(1))} m from the real one")
+        val suggested = learned[0].learned!!.stop
+        assertTrue(Geo.distanceM(suggested, route.point(1)) < 30.0, "suggestion ${Geo.distanceM(suggested, route.point(1))} m from the real stop")
+        assertEquals(route.point(2), learned[0].stop, "the alarm still aims at your pin")
+        // Second ride: same pin (150 m past the real stop), now on the learned route: still at least 25 s early.
         val second = Harness(cfg).run(plan.inputs(sim, T0, learned, Random(15)))
         val lead2 = Trips.leadS(sim, second)
-        assertTrue(lead2 in 30.0..60.0, "learned-stop lead $lead2")
+        assertTrue(lead2 >= 25.0, "second ride lead $lead2")
+        // Moving the pin to the suggestion (and re-learning) gives 30-60 s.
+        val moved = listOf(Trips.leg(suggested, "Moved"))
+        val third = Harness(cfg).run(plan.inputs(sim, T0, moved, Random(16)))
+        val lead3 = Trips.leadS(sim, third)
+        assertTrue(lead3 in 30.0..60.0, "moved-pin lead $lead3")
     }
 
     @Test

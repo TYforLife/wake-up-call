@@ -15,10 +15,13 @@ data class TrackPoint(val lat: Double, val lng: Double, val toEndM: Double, val 
 @Serializable
 data class Track(val points: List<TrackPoint>)
 
-/** What the app has learned about a stop from past rides: where you really get off, and the way there. */
+/** What the app has learned about a stop from past rides: the way there, and a suggested stop position. */
 @Serializable
 data class Learned(
-    /** Where you actually got off (corrects a roughly pasted stop). */
+    /**
+     * A SUGGESTION only: roughly where you got off on past rides (from GPS, so it varies with where you
+     * stood or walked). Never used for the alarm: your pin is the stop. Shown faintly, with "Use suggestion".
+     */
     val stop: LatLng,
     /** Most recent rides first. */
     val tracks: List<Track> = emptyList(),
@@ -33,8 +36,8 @@ data class Leg(
     val alarmEnabled: Boolean = true,
     val learned: Learned? = null,
 ) {
-    /** The stop the engine aims for: the learned one if known, else the pasted one. */
-    val stop: LatLng get() = learned?.stop ?: dest
+    /** The stop the engine aims for: always your pin. */
+    val stop: LatLng get() = dest
 }
 
 /** A location fix. [fixTimeMs] is when the position was measured, on the same clock as [tMs]. */

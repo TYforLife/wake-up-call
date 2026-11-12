@@ -6,9 +6,10 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
- * Route learning (DESIGN §2.3): each completed ride becomes a [Track] from boarding to where you got off,
- * and that spot becomes the stop. Later rides match the current fix onto past tracks to get the
- * distance left *along the road*, instead of the straight line that rang far too early on winding routes.
+ * Route learning (DESIGN §2.3): each completed ride becomes a [Track] from boarding to your pin, plus a
+ * suggested stop (where you got off, shown faintly; never used for the alarm). Later rides match the
+ * current fix onto past tracks to get the distance left *along the road*, instead of the straight line
+ * that rang far too early on winding routes.
  */
 object Learning {
 
@@ -97,8 +98,8 @@ object Learning {
     }
 
     /**
-     * Merges a finished ride into what is known about a stop. The stop moves to a running average of
-     * where you got off (if within [Config.learnMaxShiftM] of the pasted stop); tracks keep the newest few.
+     * Merges a finished ride into what is known about a stop. The suggested stop is a running average of
+     * where you got off (if within [Config.learnMaxShiftM] of your pin); tracks keep the newest few.
      */
     fun merge(existing: Learned?, update: LearnedUpdate, cfg: Config = Config()): Learned? {
         val shift = Geo.distanceM(update.stop, update.dest)
