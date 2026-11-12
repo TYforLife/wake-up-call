@@ -34,7 +34,7 @@ class RoutesAndResumeTest {
         val legs = r.toLegs { if (Route.stopKey(it) == Route.stopKey(p)) learned else null }!!
         assertEquals(Leg("A", p, learned = learned), legs[0])
         assertEquals(Leg("B", LatLng(-36.79, 174.76), alarmEnabled = false), legs[1])
-        assertEquals(learned.stop, legs[0].stop, "the learned stop is the one aimed for")
+        assertEquals(p, legs[0].stop, "your pin is the stop; the learned spot is only a suggestion")
     }
 
     private fun trip(engineIdx: Int, reason: AlarmReason?, remaining: Double? = null, offset: Int = 0, startedMs: Long = 0) = ActiveTrip(
