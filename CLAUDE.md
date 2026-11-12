@@ -1,4 +1,4 @@
-# Bus Alarm: agent instructions
+# Nodstop (bus alarm): agent instructions
 
 Android app that wakes the owner (Tae) before his bus stop so he can sleep on the bus.
 The full spec is in `docs/DESIGN.md`. Read it before any work; it wins over your instincts.
@@ -16,14 +16,15 @@ The full spec is in `docs/DESIGN.md`. Read it before any work; it wins over your
 
 1. **One ring path.** Only `AlarmManager.setAlarmClock` → `AlarmReceiver` → `RingService` rings.
    "Ring now" means scheduling at `now`. Never add a second way to make sound for the main alarm.
-2. **Dead-man's switch.** Exactly one system alarm is scheduled at all times during a trip, at
-   `min(wakeAt, failsafeAt)`. The receiver rings unconditionally. Never add logic that lets a
-   cold-started receiver skip or defer the ring.
+2. **Dead-man's switch.** Whenever a stop is left to protect, exactly one system alarm is scheduled,
+   at `min(wakeAt, failsafeAt)` (DESIGN §2). The receiver rings unconditionally. Never add logic that
+   lets a cold-started receiver skip or defer the ring.
 3. **`:engine` is pure Kotlin/JVM.** No Android imports, no clocks, no randomness, no I/O. Time comes in through inputs.
    All decision logic lives here, and `:app` only adapts OS APIs to engine inputs and outputs.
 4. **When in doubt, ring earlier.** Every approximation must err early. If a change could make
    any alarm later, it needs a test proving the invariant in DESIGN §2 still holds.
 5. No new dependencies beyond DESIGN §5 without a one-line reason in the PR.
+6. Live data (AT, roadmap) may only make an alarm earlier, never later. GPS stays the guaranteed fallback.
 
 ## Commands
 
@@ -41,7 +42,8 @@ network allowlist.
 
 - Kotlin, Jetpack Compose (Material 3), coroutines and Flow. No Hilt, no Room.
 - Engine tests use JUnit 5 and plain asserts. Synthetic trips come from the trace generator in `engine/src/test`.
-- Real ride logs go in `engine/src/test/resources/traces/*.jsonl` and must keep replaying identically.
+- Real ride logs go in `engine/src/test/resources/traces/*.jsonl`, **location-hidden exports only**
+  (Debug → Share, location hidden), and must keep replaying identically.
   If an intentional engine change alters their outputs, regenerate the expected `out` lines in the
   same PR and explain why in the description.
 - Small PRs, conventional commit messages.
@@ -51,5 +53,8 @@ network allowlist.
 ## Device facts to respect
 
 - Samsung phone; One UI kills background apps aggressively. Readiness screen and Samsung steps are part of v0.
-- Owner usually wears earbuds: the ring starts in the earbuds, then goes to the speaker at 30 s (DESIGN §5).
-- Commute is two legs: 10 min ride, about 8 min wait, 25 min ride.
+- Owner usually wears earbuds: the ring escalates in the earbuds with vibration; without earbuds it is vibration only.
+  The phone speaker is an opt-in last resort, off by default (DESIGN §5).
+- Commute: "To work" is two legs, "From work" is three (DESIGN §1). The owner wants the alarm 30–60 s
+  before the stop and never wants to type times: everything comes from GPS and learned rides.
+- Personal stop coordinates and ride logs never go in this public repo.

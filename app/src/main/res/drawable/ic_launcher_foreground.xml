@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A crescent moon over a bus-stop pin: nod off, wake at your stop. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- stop pin -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M54,30 C43,30 35,38 35,48.5 C35,62 54,80 54,80 C54,80 73,62 73,48.5 C73,38 65,30 54,30 Z" />
+    <!-- crescent moon cut into the pin -->
+    <path android:fillColor="#FFFFC94A"
+        android:pathData="M58,38 A11,11 0 1,0 64,56 A9,9 0 1,1 58,38 Z" />
+</vector>

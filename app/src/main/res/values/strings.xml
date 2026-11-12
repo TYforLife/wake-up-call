@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nodstop</string>
+    <string name="tile_route_1">Route 1</string>
+    <string name="tile_route_2">Route 2</string>
+</resources>
