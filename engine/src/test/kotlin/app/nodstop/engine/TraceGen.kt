@@ -193,6 +193,7 @@ class FixPlan(
     val killAtS: Double? = null,
     val untilS: Double? = null,
     val tickS: Double = 5.0,
+    val lastKnown: Boolean = true,
 ) {
     fun fixTimes(rnd: Random, endS: Double): List<Double> {
         val out = ArrayList<Double>()
@@ -208,7 +209,8 @@ class FixPlan(
 
     fun inputs(sim: Sim, t0Ms: Long, legs: List<Leg>, rnd: Random, times: List<Double> = fixTimes(rnd, sim.endS)): List<Input> {
         val out = ArrayList<Input>()
-        out += Input.Start(t0Ms, legs)
+        // The phone's last known position when you tap Start (where you are).
+        out += Input.Start(t0Ms, legs, lastKnown = if (lastKnown) Fix(t0Ms, t0Ms, sim.posAt(0.0), 10f) else null)
         var ex = rnd.nextGaussian() * noiseM
         var ey = rnd.nextGaussian() * noiseM
         var lastT = 0.0
@@ -269,17 +271,24 @@ fun Random.nextGaussian(): Double {
 class Harness(val cfg: Config = Config()) {
     val engine = Engine(cfg)
 
+    companion object {
+        val ALARM_PHASES = setOf(Phase.WAITING, Phase.RIDING, Phase.AWAKE)
+    }
+
     class Step(val input: Input, val before: EngineState, val state: EngineState, val out: Output)
 
     class Result(val steps: List<Step>) {
         val rings: List<Long> get() = steps.filter { it.input is Input.Rang }.map { it.input.tMs }
-        val headsUps: List<Long> get() = steps.filter { it.out.headsUp }.map { it.input.tMs }
+        val arrivals: List<Long> get() = steps.filter { it.out.arrived }.map { it.input.tMs }
+        val learned: List<LearnedUpdate> get() = steps.mapNotNull { it.out.learned }
+        val ringReasons: List<AlarmReason?> get() = steps.filter { it.input is Input.Rang }.map { it.state.ringReason }
         val overshoots: List<Long> get() = steps.filter { it.out.overshoot }.map { it.input.tMs }
         val final: EngineState get() = steps.last().state
     }
 
-    fun run(inputs: List<Input>, ackAfterMs: Long? = null, onStep: (Step) -> Unit = {}): Result {
+    fun run(inputs: List<Input>, ackAfterMs: Long? = null, horizonMs: Long = 2 * 3_600_000L, onStep: (Step) -> Unit = {}): Result {
         val queue = ArrayDeque(inputs.sortedBy { it.tMs })
+        val lastInputMs = queue.lastOrNull()?.tMs ?: 0L
         var state = EngineState()
         var ackAt: Long? = null
         val steps = ArrayList<Step>()
@@ -293,10 +302,12 @@ class Harness(val cfg: Config = Config()) {
         }
         while (true) {
             val nextInput = queue.firstOrNull()?.tMs
-            val alarm = if (state.phase == Phase.RIDING) state.alarmAtMs else null
+            val alarm = if (state.phase in ALARM_PHASES) state.alarmAtMs else null
             val candidates = listOfNotNull(nextInput, alarm, ackAt)
             if (candidates.isEmpty()) break
             val t = candidates.min()
+            // After the last input, follow alarms for a while (a kill's failsafe), not forever.
+            if (nextInput == null && t > lastInputMs + horizonMs) break
             when {
                 alarm != null && alarm == t -> apply(Input.Rang(t))
                 ackAt != null && ackAt == t -> { ackAt = null; apply(Input.Ack(t)) }
@@ -312,8 +323,13 @@ class Harness(val cfg: Config = Config()) {
 object Trips {
     const val T0 = 1_731_300_000_000L
 
-    fun leg(dest: LatLng, rideMin: Int, waitMin: Int = 0, name: String = "Stop") =
-        Leg(name = name, dest = dest, expectedRideMin = rideMin, expectedWaitMin = waitMin)
+    fun leg(dest: LatLng, name: String = "Stop", learned: Learned? = null, alarm: Boolean = true) =
+        Leg(name = name, dest = dest, alarmEnabled = alarm, learned = learned)
+
+    /** Learns from a run the way the app does: merge each completed leg's update into the leg it belongs to. */
+    fun learnInto(legs: List<Leg>, result: Harness.Result): List<Leg> = legs.map { leg ->
+        result.learned.filter { it.dest == leg.dest }.fold(leg) { l, u -> l.copy(learned = Learning.merge(l.learned, u)) }
+    }
 
     fun arrivalMs(sim: Sim, t0: Long = T0) = t0 + (sim.arrivalS * 1000).roundToLong()
 

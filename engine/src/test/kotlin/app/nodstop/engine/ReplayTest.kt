@@ -27,7 +27,7 @@ class ReplayTest {
     fun `a synthetic trip round-trips through the trace format`() {
         val (path, destAlong) = Path.straight(8_000.0)
         val sim = Sim(path, destAlong) { 50 / 3.6 }.run()
-        val legs = listOf(Leg("Smales Farm", Plane.origin, 9))
+        val legs = listOf(Leg("Smales Farm", Plane.origin))
         val inputs = FixPlan(badProb = 0.05, staleProb = 0.05).inputs(sim, T0, legs, Random(42))
         val r = Harness().run(inputs, ackAfterMs = 10_000)
         val lines = r.steps.flatMap { it.out.events }.map(Trace::encode) +
@@ -35,6 +35,25 @@ class ReplayTest {
         val (recorded, replayed) = Replay.run(lines)
         assertTrue(recorded.size > 100)
         assertEquals(recorded, replayed)
+    }
+}
+
+class AnonymizeTest {
+    @Test
+    fun `a location-hidden log has none of the real positions and still replays exactly`() {
+        val (path, destAlong) = Path.straight(5_000.0)
+        val sim = Sim(path, destAlong) { 40 / 3.6 }.run()
+        val r = Harness().run(FixPlan().inputs(sim, T0, listOf(Leg("Home stop", Plane.origin)), Random(43)), ackAfterMs = 5_000)
+        val raw = r.steps.flatMap { it.out.events }.map(Trace::encode) +
+            Trace.encode(TraceEvent(T0, "note", msg = "resumed")) + Trace.encode(TraceEvent(T0, "rate", leg = 0, msg = "good"))
+        val hidden = Trace.anonymize(raw, dLat = 7.3, dLng = -11.9)
+        val (recorded, replayed) = Replay.run(hidden)
+        assertTrue(recorded.size > 50)
+        assertEquals(recorded, replayed)
+        val lats = hidden.map(Trace::decode).mapNotNull { it.lat }
+        assertTrue(lats.isNotEmpty() && lats.all { it > Plane.origin.lat + 5 }, "every position moved")
+        assertTrue(hidden.none { "\"note\"" in it })
+        assertTrue(hidden.any { "\"rate\"" in it })
     }
 }
 

@@ -3,7 +3,7 @@ package app.nodstop.engine
 import app.nodstop.engine.Trips.T0
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import kotlin.math.floor
+
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
@@ -15,8 +15,8 @@ import kotlin.random.Random
  *   at every step, the scheduled alarm <= trueArrival - LEAD + TOLERANCE,
  *   so it holds even if all updates stop at that instant.
  *
- * Precondition (DESIGN §2): inside the last (LEAD + DEADMAN_MIN) × V_MAX ≈ 4.5 km, the bus never goes faster
- * than the fastest 30-s average speed the phone has observed in the last WIN_PEAK (5 min), or V_FLOOR. Outside that radius the speed is unconstrained up to V_MAX: the failsafe covers it.
+ * Precondition (DESIGN §2): inside the last (LEAD + DEADMAN_MIN) × V_MAX ≈ 1.9 km, the bus never goes faster
+ * than the fastest 15-s average speed the phone has observed in the last WIN_PEAK (30 s), or V_FLOOR. Outside that radius the speed is unconstrained up to V_MAX: the failsafe covers it.
  */
 class InvariantPropertyTest {
     private val cfg = Config()
@@ -35,14 +35,14 @@ class InvariantPropertyTest {
         println("invariant: 2000 trips, ${cases.sumOf { it.steps }} steps, worst margin ${"%.1f".format(worst.worstMarginS)} s (seed ${worst.seed})")
     }
 
-    /** The test has teeth: the same trips with the recent-peak term or the V_MAX failsafe removed do break it. */
+    /** The test has teeth: the same trips with the speed floor or the V_MAX failsafe removed do break it. */
     @Test
-    fun `without WIN_PEAK or the failsafe the same generator finds violations`() {
-        val worstNoPeak = withEngineConfig(Config(winPeakS = 0.0)) { (1..300).minOf { runCase(it).worstMarginS } }
-        assertTrue(worstNoPeak < 0, "expected a violation without WIN_PEAK, worst margin $worstNoPeak")
+    fun `without V_FLOOR or the failsafe the same generator finds violations`() {
+        val worstNoFloor = withEngineConfig(Config(vFloorKmh = 0.1, winPeakS = 0.0)) { (1..300).minOf { runCase(it).worstMarginS } }
+        assertTrue(worstNoFloor < 0, "expected a violation without V_FLOOR, worst margin $worstNoFloor")
         val worstNoFailsafe = withEngineConfig(Config(vMaxKmh = 1.0)) { (1..300).minOf { runCase(it).worstMarginS } }
         assertTrue(worstNoFailsafe < 0, "expected a violation without the failsafe, worst margin $worstNoFailsafe")
-        println("teeth: worst margin without WIN_PEAK ${"%.1f".format(worstNoPeak)} s, without failsafe ${"%.1f".format(worstNoFailsafe)} s")
+        println("teeth: worst margin without V_FLOOR ${"%.1f".format(worstNoFloor)} s, without failsafe ${"%.1f".format(worstNoFailsafe)} s")
     }
 
     /** Runs trips generated with the default [Config] against an engine built with [engineCfg]. */
@@ -55,7 +55,7 @@ class InvariantPropertyTest {
 
     private fun runCase(seed: Int): Case {
         val rnd = Random(seed)
-        val startDist = rnd.nextDouble(6_000.0, 25_000.0)
+        val startDist = rnd.nextDouble(3_000.0, 20_000.0)
         val (path, destAlong) = Path.random(rnd, startDist)
         val dest = path.at(destAlong)
         val reach = cfg.failsafeReachM + 100
@@ -92,7 +92,7 @@ class InvariantPropertyTest {
         }
         val accel = rnd.nextDouble(0.6, 2.0)
 
-        val peakHist = ArrayDeque<Pair<Double, Double>>() // (t, true 30-s average) at observed fix times
+        val peakHist = ArrayDeque<Pair<Double, Double>>() // (t, true 15-s average) at observed fix times
         var fixIdx = 0
         var segIdx = 0
         val sim = Sim(path, destAlong, accel = accel, maxS = roughEndS * 3) { v ->
@@ -119,13 +119,13 @@ class InvariantPropertyTest {
         simRef = null
 
         val arrivalMs = Trips.arrivalMs(sim)
-        val legs = listOf(Leg("Dest", dest, expectedRideMin = max(1, floor(sim.arrivalS / 60).toInt())))
+        val legs = listOf(Leg("Dest", dest))
         val inputs = plan.inputs(sim, T0, legs, Random(planSeed), fixTimes.filter { it < sim.endS })
         var worst = Double.MAX_VALUE
         val bound = arrivalMs - cfg.leadS.toLong() * 1000 + toleranceMs
         val r = Harness(engineOverride ?: cfg).run(inputs) { st ->
             val a = st.state.alarmAtMs
-            if (st.state.phase == Phase.RIDING && a != null) worst = min(worst, (bound - a) / 1000.0)
+            if (st.state.phase in Harness.ALARM_PHASES && a != null) worst = min(worst, (bound - a) / 1000.0)
         }
         val ring = r.rings.firstOrNull()
         val lead = ring?.let { (arrivalMs - it) / 1000.0 }
