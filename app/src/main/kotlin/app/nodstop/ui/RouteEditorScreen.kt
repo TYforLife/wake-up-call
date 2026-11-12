@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +16,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -25,12 +25,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.nodstop.App
 import app.nodstop.data.LegDraft
 import app.nodstop.data.Route
 import app.nodstop.engine.CoordParser
+import app.nodstop.engine.Geo
+import app.nodstop.trip.FusedLocationSource
+import kotlin.math.roundToInt
 import java.util.Locale
 
 @Composable
@@ -40,6 +43,10 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
     var name by remember { mutableStateOf(original?.name ?: "") }
     val legs = remember { mutableStateListOf<LegDraft>().apply { addAll(original?.legs ?: listOf(LegDraft())) } }
     var confirmDelete by remember { mutableStateOf(false) }
+    var locating by remember { mutableStateOf<Int?>(null) }
+    var locateError by remember { mutableStateOf<String?>(null) }
+    val ctx = LocalContext.current
+    val learnedAll by App.instance.learned.all.collectAsState()
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -55,13 +62,13 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                 )
                 OutlinedTextField(
-                    leg.coords, { legs[i] = leg.copy(coords = it) }, label = { Text("Stop coordinates or Google Maps link") },
+                    leg.coords, { legs[i] = leg.copy(coords = it) }, label = { Text("Where you get off: coordinates or a Maps link") },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 val p = CoordParser.parse(leg.coords)
                 Text(
                     when {
-                        leg.coords.isBlank() -> "In Google Maps: search the stop number, long-press its pin, copy the coordinates, paste here."
+                        leg.coords.isBlank() -> "Paste from Google Maps (long-press the stop, copy the coordinates), or use your location at the stop."
                         p == null -> "Can't read that. Paste \"-36.78, 174.75\" or a Maps link."
                         !CoordParser.isInNewZealand(p) -> "Warning: ${fmt(p.lat)}, ${fmt(p.lng)} is outside New Zealand."
                         else -> "✓ ${fmt(p.lat)}, ${fmt(p.lng)}"
@@ -74,13 +81,32 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
                     },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberField("Ride min", leg.rideMin, Modifier.weight(1f)) { legs[i] = leg.copy(rideMin = it) }
-                    if (i > 0) NumberField("Wait before, min", leg.waitMin, Modifier.weight(1f)) { legs[i] = leg.copy(waitMin = it) }
+                    OutlinedButton(onClick = {
+                        locating = i
+                        FusedLocationSource(ctx).current { loc ->
+                            locating = null
+                            if (loc != null) legs[i] = legs[i].copy(coords = String.format(Locale.US, "%.6f, %.6f", loc.latitude, loc.longitude))
+                            else locateError = "Couldn't get your location. Check Readiness → Precise location."
+                        }
+                    }, enabled = locating == null) { Text(if (locating == i) "Locating…" else "Use my location") }
                 }
                 Text(
-                    "Use your fastest usual ride: if GPS never works, the alarm rings at ride time minus 2.5 min.",
+                    "Standing at the stop? Tap Use my location. Close is fine: after a ride or two the app learns exactly where you get off.",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                if (p != null) {
+                    val learned = learnedAll[Route.stopKey(p)]
+                    if (learned != null) {
+                        val shift = Geo.distanceM(learned.stop, p).roundToInt()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Learned from ${learned.rides} ride${if (learned.rides == 1) "" else "s"}: real stop is $shift m from this point.",
+                                style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = { App.instance.learned.forget(p) }) { Text("Forget") }
+                        }
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Alarm for this leg", Modifier.weight(1f))
                     Switch(leg.alarmEnabled, { legs[i] = leg.copy(alarmEnabled = it) })
@@ -88,7 +114,8 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
                 if (legs.size > 1) TextButton(onClick = { legs.removeAt(i) }) { Text("Remove leg") }
             }
         }
-        if (legs.size < 3) OutlinedButton(onClick = { legs += LegDraft(waitMin = 5) }) { Text("+ Add leg") }
+        if (legs.size < 3) OutlinedButton(onClick = { legs += LegDraft() }) { Text("+ Add leg") }
+        locateError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = name.isNotBlank(), onClick = {
@@ -102,17 +129,6 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
     if (confirmDelete && original != null) Confirm(
         "Delete ${original.name}?", "This can't be undone.", "Delete",
         onConfirm = { store.delete(original.id); onDone() }, onDismiss = { confirmDelete = false },
-    )
-}
-
-@Composable
-private fun NumberField(label: String, value: Int, modifier: Modifier, onChange: (Int) -> Unit) {
-    var text by remember(value) { mutableStateOf(if (value > 0) value.toString() else "") }
-    OutlinedTextField(
-        text,
-        { t -> text = t.filter(Char::isDigit).take(3); onChange(text.toIntOrNull() ?: 0) },
-        label = { Text(label) }, modifier = modifier, singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
     )
 }
 

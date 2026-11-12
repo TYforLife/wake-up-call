@@ -91,6 +91,12 @@ object Readiness {
                 Fix.Open(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg(ctx))),
             ),
             Check(
+                "Live trip progress (optional)",
+                Build.VERSION.SDK_INT < 36 || nm.canPostPromotedNotifications(),
+                "Shows distance to your stop on the lock screen and status bar (Android 16).",
+                Fix.Open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)),
+            ),
+            Check(
                 "Alarm volume above 0", audio.getStreamVolume(AudioManager.STREAM_ALARM) > 0 || !speaker,
                 if (speaker) "Used by the speaker last resort." else "Only used by the speaker last resort, which is off.",
                 Fix.Open(Intent(Settings.ACTION_SOUND_SETTINGS)),

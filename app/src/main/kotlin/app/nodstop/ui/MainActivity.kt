@@ -15,6 +15,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.nodstop.Shortcuts
+import app.nodstop.alarm.AlarmActivity
+import app.nodstop.alarm.RingService
 import app.nodstop.trip.TripService
 
 sealed interface Screen {
@@ -96,6 +99,8 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
 
     if (screen != Screen.Home) BackHandler { screen = Screen.Home }
 
+    // Ringing while the app is open: the alarm takes over this screen, no banner to hunt for.
+    val ring by RingService.state.collectAsState()
     androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {
         when (val s = screen) {
             Screen.Home -> HomeScreen(resumeTick, go)
@@ -104,5 +109,9 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
             Screen.Readiness -> ReadinessScreen(resumeTick, go)
             Screen.Debug -> DebugScreen(go)
         }
+    }
+    ring?.let { r ->
+        BackHandler { }
+        AlarmScreen(ring = r, holdMs = 600, onAwake = { AlarmActivity.awake(ctx) }, onClose = { })
     }
 }

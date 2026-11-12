@@ -25,6 +25,7 @@ import android.os.VibratorManager
 import android.util.Log
 import app.nodstop.App
 import app.nodstop.Notifications
+import app.nodstop.engine.AlarmReason
 import app.nodstop.engine.AudioRoute
 import app.nodstop.engine.Buzz
 import app.nodstop.engine.RingPlan
@@ -48,6 +49,7 @@ class RingService : Service() {
         val step: RingStep?,
         val headset: Boolean,
         val test: Boolean,
+        val reason: AlarmReason?,
     )
 
     private val handler = Handler(Looper.getMainLooper())
@@ -64,6 +66,7 @@ class RingService : Service() {
     private var savedAlarmVol = -1
     private var focus: AudioFocusRequest? = null
     private var legName: String? = null
+    private var reason: AlarmReason? = null
     private var test = false
 
     private val loop = object : Runnable {
@@ -106,7 +109,8 @@ class RingService : Service() {
         val trip = App.instance.trips.load()
         test = trip == null && TripService.instance == null
         legName = TripService.status.value?.legName ?: trip?.currentLeg?.name
-        val n = Notifications.ring(this, if (test) "Test ring" else legName)
+        reason = if (test) null else TripService.status.value?.status?.ringReason ?: trip?.alarmReason
+        val n = Notifications.ring(this, if (test) "Test ring" else legName, reason)
         try {
             // systemExempted (allowed for apps holding USE_EXACT_ALARM) exists from Android 14.
             val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
@@ -183,7 +187,7 @@ class RingService : Service() {
             }
         }
         buzz(step.buzz)
-        _state.value = RingUi(legName, overshoot, startedAt, step, hs != null, test)
+        _state.value = RingUi(legName, overshoot, startedAt, step, hs != null, test, if (overshoot) AlarmReason.OVERSHOOT else reason)
     }
 
     private fun isPhoneSpeaker(d: AudioDeviceInfo?): Boolean =

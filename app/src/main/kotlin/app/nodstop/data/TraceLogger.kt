@@ -49,8 +49,21 @@ class TraceLogger(private val context: Context) {
         lastTripFile()?.let { f -> _recent.value = f.readLines().takeLast(200) }
     }
 
-    fun shareIntent(): Intent? {
-        val f = lastTripFile() ?: return null
+    /**
+     * Share the last trip. [hideLocation]: every position moved by a random offset (and the engine re-run),
+     * safe to upload to the public repo as a regression test. Otherwise the raw log: keep it private.
+     */
+    fun shareIntent(hideLocation: Boolean = true): Intent? {
+        val raw = lastTripFile() ?: return null
+        val f = if (!hideLocation) raw else {
+            val rnd = java.util.Random()
+            val dLat = (5 + rnd.nextDouble() * 5) * (if (rnd.nextBoolean()) 1 else -1)
+            val dLng = (10 + rnd.nextDouble() * 10) * (if (rnd.nextBoolean()) 1 else -1)
+            val dir = File(context.cacheDir, "share").apply { mkdirs() }
+            File(dir, raw.name.removeSuffix(".jsonl") + "-hidden.jsonl").apply {
+                writeText(Trace.anonymize(raw.readLines(), dLat, dLng).joinToString("\n", postfix = "\n"))
+            }
+        }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", f)
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

@@ -40,7 +40,7 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
     val trip by TripService.status.collectAsState()
     val rating by app.settings.pendingRating.collectAsState()
     val persisted = remember(resumeTick, trip) { if (trip == null) app.trips.load() else null }
-    val notReady = remember(resumeTick) { Readiness.checks(ctx).count { !it.ok } }
+    val notReady = remember(resumeTick) { Readiness.checks(ctx).count { !it.ok && !it.title.endsWith("(optional)") } }
     var confirmStop by remember { mutableStateOf(false) }
     var stopTick by remember { mutableStateOf(0) }
 
@@ -49,7 +49,7 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Nodstop", style = MaterialTheme.typography.headlineMedium)
-        Text("Sleep on the bus. Wake up before your stop.", style = MaterialTheme.typography.bodyMedium)
+        Text("Sleep on the bus. Wakes you about 45 s before your stop, from GPS alone.", style = MaterialTheme.typography.bodyMedium)
 
         if (notReady > 0) Section {
             Text("$notReady setup check${if (notReady > 1) "s" else ""} need attention before you rely on the alarm.")
@@ -58,7 +58,7 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
 
         trip?.let { t ->
             Section("Trip running: ${t.routeName}") {
-                Text(t.legName?.let { "Leg ${t.legIndex + 1}: $it" } ?: "")
+                Text(TripService.phaseLabel(t) + (t.legName?.let { " · Leg ${t.legIndex + 1}: $it" } ?: ""))
                 Text(TripService.summary(t), style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { go(Screen.Trip) }) { Text("Open trip") }
@@ -72,7 +72,7 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
             Text(
                 "The app was closed during this trip. " +
                     (at?.let { "Your alarm is still set for ${TripService.clock(it)}. " } ?: "") +
-                    "When it rings, hold \"I'm awake\" and tracking resumes at the next leg.",
+                    "When it rings, hold \"I'm awake\" and tracking carries on.",
             )
             OutlinedButton(onClick = { confirmStop = true }) { Text("Stop trip") }
         }

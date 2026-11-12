@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -20,9 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import app.nodstop.engine.AlarmReason
 import app.nodstop.engine.Phase
 import app.nodstop.trip.TripService
-import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -44,23 +45,26 @@ fun TripScreen(go: (Screen) -> Unit) {
         val s = t.status
         Section(t.routeName) {
             Text("Leg ${t.legIndex + 1} of ${t.legNames.size}: ${t.legName ?: ""}", style = MaterialTheme.typography.titleMedium)
-            s.holdUntilMs?.let { Text("Transfer: tracking the next bus from ${TripService.clock(it)}") }
-            KeyValue("Phase", when (s.phase) {
-                Phase.RIDING -> "Riding"; Phase.RINGING -> "Ringing"; Phase.DONE -> "Done"; Phase.IDLE -> "Idle"
-            })
-            KeyValue("Distance (straight line)", s.distanceM?.let { "${fmt(it / 1000)} km" } ?: "—")
-            KeyValue("ETA", s.etaS?.let { "${(it / 60).roundToInt()} min ${(it % 60).roundToInt()} s" } ?: "—")
-            KeyValue("Speed estimate", s.vEstKmh?.let { "${it.roundToInt()} km/h" } ?: "—")
+            Text(TripService.phaseLabel(t), style = MaterialTheme.typography.headlineSmall)
+            val start = s.startDistanceM
+            val d = s.distanceM
+            if (start != null && d != null && start > 0) {
+                LinearProgressIndicator(progress = { (1 - d / start).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+            }
+            KeyValue("Distance to stop", d?.let { TripService.distance(it) + if (s.onLearnedRoute) " (along the route)" else " (straight line)" } ?: "—")
+            KeyValue("ETA", s.etaS?.let { TripService.minutes(it) } ?: if (s.phase == Phase.WAITING) "when the bus moves" else "—")
+            KeyValue("Speed", s.speedKmh?.let { "${it.roundToInt()} km/h" } ?: "—")
             val age = s.lastFixAgeS
             KeyValue("GPS", when {
                 age == null -> "waiting for a fix"
                 s.gpsOk -> "ok (${age.roundToInt()} s ago)"
                 else -> "lost (${age.roundToInt()} s ago)"
             })
-            KeyValue("Alarm", s.alarmAtMs?.let { TripService.clock(it) } ?: if (s.phase == Phase.RINGING) "ringing" else "none")
+            KeyValue("Alarm", s.alarmAtMs?.let { "${TripService.clock(it)} · ${reasonLabel(s.alarmReason)}" } ?: if (s.phase == Phase.RINGING) "ringing" else "none")
+            KeyValue("Route knowledge", if (s.learnedRides > 0) "learned from ${s.learnedRides} ride${if (s.learnedRides == 1) "" else "s"}" else "first ride: learning it now")
         }
         Text(
-            "The alarm is a real system alarm. If the app is closed, it still rings, never later than safe.",
+            "Rings about 45 s before your stop. It's a real system alarm: if the app is closed, it still rings, never later than safe.",
             style = MaterialTheme.typography.bodySmall,
         )
         Button(modifier = Modifier.fillMaxWidth(), onClick = { TripService.instance?.skipLeg() }) {
@@ -74,4 +78,11 @@ fun TripScreen(go: (Screen) -> Unit) {
     )
 }
 
-private fun fmt(x: Double) = String.format(Locale.US, "%.2f", x)
+private fun reasonLabel(r: AlarmReason?): String = when (r) {
+    AlarmReason.WAKE -> "~45 s before your stop"
+    AlarmReason.FAILSAFE -> "backup if GPS stops"
+    AlarmReason.NO_GPS -> "no GPS yet"
+    AlarmReason.OVERSHOOT -> "you passed your stop"
+    AlarmReason.NEXT_LEG -> "backup for the next bus"
+    null -> ""
+}

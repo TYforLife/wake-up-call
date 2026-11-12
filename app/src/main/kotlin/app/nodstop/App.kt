@@ -2,6 +2,7 @@ package app.nodstop
 
 import android.app.Application
 import app.nodstop.alarm.AlarmScheduler
+import app.nodstop.data.LearnedStore
 import app.nodstop.data.RouteStore
 import app.nodstop.data.Settings
 import app.nodstop.data.TraceLogger
@@ -10,6 +11,7 @@ import app.nodstop.data.TripStore
 /** Manual wiring: one instance of each, no DI framework. */
 class App : Application() {
     lateinit var routes: RouteStore
+    lateinit var learned: LearnedStore
     lateinit var trips: TripStore
     lateinit var settings: Settings
     lateinit var traces: TraceLogger
@@ -19,6 +21,7 @@ class App : Application() {
         super.onCreate()
         instance = this
         routes = RouteStore(this)
+        learned = LearnedStore(this)
         trips = TripStore(this)
         settings = Settings(this)
         traces = TraceLogger(this)
