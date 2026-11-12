@@ -107,6 +107,8 @@ data class Status(
     val learnedRides: Int,
     /** Distance when you boarded, for a progress bar. */
     val startDistanceM: Double?,
+    /** Your last accepted position (display only, e.g. the map). */
+    val position: LatLng? = null,
 )
 
 data class Output(

@@ -70,6 +70,7 @@ fun TripScreen(go: (Screen) -> Unit) {
         Button(modifier = Modifier.fillMaxWidth(), onClick = { TripService.instance?.skipLeg() }) {
             Text(if (t.legIndex + 1 < t.legNames.size) "I'm off this bus (next leg)" else "I'm off this bus (end trip)")
         }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { go(Screen.Map) }) { Text("Show on map") }
         OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { confirmStop = true }) { Text("Stop trip") }
     }
     if (confirmStop) Confirm(

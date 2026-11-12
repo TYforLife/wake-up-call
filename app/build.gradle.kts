@@ -25,6 +25,8 @@ android {
         versionName = "0.1.$runNumber"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         buildConfigField("int", "BUILD_NUMBER", "$runNumber")
+        // Test builds only target 64-bit ARM phones (the owner's Samsung): keeps MapLibre's native code ~9 MB, not ~35.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     signingConfigs {
@@ -69,6 +71,8 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.play.services.location)
     implementation(libs.kotlinx.serialization.json)
+    // The map (pins, you or your bus): open-source, no account or API key, free OpenFreeMap tiles.
+    implementation(libs.maplibre)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
