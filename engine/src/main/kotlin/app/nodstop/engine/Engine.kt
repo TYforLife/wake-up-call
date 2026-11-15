@@ -350,6 +350,9 @@ class Engine(val cfg: Config = Config()) {
         // No speed information yet (start of a leg, or back from a dropout): a fix may pull the alarm earlier, never later.
         val current = s.alarmAtMs
         if (short == null && current != null && current < alarm) { alarm = current; reason = s.alarmReason ?: reason }
+        // Your own wake zone (DESIGN §2.6): on the bus and inside it, ring now (whichever comes first).
+        val zone = leg.wakeRadiusM
+        if (zone != null && boarded && straight <= zone) { alarm = now; reason = AlarmReason.WAKE }
         // Rode past the stop without ringing (e.g. a mis-pasted stop): ring now.
         if (passed) { alarm = now; reason = AlarmReason.OVERSHOOT }
         alarm = max(alarm, now)

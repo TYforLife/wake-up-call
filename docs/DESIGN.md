@@ -155,6 +155,17 @@ and the trip notification. This is display only here; §2's alarm uses its own e
   before the stop (the property test runs 500 trips at lead 30 to prove it). That's the cost of telling
   it "too early" repeatedly; a "too late" moves it back by 15 s.
 
+### 2.6 Wake zones
+
+Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will ring.
+- **Automatic** (dashed): how far out, in a straight line, the bus usually is when the stop's lead is
+  left on past rides (median); before any ride, lead × 25 km/h (about 310 m at 45 s). Display only: the
+  alarm itself follows §2's timing.
+- **Yours** (solid): tap a stop pin on the map and drag the slider (Auto, or 100–2000 m); the circle
+  follows live; Save stores it on that leg (`LegDraft.wakeRadiusM`). Once you're on the bus and inside
+  it, it rings, unless the timing rang first: **whichever comes first**, so it can only ring earlier.
+  Waiting at a stop inside the zone doesn't ring until you're on the bus.
+
 ### Why the approximations err early
 
 - Straight-line `d` is never more than the remaining road distance; the learned distance is scaled down.

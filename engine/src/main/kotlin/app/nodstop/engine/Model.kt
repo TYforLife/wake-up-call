@@ -37,6 +37,8 @@ data class Leg(
     val dest: LatLng,
     val alarmEnabled: Boolean = true,
     val learned: Learned? = null,
+    /** Your own wake zone: once on the bus and within this many metres of the stop, ring (if not already). */
+    val wakeRadiusM: Double? = null,
 ) {
     /** The stop the engine aims for: always your pin. */
     val stop: LatLng get() = dest

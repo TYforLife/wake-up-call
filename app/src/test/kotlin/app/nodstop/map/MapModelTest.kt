@@ -53,3 +53,29 @@ class MapModelTest {
         assertEquals(0, Json.parseToJsonElement(MapModel.meJson(null, MapModel.Me.PERSON)).jsonObject["features"]!!.jsonArray.size)
     }
 }
+
+class WakeZoneModelTest {
+    private val pin = LatLng(-36.78, 174.75)
+
+    @Test fun `automatic zone - lead x 25 km-h before any ride, from past rides after`() {
+        assertEquals(312.5, MapModel.autoZoneM(pin, null), 1.0)
+        // A past ride: 45 s left at a point ~600 m out.
+        val pts = listOf(
+            TrackPoint(-36.7746, 174.75, 1_200.0, 90.0),
+            TrackPoint(-36.7746 - 0.0000, 174.75, 600.0, 45.0).copy(lat = -36.7746),
+            TrackPoint(-36.78, 174.75, 0.0, 0.0),
+        )
+        val z = MapModel.autoZoneM(pin, Learned(pin, listOf(Track(pts)), 1))
+        assertTrue(z in 550.0..650.0, "zone $z")
+    }
+
+    @Test fun `your radius wins, and circles are closed and the right size`() {
+        val r = Route(name = "R", legs = listOf(LegDraft("S", "-36.78, 174.75", wakeRadiusM = 900.0)))
+        val l = MapModel.layers(listOf(r), { null })
+        assertEquals(900.0, l.pins[0].zoneM)
+        assertTrue(l.pins[0].zoneIsYours)
+        val c = MapModel.circle(pin, 900.0)
+        assertEquals(c.first(), c.last())
+        c.forEach { assertEquals(900.0, app.nodstop.engine.Geo.distanceM(pin, it), 5.0) }
+    }
+}

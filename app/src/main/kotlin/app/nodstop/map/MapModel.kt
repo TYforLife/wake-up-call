@@ -1,6 +1,7 @@
 package app.nodstop.map
 
 import app.nodstop.data.Route
+import app.nodstop.engine.Config
 import app.nodstop.engine.CoordParser
 import app.nodstop.engine.Geo
 import app.nodstop.engine.LatLng
@@ -24,7 +25,17 @@ object MapModel {
         else -> Me.PERSON
     }
 
-    data class Pin(val pos: LatLng, val label: String, val current: Boolean, val alarm: Boolean)
+    data class Pin(
+        val pos: LatLng,
+        val label: String,
+        val current: Boolean,
+        val alarm: Boolean,
+        val routeId: String = "",
+        val legIndex: Int = 0,
+        /** Where it will ring: your radius if set, else the automatic one. */
+        val zoneM: Double = 0.0,
+        val zoneIsYours: Boolean = false,
+    )
 
     /** A faint suggestion: where you got off on past rides, and how far that is from your pin. */
     data class Suggestion(val pin: LatLng, val pos: LatLng, val meters: Int)
@@ -53,15 +64,46 @@ object MapModel {
         for (r in routes) r.legs.forEachIndexed { i, leg ->
             val p = CoordParser.parse(leg.coords) ?: return@forEachIndexed
             val current = r.name == currentRouteName && i == currentLeg
-            pins += Pin(p, leg.name.ifBlank { "${r.name} ${i + 1}" }, current, leg.alarmEnabled)
+            val l = learned(p)
+            val zone = leg.wakeRadiusM ?: autoZoneM(p, l)
+            pins += Pin(p, leg.name.ifBlank { "${r.name} ${i + 1}" }, current, leg.alarmEnabled, r.id, i, zone, leg.wakeRadiusM != null)
             if (!seen.add(Route.stopKey(p))) return@forEachIndexed // a stop shared by two routes: once is enough
-            val l = learned(p) ?: return@forEachIndexed
+            l ?: return@forEachIndexed
             val d = Geo.distanceM(p, l.stop)
             if (d >= minSuggestM) suggestions += Suggestion(p, l.stop, d.toInt())
             l.tracks.forEach { t -> if (t.points.size >= 2) tracks += t.points.map { it.pos } }
         }
         return Layers(pins, suggestions, tracks)
     }
+
+    /**
+     * The automatic wake zone: how far out (straight line) the bus usually is when this stop's lead is
+     * left, from past rides (median); before any ride, lead × 25 km/h (the engine's floor).
+     */
+    fun autoZoneM(pin: LatLng, learned: Learned?, cfg: Config = Config()): Double {
+        val lead = learned?.leadS?.coerceIn(cfg.minLeadS, cfg.maxLeadS) ?: cfg.leadS
+        val ds = learned?.tracks.orEmpty().mapNotNull { t ->
+            t.points.firstOrNull { it.toEndS <= lead }?.let { Geo.distanceM(it.pos, pin) }
+        }.sorted()
+        return if (ds.isEmpty()) lead * cfg.vFloor else ds[ds.size / 2]
+    }
+
+    /** A circle of [radiusM] around [c] as a closed polygon ring (for drawing a zone in metres). */
+    fun circle(c: LatLng, radiusM: Double, n: Int = 64): List<LatLng> {
+        val dLat = radiusM / (Math.PI * Geo.EARTH_RADIUS_M / 180)
+        val dLng = dLat / kotlin.math.cos(Math.toRadians(c.lat))
+        return (0..n).map { k ->
+            val a = 2 * Math.PI * (k % n) / n
+            LatLng(c.lat + dLat * kotlin.math.sin(a), c.lng + dLng * kotlin.math.cos(a))
+        }
+    }
+
+    fun zonesJson(l: Layers): String = collection(l.pins.filter { it.alarm }.map { p ->
+        feature(buildJsonObject {
+            put("type", "Polygon")
+            put("coordinates", JsonArray(listOf(JsonArray(circle(p.pos, p.zoneM).map { buildJsonArray { add(JsonPrimitive(it.lng)); add(JsonPrimitive(it.lat)) } }))))
+        }, mapOf("yours" to JsonPrimitive(p.zoneIsYours), "current" to JsonPrimitive(p.current)))
+    })
 
     /** Points the camera should frame first: you and the current stop, else every pin. */
     fun frame(me: LatLng?, layers: Layers): List<LatLng> {
@@ -97,7 +139,10 @@ object MapModel {
     }.toString()
 
     fun pinsJson(l: Layers): String = collection(l.pins.map {
-        feature(point(it.pos), mapOf("label" to JsonPrimitive(it.label), "current" to JsonPrimitive(it.current), "alarm" to JsonPrimitive(it.alarm)))
+        feature(point(it.pos), mapOf(
+            "label" to JsonPrimitive(it.label), "current" to JsonPrimitive(it.current), "alarm" to JsonPrimitive(it.alarm),
+            "route" to JsonPrimitive(it.routeId), "leg" to JsonPrimitive(it.legIndex),
+        ))
     })
 
     fun suggestionsJson(l: Layers): String = collection(l.suggestions.map {
