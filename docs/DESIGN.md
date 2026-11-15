@@ -332,7 +332,8 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
   style. Shows you as a blue dot (waiting, no trip, or off the bus) or a bus icon (on the bus: RIDING,
   or still at bus speed while ringing/awake), every pinned stop (the trip's current stop highlighted),
   faint suggested stops with a dashed line to their pin, and faint learned routes. Frames you and the
-  current stop; "Follow me" toggle. With no trip running it gets your position only while open.
+  current stop, then **follows you by default** every time it opens. Dragging the map pauses following;
+  it resumes 10 s after your last drag, or at once when you tap **Follow** (`FollowPolicy`). With no trip running it gets your position only while open.
   It's for checking the pins sit on the right spots; it doesn't change any alarm.
 - **Debug**: Test ring in 30 s (the real AlarmManager path; disabled during a trip), Simulated trip
   (§5 LocationSource), **Kill app now** (`Process.killProcess`), Forget all learned stops, Share last
