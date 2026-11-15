@@ -158,8 +158,11 @@ class Engine(val cfg: Config = Config()) {
     private fun withAlarm(st: EngineState, a: Pair<Long, AlarmReason>?): EngineState =
         st.copy(alarmAtMs = a?.first, alarmReason = a?.second)
 
-    private fun failsafeAt(ftMs: Long, straightM: Double): Long =
-        ftMs + (max(cfg.deadmanMinS, straightM / cfg.vMax - cfg.leadS) * 1000).roundToLong()
+    private fun failsafeAt(ftMs: Long, straightM: Double, leadS: Double = cfg.leadS): Long =
+        ftMs + (max(cfg.deadmanMinS, straightM / cfg.vMax - leadS) * 1000).roundToLong()
+
+    /** This stop's lead: tuned by your too-early / too-late ratings, within 30-90 s; else LEAD. */
+    fun leadFor(leg: Leg): Double = leg.learned?.leadS?.coerceIn(cfg.minLeadS, cfg.maxLeadS) ?: cfg.leadS
 
     // ---- ack ----
 
@@ -260,17 +263,19 @@ class Engine(val cfg: Config = Config()) {
 
         val match = Learning.match(leg.learned, pos, cfg.matchRadiusM)
         val dEff = match?.let { max(straight, it.toEndM * cfg.routeFactor) } ?: straight
-        // How fast a bus has really covered the rest from here (learned), else the short recent peak.
-        val learnedV = match?.fastestToEndS?.takeIf { it >= 1.0 }?.let { dEff / it }
-        // On a learned route, past rides are a better guide than the fixed floor (city streets under 25 km/h).
-        val floor = if (learnedV != null) cfg.vFloor * cfg.learnedFloorFrac else cfg.vFloor
-        val vEst = maxOf(floor, short ?: 0.0, learnedV ?: peak ?: 0.0)
-        val etaS = dEff / vEst
         // Today's pace on a learned route: how long the last few minutes took vs past rides over the same stretch.
         val paceSamples = match?.typicalToEndS?.let { typ ->
             (s.paceSamples + (ft to typ)).filter { it.first >= ft - (cfg.paceWinS * 1000).toLong() }
         } ?: emptyList()
         val pace = Eta.pace(paceSamples, cfg) ?: s.pace.takeIf { match != null }
+        // Learned time left from here (DESIGN §2.5): the fastest past ride, or past rides' typical time at
+        // today's pace (minus a safety margin) if that's sooner. Either way, only ever earlier than before.
+        val learnedTime = Eta.learnedTimeLeft(match?.fastestToEndS, match?.typicalToEndS, pace, cfg)
+        val learnedV = learnedTime?.takeIf { it >= 1.0 }?.let { dEff / it }
+        // On a learned route, past rides are a better guide than the fixed floor (city streets under 25 km/h).
+        val floor = if (learnedV != null) cfg.vFloor * cfg.learnedFloorFrac else cfg.vFloor
+        val vEst = maxOf(floor, short ?: 0.0, learnedV ?: peak ?: 0.0)
+        val etaS = dEff / vEst
         val recentV = avgSpeed(samples, ft, cfg.etaSpeedWinS, cfg.minSpanS)
         val displayEta = Eta.display(match?.typicalToEndS, pace, dEff, recentV, s.phase == Phase.WAITING && !s.boarded)
 
@@ -336,8 +341,10 @@ class Engine(val cfg: Config = Config()) {
         }
 
         // WAITING or RIDING on an alarm-on leg.
-        val wakeAt = ft + ((etaS - cfg.leadS) * 1000).roundToLong()
-        val failsafe = failsafeAt(ft, straight)
+        // Per-stop lead, tuned by your ratings (30-90 s); the failsafe never uses less than the default.
+        val lead = leadFor(leg)
+        val wakeAt = ft + ((etaS - lead) * 1000).roundToLong()
+        val failsafe = failsafeAt(ft, straight, maxOf(cfg.leadS, lead))
         var alarm = min(wakeAt, failsafe)
         var reason = if (wakeAt <= failsafe) AlarmReason.WAKE else AlarmReason.FAILSAFE
         // No speed information yet (start of a leg, or back from a dropout): a fix may pull the alarm earlier, never later.
@@ -413,6 +420,7 @@ class Engine(val cfg: Config = Config()) {
             startDistanceM = s.startD,
             position = s.lastPos,
             pace = s.pace,
+            leadS = s.leg?.let { leadFor(it) },
         )
     }
 

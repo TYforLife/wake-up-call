@@ -65,7 +65,7 @@ fun TripScreen(go: (Screen) -> Unit) {
                 s.gpsOk -> "ok (${age.roundToInt()} s ago)"
                 else -> "lost (${age.roundToInt()} s ago)"
             })
-            KeyValue("Alarm", s.alarmAtMs?.let { "${TripService.clock(it)} · ${reasonLabel(s.alarmReason)}" } ?: if (s.phase == Phase.RINGING) "ringing" else "none")
+            KeyValue("Alarm", s.alarmAtMs?.let { "${TripService.clock(it)} · ${reasonLabel(s.alarmReason, s.leadS)}" } ?: if (s.phase == Phase.RINGING) "ringing" else "none")
             KeyValue("Route knowledge", if (s.learnedRides > 0) "learned from ${s.learnedRides} ride${if (s.learnedRides == 1) "" else "s"}" else "first ride: learning it now")
         }
         Text(
@@ -84,8 +84,8 @@ fun TripScreen(go: (Screen) -> Unit) {
     )
 }
 
-private fun reasonLabel(r: AlarmReason?): String = when (r) {
-    AlarmReason.WAKE -> "~45 s before your stop"
+private fun reasonLabel(r: AlarmReason?, leadS: Double?): String = when (r) {
+    AlarmReason.WAKE -> "~${(leadS ?: 45.0).roundToInt()} s before your stop"
     AlarmReason.FAILSAFE -> "backup if GPS stops"
     AlarmReason.NO_GPS -> "no GPS yet"
     AlarmReason.OVERSHOOT -> "you passed your stop"

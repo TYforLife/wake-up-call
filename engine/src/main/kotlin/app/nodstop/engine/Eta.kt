@@ -20,6 +20,26 @@ object Eta {
         return (todayS / histS).coerceIn(cfg.paceMin, cfg.paceMax)
     }
 
+    /**
+     * Learned time left from here for WAKING: the fastest past ride from this point, or past rides' typical
+     * time × today's pace × [Config.paceSafety] if that's sooner. Taking the sooner can only ring earlier.
+     */
+    fun learnedTimeLeft(fastestS: Double?, typicalS: Double?, pace: Double?, cfg: Config = Config()): Double? {
+        val paced = if (typicalS != null && pace != null) typicalS * pace * cfg.paceSafety else null
+        return listOfNotNull(fastestS, paced).minOrNull()
+    }
+
+    /** A stop's new lead after a ring-timing rating: too early → ring later, too late → ring earlier. */
+    fun adjustLead(current: Double?, rating: String, cfg: Config = Config()): Double {
+        val l = current ?: cfg.leadS
+        val next = when (rating) {
+            "too_early" -> l - cfg.tooEarlyStepS
+            "too_late" -> l + cfg.tooLateStepS
+            else -> l
+        }
+        return next.coerceIn(cfg.minLeadS, cfg.maxLeadS)
+    }
+
     /** The ETA to show, in seconds, or null when it can't be known (e.g. still waiting for the bus). */
     fun display(typicalToEndS: Double?, pace: Double?, distanceM: Double, recentMps: Double?, waiting: Boolean): Double? {
         if (waiting) return null

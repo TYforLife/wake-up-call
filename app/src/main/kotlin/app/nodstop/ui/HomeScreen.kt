@@ -147,7 +147,7 @@ private fun RatingCard(r: PendingRating) {
     val app = App.instance
     var rated by remember(r) { mutableStateOf(setOf<Int>()) }
     Section("How was the ring timing?") {
-        Text("Your answers go into the trip log, to tune when the alarm rings.", style = MaterialTheme.typography.bodySmall)
+        Text("Each answer tunes that stop: too early → rings later next time, too late → earlier.", style = MaterialTheme.typography.bodySmall)
         for ((leg, name) in r.legs) {
             if (leg in rated) continue
             Text(name, style = MaterialTheme.typography.titleSmall)
@@ -155,6 +155,8 @@ private fun RatingCard(r: PendingRating) {
                 for ((label, value) in listOf("Too early" to "too_early", "Good" to "good", "Too late" to "too_late")) {
                     OutlinedButton(onClick = {
                         app.traces.rate(r.traceFile, System.currentTimeMillis(), leg, value)
+                        // Tunes when this stop rings next time.
+                        r.dests.getOrNull(r.legs.indexOfFirst { it.first == leg })?.let { app.learned.rate(it, value) }
                         rated = rated + leg
                         if (r.legs.all { it.first in rated }) app.settings.setPendingRating(null)
                     }) { Text(label) }
