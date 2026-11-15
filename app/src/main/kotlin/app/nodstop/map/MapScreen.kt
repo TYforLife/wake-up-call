@@ -104,17 +104,29 @@ fun MapScreen(go: (Screen) -> Unit) {
     val layers = remember(allRoutes, learned, t?.routeName, t?.legIndex) {
         MapModel.layers(allRoutes, { learned[Route.stopKey(it)] }, t?.routeName, t?.legIndex)
     }
+    // Follows you every time the map opens; a drag pauses it for 10 s (or until you tap Follow).
+    val policy = remember { FollowPolicy() }
     var follow by remember { mutableStateOf(true) }
+    var dragTick by remember { mutableStateOf(0) }
+    LaunchedEffect(dragTick) {
+        while (!policy.following(System.currentTimeMillis())) {
+            follow = false
+            kotlinx.coroutines.delay(policy.resumesInMs(System.currentTimeMillis()).coerceAtLeast(200))
+        }
+        follow = true
+    }
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.padding(horizontal = 16.dp)) { TopBar("Map", onBack = { go(Screen.Home) }) }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            MapLibreView(layers, me, kind, follow)
+            MapLibreView(layers, me, kind, follow, onUserDrag = { policy.onUserDrag(System.currentTimeMillis()); dragTick++ })
             Row(
                 Modifier.align(Alignment.BottomEnd).padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilledTonalButton(onClick = { follow = !follow }) { Text(if (follow) "Following you" else "Follow me") }
+                FilledTonalButton(onClick = { policy.onFollowTapped(); follow = true; dragTick++ }) {
+                    Text(if (follow) "Following you" else "Follow")
+                }
             }
         }
         Text(
@@ -135,7 +147,7 @@ private const val CURRENT = "#FFB000"
 private const val FAINT = "#6E7BA8"
 
 @Composable
-private fun MapLibreView(layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me, follow: Boolean) {
+private fun MapLibreView(layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me, follow: Boolean, onUserDrag: () -> Unit) {
     val ctx = LocalContext.current
     val mapView = remember { MapView(ctx).also { it.onCreate(null) } }
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -167,6 +179,10 @@ private fun MapLibreView(layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me
         mapView.getMapAsync { m ->
             map = m
             m.uiSettings.isRotateGesturesEnabled = false
+            // Only your own gestures pause following (not the camera moves we make ourselves).
+            m.addOnCameraMoveStartedListener { reason ->
+                if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) onUserDrag()
+            }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
                 s.addImage("bus", badge(ctx, "🚌", AColor.parseColor("#FFB000")))
                 s.addImage("person", dot(ctx))
@@ -201,7 +217,9 @@ private fun MapLibreView(layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me
             }
             framed = me != null || pts.isNotEmpty()
         } else if (follow && me != null) {
-            m.animateCamera(CameraUpdateFactory.newLatLng(MLatLng(me.lat, me.lng)), 600)
+            // Following: keep you centred, and zoom in to street level if the first frame was wide.
+            val zoom = maxOf(m.cameraPosition.zoom, 15.0)
+            m.animateCamera(CameraUpdateFactory.newLatLngZoom(MLatLng(me.lat, me.lng), zoom), 600)
         }
     }
 }
