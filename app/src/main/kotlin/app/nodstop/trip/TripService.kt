@@ -96,7 +96,11 @@ class TripService : Service() {
                 val route = intent.getStringExtra(EXTRA_ROUTE_ID)?.let { app.routes.get(it) }
                 val legs = route?.toLegs { app.learned.get(it) }
                 if (route == null || legs == null) { if (trip == null) shutdown(); return START_NOT_STICKY }
-                withLastKnown { known -> begin(route.id, route.name, legs, 0, false, null, false, System.currentTimeMillis(), known) }
+                // "Start from leg…" picks the leg; plain Start lets the engine pick it from where you are.
+                val from = intent.getIntExtra(EXTRA_FROM_LEG, -1).takeIf { it in legs.indices }
+                withLastKnown { known ->
+                    begin(route.id, route.name, legs, from ?: 0, false, null, false, System.currentTimeMillis(), known, autoLeg = from == null)
+                }
             }
             ACTION_START_SIM -> {
                 val km = intent.getDoubleExtra(EXTRA_SIM_KM, 6.0)
@@ -154,6 +158,7 @@ class TripService : Service() {
         simKm: Double? = null,
         simKmh: Double? = null,
         startedMs: Long = now,
+        autoLeg: Boolean = false,
     ) {
         source?.stop()
         handler.removeCallbacks(tick)
@@ -162,7 +167,7 @@ class TripService : Service() {
         trip = ActiveTrip(routeId, routeName, allLegs, legOffset, 0, startedMs, file.name,
             simulated = simulated, simKm = simKm, simKmh = simKmh)
         state = EngineState()
-        input(Input.Start(now, allLegs.drop(legOffset), awakeOnFirst, lastKnown))
+        input(Input.Start(now, allLegs.drop(legOffset), awakeOnFirst, lastKnown, autoLeg))
         val src = sim ?: FusedLocationSource(this)
         source = src
         src.start { fix -> input(Input.FixIn(fix.tMs, fix)) }
@@ -278,6 +283,7 @@ class TripService : Service() {
         private const val ACTION_RESUME = "resume"
         private const val ACTION_STOP = "stop"
         private const val EXTRA_ROUTE_ID = "route_id"
+        private const val EXTRA_FROM_LEG = "from_leg"
         private const val EXTRA_SIM_KM = "sim_km"
         private const val EXTRA_SIM_KMH = "sim_kmh"
         private const val TICK_MS = 5_000L
@@ -291,8 +297,9 @@ class TripService : Service() {
         /** Non-null while a trip runs in this process. */
         val status: StateFlow<TripUi?> = _status
 
-        fun startRoute(ctx: Context, routeId: String) = send(ctx, Intent(ctx, TripService::class.java)
-            .setAction(ACTION_START_ROUTE).putExtra(EXTRA_ROUTE_ID, routeId))
+        /** Start a route; [fromLeg] = a leg you chose, or -1 to pick it from where you are. */
+        fun startRoute(ctx: Context, routeId: String, fromLeg: Int = -1) = send(ctx, Intent(ctx, TripService::class.java)
+            .setAction(ACTION_START_ROUTE).putExtra(EXTRA_ROUTE_ID, routeId).putExtra(EXTRA_FROM_LEG, fromLeg))
 
         fun startSim(ctx: Context, km: Double, kmh: Double) = send(ctx, Intent(ctx, TripService::class.java)
             .setAction(ACTION_START_SIM).putExtra(EXTRA_SIM_KM, km).putExtra(EXTRA_SIM_KMH, kmh))

@@ -93,6 +93,13 @@ all, a **No GPS** alarm rings 3 min in: you're unprotected, stay awake.
   60 m of the stop, or stopped within 200 m: one short buzz (through Do Not Disturb, no sound) and
   "You're at Smales Farm, get off now". For when you're not looking out the window.
 - **Alarm-off legs** (you're awake) are tracked the same way; they arm the next alarm-on leg's failsafe.
+  If the bus carries on past an alarm-off leg's stop with you on it, you're on the next leg (still RIDING).
+- **Start anywhere.** Tapping Start lets the engine pick the leg from the first fix (`LegPicker`): a
+  learned route you're on; else at a stop (within 300 m) → the leg after it; else beside the line between
+  two consecutive stops → the leg ending at the second; else the first leg (an extra leg only rings
+  early). So starting late, already on the second bus, or forgetting leg 1 all work. Boarding needs only
+  8 s of movement, so starting while already on a moving bus shows "On the bus" within seconds.
+  Home also has **Start from…** to choose the leg yourself.
 
 ### 2.2 What this buys
 

@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -93,6 +96,22 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
                             else go(Screen.Readiness)
                         },
                     ) { Text("Start") }
+                    if (r.legs.size > 1) Box {
+                        var open by remember { mutableStateOf(false) }
+                        OutlinedButton(enabled = problem == null && trip == null, onClick = { open = true }) { Text("Start from…") }
+                        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                            r.legs.forEachIndexed { i, leg ->
+                                DropdownMenuItem(
+                                    text = { Text("Leg ${i + 1}: ${leg.name.ifBlank { "?" }}") },
+                                    onClick = {
+                                        open = false
+                                        if (Readiness.canStartTrip(ctx)) { TripService.startRoute(ctx, r.id, fromLeg = i); go(Screen.Trip) }
+                                        else go(Screen.Readiness)
+                                    },
+                                )
+                            }
+                        }
+                    }
                     OutlinedButton(onClick = { go(Screen.Edit(r.id)) }) { Text("Edit") }
                 }
             }

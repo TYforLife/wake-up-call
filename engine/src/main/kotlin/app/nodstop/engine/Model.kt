@@ -56,6 +56,8 @@ sealed interface Input {
         val legs: List<Leg>,
         val awakeOnFirst: Boolean = false,
         val lastKnown: Fix? = null,
+        /** Pick the leg you're actually on from the first fix (you may have started mid-trip, on the bus). */
+        val autoLeg: Boolean = false,
     ) : Input
     data class FixIn(override val tMs: Long, val fix: Fix) : Input
     data class Tick(override val tMs: Long) : Input
