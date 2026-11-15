@@ -60,6 +60,13 @@ data class Config(
     val paceMax: Double = 2.5,
     /** First rides: ETA from the average speed over this window. */
     val etaSpeedWinS: Double = 60.0,
+    /** Waking on a learned route uses typical time × today's pace × this (a safety margin). */
+    val paceSafety: Double = 0.85,
+    /** Per-stop lead, tuned by ratings: within these bounds, moving by these steps. */
+    val minLeadS: Double = 30.0,
+    val maxLeadS: Double = 90.0,
+    val tooEarlyStepS: Double = 10.0,
+    val tooLateStepS: Double = 15.0,
     val maxTracks: Int = 5,
     /** A learned stop must be within this of the pasted one. */
     val learnMaxShiftM: Double = 300.0,

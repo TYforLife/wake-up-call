@@ -26,6 +26,8 @@ data class Learned(
     /** Most recent rides first. */
     val tracks: List<Track> = emptyList(),
     val rides: Int = 0,
+    /** This stop's lead in seconds, tuned by your ratings (too early: later; too late: earlier). Null = default. */
+    val leadS: Double? = null,
 )
 
 /** A leg is just "where you get off". No times: everything else comes from GPS. */
@@ -113,6 +115,8 @@ data class Status(
     val position: LatLng? = null,
     /** Today's pace vs past rides on this route (1.2 = 20% slower), when known. */
     val pace: Double? = null,
+    /** How many seconds before this stop it aims to ring (per stop, tuned by your ratings). */
+    val leadS: Double? = null,
 )
 
 data class Output(

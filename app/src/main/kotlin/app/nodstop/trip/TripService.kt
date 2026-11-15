@@ -245,8 +245,10 @@ class TripService : Service() {
 
     private fun offerRating(t: ActiveTrip) {
         if (t.simulated) return
-        val legs = t.legs.mapIndexedNotNull { i, l -> if (l.alarmEnabled) i to l.name else null }
-        if (legs.isNotEmpty()) app.settings.setPendingRating(PendingRating(t.traceFile, legs, System.currentTimeMillis()))
+        val rated = t.legs.withIndex().filter { it.value.alarmEnabled }
+        if (rated.isNotEmpty()) app.settings.setPendingRating(
+            PendingRating(t.traceFile, rated.map { it.index to it.value.name }, System.currentTimeMillis(), rated.map { it.value.dest }),
+        )
     }
 
     private fun shutdown() {

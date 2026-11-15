@@ -96,7 +96,8 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
                 )
                 if (p != null) {
                     val learned = learnedAll[Route.stopKey(p)]
-                    if (learned != null) {
+                    learned?.leadS?.let { Text("Rings about ${it.roundToInt()} s before this stop (tuned by your ratings).", style = MaterialTheme.typography.bodySmall) }
+                    if (learned != null && learned.rides > 0) {
                         val shift = Geo.distanceM(learned.stop, p).roundToInt()
                         Text(
                             "Learned the route from ${learned.rides} ride${if (learned.rides == 1) "" else "s"}. " +

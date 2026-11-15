@@ -2,6 +2,7 @@ package app.nodstop.data
 
 import android.content.Context
 import app.nodstop.engine.AlarmReason
+import app.nodstop.engine.Eta
 import app.nodstop.engine.LatLng
 import app.nodstop.engine.Learned
 import app.nodstop.engine.LearnedUpdate
@@ -127,6 +128,13 @@ class LearnedStore(context: Context) {
 
     fun forget(dest: LatLng) = set(cache - Route.stopKey(dest))
 
+    /** A ring-timing rating for this stop: too early → ring later, too late → ring earlier (30–90 s). */
+    fun rate(dest: LatLng, rating: String) {
+        val key = Route.stopKey(dest)
+        val existing = cache[key] ?: Learned(dest, emptyList(), 0)
+        set(cache + (key to existing.copy(leadS = Eta.adjustLead(existing.leadS, rating))))
+    }
+
     fun forgetAll() = set(emptyMap())
 
     private fun set(m: Map<String, Learned>) {
@@ -148,7 +156,13 @@ class TripStore(context: Context) {
 }
 
 @Serializable
-data class PendingRating(val traceFile: String, val legs: List<Pair<Int, String>>, val endedMs: Long)
+data class PendingRating(
+    val traceFile: String,
+    val legs: List<Pair<Int, String>>,
+    val endedMs: Long,
+    /** Each rated leg's stop (same order as [legs]), so a rating can tune that stop's lead. */
+    val dests: List<LatLng> = emptyList(),
+)
 
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)

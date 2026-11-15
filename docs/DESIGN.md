@@ -143,6 +143,18 @@ stretch (needs ≥ 45 s of it; clamped 0.5–2.5×). On a first ride it's the di
 over the last minute; none while waiting or stopped (`Eta`). Shown on the Trip screen (with its source)
 and the trip notification. This is display only here; §2's alarm uses its own early-biased estimate.
 
+### 2.5 Smarter waking (learned time, per-stop lead)
+
+- On a learned route, `v_route` uses the **learned time left**: the fastest past ride from this point, or
+  past rides' typical time × today's pace × 0.85 if that's sooner (`Eta.learnedTimeLeft`). Taking the
+  sooner can only ring earlier, so the invariant is untouched.
+- **Per-stop lead**, tuned by your ring-timing ratings: "too early" → 10 s less lead (rings later),
+  "too late" → 15 s more (rings earlier), kept within 30–90 s, default 45 s (`Learned.leadS`,
+  `Eta.adjustLead`). The failsafe never uses less than the default 45 s.
+- At the shortest lead (30 s) the guarantee is relative to that lead: never less than 30 − 20 = 10 s
+  before the stop (the property test runs 500 trips at lead 30 to prove it). That's the cost of telling
+  it "too early" repeatedly; a "too late" moves it back by 15 s.
+
 ### Why the approximations err early
 
 - Straight-line `d` is never more than the remaining road distance; the learned distance is scaled down.

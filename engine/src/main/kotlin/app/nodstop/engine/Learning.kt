@@ -111,6 +111,6 @@ object Learning {
             (existing.stop.lat * w + update.stop.lat) / (w + 1),
             (existing.stop.lng * w + update.stop.lng) / (w + 1),
         )
-        return Learned(stop, tracks, existing.rides + 1)
+        return Learned(stop, tracks, existing.rides + 1, existing.leadS)
     }
 }

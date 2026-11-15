@@ -35,6 +35,19 @@ class InvariantPropertyTest {
         println("invariant: 2000 trips, ${cases.sumOf { it.steps }} steps, worst margin ${"%.1f".format(worst.worstMarginS)} s (seed ${worst.seed})")
     }
 
+    /** At the shortest per-stop lead a rating can set (30 s), the same bound holds relative to that lead. */
+    @Test
+    fun `invariant holds at the shortest per-stop lead`() {
+        leadOverride = 30.0
+        try {
+            val cases = (1..500).map { runCase(it) }
+            val failures = cases.filter { it.worstMarginS < 0 || it.leadS == null }
+            assertTrue(failures.isEmpty()) { "violations at lead 30: " + failures.take(5).joinToString { "seed ${it.seed}: ${it.worstMarginS}" } }
+        } finally { leadOverride = null }
+    }
+
+    private var leadOverride: Double? = null
+
     /** The test has teeth: the same trips with the speed floor or the V_MAX failsafe removed do break it. */
     @Test
     fun `without V_FLOOR or the failsafe the same generator finds violations`() {
@@ -119,10 +132,10 @@ class InvariantPropertyTest {
         simRef = null
 
         val arrivalMs = Trips.arrivalMs(sim)
-        val legs = listOf(Leg("Dest", dest))
+        val legs = listOf(Leg("Dest", dest, learned = leadOverride?.let { Learned(dest, emptyList(), 0, it) }))
         val inputs = plan.inputs(sim, T0, legs, Random(planSeed), fixTimes.filter { it < sim.endS })
         var worst = Double.MAX_VALUE
-        val bound = arrivalMs - cfg.leadS.toLong() * 1000 + toleranceMs
+        val bound = arrivalMs - ((leadOverride ?: cfg.leadS) * 1000).toLong() + toleranceMs
         val r = Harness(engineOverride ?: cfg).run(inputs) { st ->
             val a = st.state.alarmAtMs
             if (st.state.phase in Harness.ALARM_PHASES && a != null) worst = min(worst, (bound - a) / 1000.0)
