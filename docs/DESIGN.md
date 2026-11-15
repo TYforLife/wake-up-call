@@ -134,6 +134,15 @@ the smallest over the matching tracks, × 0.95, so GPS noise or a cut corner nev
 `v_route` uses the fastest past time from that point. Off the learned route, the engine falls back to
 the straight line. Changing a stop's coordinates starts learning afresh; "Forget" is in the route editor.
 
+### 2.4 ETA (display)
+
+Buses don't go at one speed (motorway, then residential streets), so a speed × distance ETA is far off.
+On a learned route the ETA is **past rides' typical (median) time left from this exact point × today's
+pace**, where pace = the time you took over the last ~4 min ÷ the time past rides took over the same
+stretch (needs ≥ 45 s of it; clamped 0.5–2.5×). On a first ride it's the distance at your average speed
+over the last minute; none while waiting or stopped (`Eta`). Shown on the Trip screen (with its source)
+and the trip notification. This is display only here; §2's alarm uses its own early-biased estimate.
+
 ### Why the approximations err early
 
 - Straight-line `d` is never more than the remaining road distance; the learned distance is scaled down.

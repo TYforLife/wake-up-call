@@ -1,0 +1,30 @@
+package app.nodstop.engine
+
+/**
+ * Estimated time left (DESIGN §2.4). Buses don't go at one speed (motorway, then residential streets),
+ * so on a learned route the ETA is past rides' typical time from this exact point, scaled by today's
+ * pace. On a first ride it's the distance at your speed over the last minute. Pure functions.
+ */
+object Eta {
+    /**
+     * Today's pace vs past rides: time you took over the recent window ÷ the time past rides took over
+     * the same stretch. 1.0 = as usual, 1.3 = 30% slower. Null until enough of the route is covered.
+     */
+    fun pace(samples: List<Pair<Long, Double>>, cfg: Config = Config()): Double? {
+        if (samples.size < 2) return null
+        val (t0, typ0) = samples.first()
+        val (t1, typ1) = samples.last()
+        val histS = typ0 - typ1
+        val todayS = (t1 - t0) / 1000.0
+        if (histS < cfg.paceMinHistS || todayS <= 0) return null
+        return (todayS / histS).coerceIn(cfg.paceMin, cfg.paceMax)
+    }
+
+    /** The ETA to show, in seconds, or null when it can't be known (e.g. still waiting for the bus). */
+    fun display(typicalToEndS: Double?, pace: Double?, distanceM: Double, recentMps: Double?, waiting: Boolean): Double? {
+        if (waiting) return null
+        if (typicalToEndS != null) return typicalToEndS * (pace ?: 1.0)
+        val v = recentMps ?: return null
+        return if (v >= 2.0) distanceM / v else null
+    }
+}

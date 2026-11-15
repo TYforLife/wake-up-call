@@ -33,6 +33,10 @@ data class EngineState(
     val lastEtaS: Double? = null,
     val lastEtaBaseMs: Long? = null,
     val displayEtaS: Double? = null,
+    /** (fix time, typical past time left from that point) while on a learned route: today's pace. */
+    val paceSamples: List<Pair<Long, Double>> = emptyList(),
+    /** Today's pace vs past rides (1.2 = 20% slower), or null. */
+    val pace: Double? = null,
     val lastVest: Double? = null,
     val lastSpeed: Double? = null,
     val lastFixMs: Long? = null,
@@ -238,7 +242,7 @@ class Engine(val cfg: Config = Config()) {
         val ft = input.fix.fixTimeMs
         val pos = input.fix.pos
 
-        val keepMs = (max(cfg.winShortS, max(cfg.boardWindowS, cfg.peakAvgS)) * 1000 + 1_000).toLong()
+        val keepMs = (maxOf(cfg.winShortS, cfg.boardWindowS, cfg.peakAvgS, cfg.etaSpeedWinS) * 1000 + 1_000).toLong()
         val samples = (s.samples + Sample(ft, pos)).filter { it.tMs >= ft - keepMs }
         val straight = Geo.distanceM(pos, leg.stop)
         val nearStop = min(straight, Geo.distanceM(pos, leg.dest))
@@ -262,7 +266,13 @@ class Engine(val cfg: Config = Config()) {
         val floor = if (learnedV != null) cfg.vFloor * cfg.learnedFloorFrac else cfg.vFloor
         val vEst = maxOf(floor, short ?: 0.0, learnedV ?: peak ?: 0.0)
         val etaS = dEff / vEst
-        val displayEta = match?.typicalToEndS ?: short?.takeIf { it > 2.0 }?.let { dEff / it }
+        // Today's pace on a learned route: how long the last few minutes took vs past rides over the same stretch.
+        val paceSamples = match?.typicalToEndS?.let { typ ->
+            (s.paceSamples + (ft to typ)).filter { it.first >= ft - (cfg.paceWinS * 1000).toLong() }
+        } ?: emptyList()
+        val pace = Eta.pace(paceSamples, cfg) ?: s.pace.takeIf { match != null }
+        val recentV = avgSpeed(samples, ft, cfg.etaSpeedWinS, cfg.minSpanS)
+        val displayEta = Eta.display(match?.typicalToEndS, pace, dEff, recentV, s.phase == Phase.WAITING && !s.boarded)
 
         var boarded = s.boarded
         var phase = s.phase
@@ -285,6 +295,7 @@ class Engine(val cfg: Config = Config()) {
             minD = minD, lastD = dEff, startD = s.startD ?: if (boarded) dEff else null,
             lastVest = vEst, lastSpeed = short, lastFixMs = ft, lastPos = pos, onLearned = match != null,
             displayEtaS = displayEta, dwellSinceMs = dwellSince, dwellStartPos = dwellPos,
+            paceSamples = paceSamples, pace = pace,
         )
         // The alarm's ETA only means something for the leg you might sleep on.
         if (leg.alarmEnabled) st = st.copy(lastEtaS = etaS, lastEtaBaseMs = ft)
@@ -401,6 +412,7 @@ class Engine(val cfg: Config = Config()) {
             learnedRides = s.leg?.learned?.rides ?: 0,
             startDistanceM = s.startD,
             position = s.lastPos,
+            pace = s.pace,
         )
     }
 
