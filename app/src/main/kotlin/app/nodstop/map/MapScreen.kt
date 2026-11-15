@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlin.math.roundToInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import app.nodstop.App
@@ -101,8 +102,15 @@ fun MapScreen(go: (Screen) -> Unit) {
     val allRoutes = if (t != null && routes.none { it.name == t.routeName })
         routes + Route(name = t.routeName, legs = t.legNames.zip(t.legStops).map { (n, p) -> LegDraft(n, "${p.lat}, ${p.lng}") })
     else routes
-    val layers = remember(allRoutes, learned, t?.routeName, t?.legIndex) {
-        MapModel.layers(allRoutes, { learned[Route.stopKey(it)] }, t?.routeName, t?.legIndex)
+    // Tap a stop pin to drag its wake zone; the circle follows the slider live, Save keeps it.
+    var selected by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    var draft by remember { mutableStateOf<Double?>(null) } // metres; null = Auto
+    val sel0 = selected
+    val shown = if (sel0 == null) allRoutes else allRoutes.map { r ->
+        if (r.id != sel0.first) r else r.copy(legs = r.legs.mapIndexed { i, l -> if (i == sel0.second) l.copy(wakeRadiusM = draft) else l })
+    }
+    val layers = remember(shown, learned, t?.routeName, t?.legIndex) {
+        MapModel.layers(shown, { learned[Route.stopKey(it)] }, t?.routeName, t?.legIndex)
     }
     // Follows you every time the map opens; a drag pauses it for 10 s (or until you tap Follow).
     val policy = remember { FollowPolicy() }
@@ -119,7 +127,11 @@ fun MapScreen(go: (Screen) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.padding(horizontal = 16.dp)) { TopBar("Map", onBack = { go(Screen.Home) }) }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            MapLibreView(layers, me, kind, follow, onUserDrag = { policy.onUserDrag(System.currentTimeMillis()); dragTick++ })
+            MapLibreView(layers, me, kind, follow, onUserDrag = { policy.onUserDrag(System.currentTimeMillis()); dragTick++ },
+                onPinTap = { routeId, leg ->
+                    selected = routeId to leg
+                    draft = routes.firstOrNull { it.id == routeId }?.legs?.getOrNull(leg)?.wakeRadiusM
+                })
             Row(
                 Modifier.align(Alignment.BottomEnd).padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -129,12 +141,40 @@ fun MapScreen(go: (Screen) -> Unit) {
                 }
             }
         }
+        val sel = selected
+        val selRoute = sel?.let { s -> routes.firstOrNull { it.id == s.first } }
+        val selLeg = sel?.let { s -> selRoute?.legs?.getOrNull(s.second) }
+        if (sel != null && selRoute != null && selLeg != null) {
+            val pin = layers.pins.firstOrNull { it.routeId == sel.first && it.legIndex == sel.second }
+            val d = draft
+            Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                Text("Wake zone · ${selLeg.name}", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    if (d == null) "Auto: about ${pin?.zoneM?.toInt() ?: 0} m (from past rides, or lead × 25 km/h)"
+                    else "Yours: ${d.toInt()} m. Rings when the bus enters it, or earlier by the usual timing.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                androidx.compose.material3.Slider(
+                    value = (d ?: 0.0).toFloat(),
+                    onValueChange = { v -> draft = if (v < 100f) null else (v / 50f).roundToInt() * 50.0 },
+                    valueRange = 0f..2_000f,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.Button(onClick = {
+                        app.routes.upsert(selRoute.copy(legs = selRoute.legs.mapIndexed { i, l -> if (i == sel.second) l.copy(wakeRadiusM = draft) else l }))
+                        selected = null
+                    }) { Text("Save") }
+                    androidx.compose.material3.TextButton(onClick = { draft = null }) { Text("Auto") }
+                    androidx.compose.material3.TextButton(onClick = { selected = null }) { Text("Cancel") }
+                }
+            }
+        }
         Text(
             when {
                 me == null -> "Waiting for your location…"
                 kind == MapModel.Me.BUS -> "🚌 You're on the bus."
                 else -> "🔵 That's you."
-            } + "  📍 your pins · faint dots: suggested stops · faint lines: learned routes",
+            } + "  📍 your pins (tap one to set its wake zone) · circles: where it rings · faint dots: suggested stops",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(12.dp),
         )
@@ -147,7 +187,10 @@ private const val CURRENT = "#FFB000"
 private const val FAINT = "#6E7BA8"
 
 @Composable
-private fun MapLibreView(layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me, follow: Boolean, onUserDrag: () -> Unit) {
+private fun MapLibreView(
+    layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me, follow: Boolean,
+    onUserDrag: () -> Unit, onPinTap: (String, Int) -> Unit,
+) {
     val ctx = LocalContext.current
     val mapView = remember { MapView(ctx).also { it.onCreate(null) } }
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -183,6 +226,12 @@ private fun MapLibreView(layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me
             m.addOnCameraMoveStartedListener { reason ->
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) onUserDrag()
             }
+            m.addOnMapClickListener { at ->
+                val f = m.queryRenderedFeatures(m.projection.toScreenLocation(at), "pins-l", "pins-current").firstOrNull()
+                val route = f?.getStringProperty("route")
+                val leg = f?.getNumberProperty("leg")?.toInt()
+                if (route != null && leg != null) { onPinTap(route, leg); true } else false
+            }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
                 s.addImage("bus", badge(ctx, "🚌", AColor.parseColor("#FFB000")))
                 s.addImage("person", dot(ctx))
@@ -200,6 +249,7 @@ private fun MapLibreView(layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me
         s.getSourceAs<GeoJsonSource>("sugg-lines")?.setGeoJson(MapModel.suggestionLinesJson(layers))
         s.getSourceAs<GeoJsonSource>("sugg")?.setGeoJson(MapModel.suggestionsJson(layers))
         s.getSourceAs<GeoJsonSource>("pins")?.setGeoJson(MapModel.pinsJson(layers))
+        s.getSourceAs<GeoJsonSource>("zones")?.setGeoJson(MapModel.zonesJson(layers))
     }
     LaunchedEffect(style, me, kind) {
         style?.getSourceAs<GeoJsonSource>("me")?.setGeoJson(MapModel.meJson(me, kind))
@@ -226,7 +276,15 @@ private fun MapLibreView(layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me
 
 private fun addLayers(s: Style) {
     val empty = """{"type":"FeatureCollection","features":[]}"""
-    for (id in listOf("tracks", "sugg-lines", "sugg", "pins", "me")) s.addSource(GeoJsonSource(id, empty))
+    for (id in listOf("zones", "tracks", "sugg-lines", "sugg", "pins", "me")) s.addSource(GeoJsonSource(id, empty))
+    // Wake zones: where it will ring. Solid = yours, dashed = automatic.
+    s.addLayer(org.maplibre.android.style.layers.FillLayer("zones-f", "zones").withProperties(
+        org.maplibre.android.style.layers.PropertyFactory.fillColor(CURRENT),
+        org.maplibre.android.style.layers.PropertyFactory.fillOpacity(0.10f)))
+    s.addLayer(LineLayer("zones-yours", "zones").withProperties(lineColor(CURRENT), lineWidth(2.5f))
+        .withFilter(org.maplibre.android.style.expressions.Expression.eq(get("yours"), true)))
+    s.addLayer(LineLayer("zones-auto", "zones").withProperties(lineColor(CURRENT), lineWidth(2f), lineOpacity(0.7f), lineDasharray(arrayOf(3f, 2f)))
+        .withFilter(org.maplibre.android.style.expressions.Expression.eq(get("yours"), false)))
     s.addLayer(LineLayer("tracks-l", "tracks").withProperties(lineColor(FAINT), lineWidth(3f), lineOpacity(0.35f)))
     s.addLayer(LineLayer("sugg-lines-l", "sugg-lines").withProperties(
         lineColor(FAINT), lineWidth(2f), lineOpacity(0.6f), lineDasharray(arrayOf(2f, 2f))))

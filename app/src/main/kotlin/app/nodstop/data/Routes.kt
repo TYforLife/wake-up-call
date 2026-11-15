@@ -15,6 +15,8 @@ data class LegDraft(
     /** Whatever was pasted: "-36.78, 174.75", a Google Maps link, or "Use my location". Parsed on use. */
     val coords: String = "",
     val alarmEnabled: Boolean = true,
+    /** Your own wake zone in metres (set on the map), or null for automatic. */
+    val wakeRadiusM: Double? = null,
 )
 
 @Serializable
@@ -26,7 +28,7 @@ data class Route(
     /** Engine legs with what has been learned about each stop, or null if any leg is incomplete. */
     fun toLegs(learned: (LatLng) -> Learned? = { null }): List<Leg>? = legs.mapIndexed { i, d ->
         val dest = CoordParser.parse(d.coords) ?: return null
-        Leg(name = d.name.ifBlank { "Leg ${i + 1}" }, dest = dest, alarmEnabled = d.alarmEnabled, learned = learned(dest))
+        Leg(name = d.name.ifBlank { "Leg ${i + 1}" }, dest = dest, alarmEnabled = d.alarmEnabled, learned = learned(dest), wakeRadiusM = d.wakeRadiusM)
     }.takeIf { it.isNotEmpty() }
 
     /** Human-readable reason this route can't start yet, or null. */
