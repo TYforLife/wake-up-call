@@ -53,6 +53,13 @@ data class Config(
     val trailStepM: Double = 25.0,
     /** On a learned route, the speed floor is this fraction of V_FLOOR. */
     val learnedFloorFrac: Double = 0.5,
+    /** Today's pace is measured over this much of the recent ride (needs [paceMinHistS] of past-ride time). */
+    val paceWinS: Double = 240.0,
+    val paceMinHistS: Double = 45.0,
+    val paceMin: Double = 0.5,
+    val paceMax: Double = 2.5,
+    /** First rides: ETA from the average speed over this window. */
+    val etaSpeedWinS: Double = 60.0,
     val maxTracks: Int = 5,
     /** A learned stop must be within this of the pasted one. */
     val learnMaxShiftM: Double = 300.0,

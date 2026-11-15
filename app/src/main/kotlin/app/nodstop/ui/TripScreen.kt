@@ -53,6 +53,11 @@ fun TripScreen(go: (Screen) -> Unit) {
             }
             KeyValue("Distance to stop", d?.let { TripService.distance(it) + if (s.onLearnedRoute) " (along the route)" else " (straight line)" } ?: "—")
             KeyValue("ETA", s.etaS?.let { TripService.minutes(it) } ?: if (s.phase == Phase.WAITING) "when the bus moves" else "—")
+            KeyValue("ETA from", when {
+                s.onLearnedRoute && s.pace != null -> "past rides × today's pace (${String.format(java.util.Locale.US, "%.1f", s.pace)}×)"
+                s.onLearnedRoute -> "past rides"
+                else -> "your speed over the last minute"
+            })
             KeyValue("Speed", s.speedKmh?.let { "${it.roundToInt()} km/h" } ?: "—")
             val age = s.lastFixAgeS
             KeyValue("GPS", when {

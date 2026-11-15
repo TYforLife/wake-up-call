@@ -94,7 +94,7 @@ data class Status(
     val phase: Phase,
     /** Distance to the stop: along the learned route when matched, else straight line. */
     val distanceM: Double?,
-    /** A realistic ETA for display (current speed, or past rides). Not what the alarm uses. */
+    /** A realistic ETA for display: past rides' time from here × today's pace, else recent speed. */
     val etaS: Double?,
     val vEstKmh: Double?,
     val speedKmh: Double?,
@@ -111,6 +111,8 @@ data class Status(
     val startDistanceM: Double?,
     /** Your last accepted position (display only, e.g. the map). */
     val position: LatLng? = null,
+    /** Today's pace vs past rides on this route (1.2 = 20% slower), when known. */
+    val pace: Double? = null,
 )
 
 data class Output(
