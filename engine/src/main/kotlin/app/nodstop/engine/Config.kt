@@ -30,6 +30,11 @@ data class Config(
     /** Boarding: displacement speed over [boardWindowS] at least this. */
     val boardKmh: Double = 15.0,
     val boardWindowS: Double = 20.0,
+    /** Boarding needs at least this much fix span (short, so starting while already on a bus counts fast). */
+    val boardMinSpanS: Double = 8.0,
+    /** Picking the leg at Start: "at a stop" within this; "between two stops" within this of their line. */
+    val pickAtStopM: Double = 300.0,
+    val pickNearLineM: Double = 1_500.0,
     /** Getting off: within [alightRadiusM] of the stop, slower than [alightSlowKmh], for [alightDwellS] in total. */
     val alightRadiusM: Double = 300.0,
     val alightSlowKmh: Double = 8.0,

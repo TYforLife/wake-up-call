@@ -44,6 +44,8 @@ data class EngineState(
     val dwellSinceMs: Long? = null,
     val dwellStartPos: LatLng? = null,
     val ackMs: Long? = null,
+    /** Waiting for the first fix to pick which leg you're on (Start with autoLeg). */
+    val pickLeg: Boolean = false,
 ) {
     val leg: Leg? get() = legs.getOrNull(legIndex)
 }
@@ -75,6 +77,7 @@ class Engine(val cfg: Config = Config()) {
                     EngineState(legs = input.legs, lastPos = input.lastKnown?.pos, lastFixMs = input.lastKnown?.fixTimeMs?.takeIf { it <= input.tMs }),
                     0, input.tMs, awake = input.awakeOnFirst,
                 ).let { st -> if (input.lastKnown != null) st.copy(lastFixMs = null) else st }
+                    .let { st -> if (input.autoLeg && input.legs.size > 1 && !input.awakeOnFirst) st.copy(pickLeg = true) else st }
 
             is Input.FixIn -> onFix(s, input, e)
             is Input.Tick -> s
@@ -221,9 +224,15 @@ class Engine(val cfg: Config = Config()) {
         return true
     }
 
-    private fun onFix(s: EngineState, input: Input.FixIn, e: Edges): EngineState {
-        if (s.phase !in ACTIVE) return s
-        if (!accepts(s, input)) return s
+    private fun onFix(s0: EngineState, input: Input.FixIn, e: Edges): EngineState {
+        if (s0.phase !in ACTIVE) return s0
+        if (!accepts(s0, input)) return s0
+        // Started mid-trip (e.g. already on the second bus): jump to the leg you're actually on.
+        val s = if (!s0.pickLeg) s0 else {
+            val k = LegPicker.pick(s0.legs, input.fix.pos, cfg)
+            if (k == s0.legIndex) s0.copy(pickLeg = false)
+            else enterLeg(s0.copy(lastPos = input.fix.pos), k, input.tMs).copy(pickLeg = false, lastFixMs = s0.lastFixMs)
+        }
         val leg = s.leg ?: return s
         val now = input.tMs
         val ft = input.fix.fixTimeMs
@@ -242,7 +251,8 @@ class Engine(val cfg: Config = Config()) {
             .filter { it.tMs >= ft - (cfg.winPeakS * 1000).toLong() }
         val peak = shortAvgs.maxOfOrNull { it.mps }
         val slow10 = displacementSpeed(samples, ft, 10.0)
-        val board = displacementSpeed(samples, ft, cfg.boardWindowS, minSpanS = cfg.boardWindowS * 0.6)
+        // Short minimum span so starting the trip while already on a moving bus counts within ~8 s.
+        val board = displacementSpeed(samples, ft, cfg.boardWindowS, minSpanS = cfg.boardMinSpanS)
 
         val match = Learning.match(leg.learned, pos, cfg.matchRadiusM)
         val dEff = match?.let { max(straight, it.toEndM * cfg.routeFactor) } ?: straight
@@ -290,6 +300,11 @@ class Engine(val cfg: Config = Config()) {
         }
 
         val watchingForGetOff = phase == Phase.AWAKE || !leg.alarmEnabled
+        // Alarm-off leg and the bus carried on past its stop with you on it: you're on the next leg now.
+        if (!leg.alarmEnabled && passed && boarded) {
+            val nextLeg = advance(st, now)
+            return if (nextLeg.phase == Phase.WAITING) nextLeg.copy(phase = Phase.RIDING, boarded = true) else nextLeg
+        }
         if (watchingForGetOff) {
             if (phase == Phase.AWAKE && passed && !s.overshootSent) {
                 return st.copy(overshootSent = true, alarmAtMs = now, alarmReason = AlarmReason.OVERSHOOT)
