@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
  * One JSON Lines record, shared by the app's trip logger and the replay test.
  * Kinds: start (legs, including what was learned about each stop), fix, tick, rang, ack, skip, stop, urgent (inputs);
  * out (engine output summary);
- * rate and note (app annotations, ignored by replay).
+ * rate, note and wys (app annotations, ignored by replay; wys = While You Slept counts at a ring, no text).
  */
 @Serializable
 data class TraceEvent(
@@ -97,7 +97,7 @@ object Trace {
     /**
      * A ride log safe to commit to a public repo: every position (fixes, stops, learned tracks, last known)
      * moves by the same offset, so your real streets aren't in it, and the `out` lines are recomputed so it
-     * still replays exactly. `rate` lines are kept; `note` lines are dropped.
+     * still replays exactly. `rate` and `wys` lines (no positions) are kept; `note` lines are dropped.
      */
     fun anonymize(lines: List<String>, dLat: Double, dLng: Double, cfg: Config = Config()): List<String> {
         fun mv(p: LatLng) = LatLng(p.lat + dLat, p.lng + dLng)
@@ -118,7 +118,7 @@ object Trace {
             val e = decode(line)
             when (e.k) {
                 "out", "note" -> continue
-                "rate" -> { out += encode(e); continue }
+                "rate", "wys" -> { out += encode(e); continue }
             }
             val moved = e.copy(
                 lat = e.lat?.plus(dLat),

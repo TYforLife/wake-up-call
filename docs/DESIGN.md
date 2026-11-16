@@ -246,7 +246,8 @@ JSON Lines, one object per line, `kotlinx.serialization`:
 
 Kinds: `start` (with `legs` including what's learned, optional `awake` and last-known `lat/lng/acc/ft`),
 `fix`, `tick`, `rang`, `ack`, `skip`, `stop`, `out` (`alarmAt, ar` (reason), `overshoot, arrived, boarded,
-d, eta, v, leg, ph`), plus app annotations ignored by replay: `rate` and `note`.
+d, eta, v, leg, ph`), plus app annotations ignored by replay: `rate`, `note`, and `wys` (While You Slept
+counts at each ring, §10; kept in location-hidden exports like `rate`, since it has no positions or text).
 
 Replaying the inputs of a recorded trace must reproduce the recorded `out` lines exactly.
 
@@ -578,6 +579,26 @@ answer is parsed, checked (W5) and stored per conversation with the newest messa
 The alarm screen (`PanelLines`) shows a model line only while it still covers that conversation's
 newest message, else the digest line. Results are tagged with the store's generation, so a pass that
 started before the alarm screen closed can't bring old text back (W3).
+
+### Measuring it (Gate C)
+
+At every ring the trip log gets a `wys` line with counts only, never text (`RingStats`):
+`chats=4 model=3 urgent=0 others=2 modelOn=true ready=false`. `ready` means every chat on the alarm
+screen had a model line covering its newest message. Gate C's "briefing ready before the ring" is the
+share of rings with `ready=true`, read from shared (location-hidden) logs.
+
+Couch test without real chats: Debug → **Add sample chats to this trip** puts `SampleChats` (and an
+urgent message from "Daycare") into the running trip's store. Add "Daycare" to important contacts to
+test the urgent wake.
+
+### Robustness
+
+- The runtime keeps working on a cancelled call until it notices, so a conversation is closed only after
+  its callback says done, and closing the model waits off the main thread for running calls. If the
+  runtime never stops, the engine is left open (a leak until the process ends) rather than closed under a
+  running call.
+- Each VIP message gets one urgency attempt, marked before the call (`Urgency.take`), so a timeout or
+  error can't resend it every tick.
 
 ### Quality eval
 
