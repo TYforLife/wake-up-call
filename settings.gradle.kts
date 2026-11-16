@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "nodstop"
-include(":engine", ":app")
+include(":engine", ":brief", ":app")

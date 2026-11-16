@@ -69,6 +69,11 @@ sealed interface Input {
     data class Ack(override val tMs: Long) : Input
     data class SkipLeg(override val tMs: Long) : Input
     data class Stop(override val tMs: Long) : Input
+    /**
+     * While You Slept (DESIGN §10): a message from someone you marked important looks urgent.
+     * Rings now. It can only add a ring, never delay or remove one (invariant W1).
+     */
+    data class Urgent(override val tMs: Long) : Input
 }
 
 /**
@@ -89,6 +94,8 @@ enum class AlarmReason {
     OVERSHOOT,
     /** Safety alarm for the next leg while you're still on this bus. */
     NEXT_LEG,
+    /** An urgent message from someone you marked important (While You Slept, DESIGN §10). */
+    URGENT,
 }
 
 data class Status(

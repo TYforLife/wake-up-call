@@ -3,6 +3,7 @@ package app.nodstop.ui
 import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -37,6 +38,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.nodstop.App
+import app.nodstop.notify.CaptureService
+import app.nodstop.notify.DndController
 
 object Readiness {
     sealed interface Fix {
@@ -53,6 +56,11 @@ object Readiness {
         if (Build.VERSION.SDK_INT >= 33) granted(ctx, Manifest.permission.POST_NOTIFICATIONS)
         else ctx.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
     private fun pkg(ctx: Context) = Uri.parse("package:${ctx.packageName}")
+
+    private fun captureComponent(ctx: Context) = ComponentName(ctx, CaptureService::class.java)
+
+    fun notificationAccessOk(ctx: Context) =
+        ctx.getSystemService(NotificationManager::class.java).isNotificationListenerAccessGranted(captureComponent(ctx))
 
     fun canStartTrip(ctx: Context) = granted(ctx, Manifest.permission.ACCESS_FINE_LOCATION) && notificationsOk(ctx)
 
@@ -95,6 +103,15 @@ object Readiness {
                 Build.VERSION.SDK_INT < 36 || nm.canPostPromotedNotifications(),
                 "Shows distance to your stop on the lock screen and status bar (Android 16).",
                 Fix.Open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)),
+            ),
+            Check(
+                "While you slept (optional)", notificationAccessOk(ctx),
+                "Lets Nodstop read your chat notifications during a trip and show what you missed on the alarm " +
+                    "screen. Memory only: never saved, logged or sent anywhere.",
+                Fix.Open(
+                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                        .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, captureComponent(ctx).flattenToString()),
+                ),
             ),
             Check(
                 "Alarm volume above 0", audio.getStreamVolume(AudioManager.STREAM_ALARM) > 0 || !speaker,
@@ -153,6 +170,28 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                     "Check Settings → Sounds and vibration → Vibration intensity isn't at zero.",
                 style = MaterialTheme.typography.bodySmall,
             )
+        }
+        Section("While you slept (experimental)") {
+            val dnd by App.instance.settings.dndDuringTrips.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Do Not Disturb during trips", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Holds other notifications while you sleep (alarms still get through), and puts your " +
+                            "setting back when the trip ends. Untested on Samsung: check the earbud ring still plays.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = dnd, onCheckedChange = { on ->
+                    App.instance.settings.setDndDuringTrips(on)
+                    if (on && !DndController.granted(ctx)) {
+                        runCatching { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
+                    }
+                })
+            }
+            if (dnd && !DndController.granted(ctx)) {
+                Text("Needs Do Not Disturb access for Nodstop: tap the switch again after allowing it.", style = MaterialTheme.typography.bodySmall, color = Color(0xFFD32F2F))
+            }
         }
         Section("Samsung: do these once") {
             Text("1. Settings → Apps → Nodstop → Battery → Unrestricted")

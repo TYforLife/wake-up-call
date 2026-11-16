@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import app.nodstop.notify.MessageStore
 import app.nodstop.trip.TripService
 import app.nodstop.ui.AlarmScreen
 
@@ -82,6 +83,8 @@ class AlarmActivity : ComponentActivity() {
         fun awake(ctx: Context) {
             val wasTest = RingService.state.value?.test == true
             RingService.stop(ctx)
+            // The alarm screen is closing: forget the messages it showed (DESIGN §10, W3).
+            MessageStore.instance.clear()
             val svc = TripService.instance
             when {
                 svc != null -> svc.ack()

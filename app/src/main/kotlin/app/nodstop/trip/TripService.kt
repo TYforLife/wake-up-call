@@ -16,6 +16,8 @@ import android.util.Log
 import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
+import app.nodstop.notify.DndController
+import app.nodstop.notify.MessageStore
 import app.nodstop.data.ActiveTrip
 import app.nodstop.data.PendingRating
 import app.nodstop.data.Resume
@@ -162,6 +164,9 @@ class TripService : Service() {
     ) {
         source?.stop()
         handler.removeCallbacks(tick)
+        // While You Slept (DESIGN §10): catch chat notifications while this trip runs, in memory only.
+        MessageStore.instance.start()
+        DndController.onTripStart(this)
         val file = if (traceFile != null) app.traces.continueTrip(traceFile) else app.traces.newTrip(now)
         note?.let { app.traces.note(now, it) }
         trip = ActiveTrip(routeId, routeName, allLegs, legOffset, 0, startedMs, file.name,
@@ -252,6 +257,8 @@ class TripService : Service() {
     }
 
     private fun shutdown() {
+        MessageStore.instance.stop()
+        DndController.onTripEnd(this)
         source?.stop()
         source = null
         handler.removeCallbacks(tick)
@@ -272,6 +279,8 @@ class TripService : Service() {
 
     override fun onDestroy() {
         // Do NOT cancel the alarm here: if the system destroys us, the scheduled alarm is the dead-man's switch.
+        MessageStore.instance.stop()
+        DndController.onTripEnd(this)
         source?.stop()
         handler.removeCallbacks(tick)
         instance = null

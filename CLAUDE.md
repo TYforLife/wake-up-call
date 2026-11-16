@@ -21,7 +21,7 @@ follow that file's runbook for Run N, starting from the latest `main`.
 2. **Dead-man's switch.** Whenever a stop is left to protect, exactly one system alarm is scheduled,
    at `min(wakeAt, failsafeAt)` (DESIGN §2). The receiver rings unconditionally. Never add logic that
    lets a cold-started receiver skip or defer the ring.
-3. **`:engine` is pure Kotlin/JVM.** No Android imports, no clocks, no randomness, no I/O. Time comes in through inputs.
+3. **`:engine` and `:brief` are pure Kotlin/JVM.** No Android imports, no clocks, no randomness, no I/O. Time comes in through inputs.
    All decision logic lives here, and `:app` only adapts OS APIs to engine inputs and outputs.
 4. **When in doubt, ring earlier.** Every approximation must err early. If a change could make
    any alarm later, it needs a test proving the invariant in DESIGN §2 still holds.
@@ -34,6 +34,7 @@ follow that file's runbook for Run N, starting from the latest `main`.
 
 ```bash
 ./gradlew :engine:test                 # must pass before every push
+./gradlew :brief:test                  # must pass before every push (While You Slept, pure Kotlin)
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:assembleDebug           # must succeed before every push
 ```

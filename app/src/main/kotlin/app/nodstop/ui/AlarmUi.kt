@@ -14,10 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -33,6 +37,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
+import app.nodstop.brief.Digests
+import app.nodstop.engine.AlarmReason
+import app.nodstop.notify.MessageStore
+import app.nodstop.notify.PanelText
 import kotlinx.coroutines.launch
 
 /**
@@ -53,8 +61,13 @@ fun AlarmScreen(ring: RingService.RingUi?, holdMs: Int, onAwake: () -> Unit, onC
             return@Column
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 32.dp)) {
+            val urgent = ring.reason == AlarmReason.URGENT && !ring.overshoot
             Text(
-                if (ring.overshoot) "You passed your stop" else "Wake up",
+                when {
+                    ring.overshoot -> "You passed your stop"
+                    urgent -> "Urgent message"
+                    else -> "Wake up"
+                },
                 color = if (ring.overshoot) Color(0xFFFF6B6B) else Color(0xFFFFC94A),
                 fontSize = 44.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
             )
@@ -62,6 +75,7 @@ fun AlarmScreen(ring: RingService.RingUi?, holdMs: Int, onAwake: () -> Unit, onC
             Text(
                 when {
                     ring.test -> "Test ring"
+                    urgent -> ring.legName?.let { "Still riding to $it" } ?: "Your stop alarm is still on"
                     ring.legName != null -> "Get off at ${ring.legName}"
                     else -> "Your stop is close"
                 },
@@ -77,7 +91,31 @@ fun AlarmScreen(ring: RingService.RingUi?, holdMs: Int, onAwake: () -> Unit, onC
                 color = Color(0xFF9AA7C7), fontSize = 15.sp,
             )
         }
+        WhileYouSleptPanel(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp))
         HoldToAck(holdMs, onAwake)
+    }
+}
+
+/** What you missed, from the trip's chat notifications (DESIGN §10). Memory only; cleared when this screen closes. */
+@Composable
+private fun WhileYouSleptPanel(modifier: Modifier) {
+    val snap by MessageStore.instance.state.collectAsState()
+    val digest = remember(snap) { Digests.build(snap.messages, snap.otherNotifications) }
+    Column(
+        modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF17213F))
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text("While you slept", color = Color(0xFFFFC94A), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(PanelText.summary(snap.active, digest), color = Color(0xFF9AA7C7), fontSize = 13.sp)
+        for (line in digest.lines.take(PanelText.MAX_LINES)) {
+            Spacer(Modifier.height(2.dp))
+            Text(PanelText.title(line), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(PanelText.body(line), color = Color(0xFFDDE3F5), fontSize = 14.sp)
+        }
     }
 }
 

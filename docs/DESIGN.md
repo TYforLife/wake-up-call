@@ -382,7 +382,7 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 
 ## 6. Build and delivery (phone-only)
 
-- Gradle project: `:engine` (Kotlin JVM) and `:app`. Gradle wrapper committed. Versions in
+- Gradle project: `:engine` and `:brief` (Kotlin JVM) and `:app`. Gradle wrapper committed. Versions in
   `gradle/libs.versions.toml`.
 - Debug signing: `keystore/debug.keystore` (standard debug credentials) is committed and
   `signingConfigs.debug` points at it, so every CI build installs over the previous one. It is never used for release.
@@ -391,7 +391,7 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
   - On push to any branch, plus `workflow_dispatch`.
   - `build` job: per-branch concurrency (a new push cancels only that branch's older run).
     `actions/setup-java` (Temurin 21) and `gradle/actions/setup-gradle`;
-    `./gradlew :engine:test :app:testDebugUnitTest :app:assembleDebug`.
+    `./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug`.
   - `publish` job: `concurrency: debug-release`, cancel in progress; `permissions: contents: write`;
     publishes with the `gh` CLI to the rolling prerelease `debug-latest`: create it if missing,
     `gh release upload ... app-debug.apk --clobber`, and set the notes to branch, SHA and build number.
@@ -515,12 +515,16 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
 
 ### Engine (`:engine`)
 
-- `Input.Urgent(tMs)`: in WAITING, RIDING or AWAKE, `alarmAt = tMs` with `AlarmReason.URGENT`.
-  Ignored in other phases, and after `MAX_URGENT_RINGS` urgent rings in one trip.
-- Acking an URGENT ring follows §2.1: it counts as "awake for this stop" only when the stop was
-  ≤ 3 min away; otherwise tracking continues and the stop alarm rings as usual (with REARM).
-- Property: adding `Urgent` and `Ack` inputs to any trip never makes any later scheduled alarm
-  later than in the same trip without them, and the §2 invariant still holds.
+- `Input.Urgent(tMs)` (trace kind `urgent`): in WAITING, RIDING or AWAKE, `alarmAt = tMs` with
+  `AlarmReason.URGENT`. Ignored in other phases, when an alarm is already due, and after
+  `MAX_URGENT_RINGS` urgent rings in one trip. Fixes arriving before it rings can't push it later.
+- **Acking an URGENT ring never counts as "awake for this stop"**, however close the stop is: you
+  may doze off again. The engine goes back to the phase it was in and restores the stop alarm it
+  had, or the one the newest fix gives if that's sooner, with no REARM delay.
+- Property (`UrgentTest`, 1,000 random trips): with random urgent rings acked after random delays,
+  until either run first rings for the stop, the trip is at every step ringing or scheduled no later
+  than the same trip without them; and its stop ring comes no later than without them (or than its
+  last urgent ack, if that came after).
 
 ### Capture (`:app`, package `app.nodstop.notify`)
 

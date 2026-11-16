@@ -90,5 +90,6 @@ private fun reasonLabel(r: AlarmReason?, leadS: Double?): String = when (r) {
     AlarmReason.NO_GPS -> "no GPS yet"
     AlarmReason.OVERSHOOT -> "you passed your stop"
     AlarmReason.NEXT_LEG -> "backup for the next bus"
+    AlarmReason.URGENT -> "an urgent message"
     null -> ""
 }

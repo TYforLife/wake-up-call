@@ -50,6 +50,11 @@ data class EngineState(
     val ackMs: Long? = null,
     /** Waiting for the first fix to pick which leg you're on (Start with autoLeg). */
     val pickLeg: Boolean = false,
+    /** Urgent rings so far this trip (at most MAX_URGENT_RINGS). */
+    val urgentRings: Int = 0,
+    /** While an URGENT alarm is pending or ringing: the alarm it would otherwise have, restored after the ack. */
+    val beforeUrgentAtMs: Long? = null,
+    val beforeUrgentReason: AlarmReason? = null,
 ) {
     val leg: Leg? get() = legs.getOrNull(legIndex)
 }
@@ -83,8 +88,9 @@ class Engine(val cfg: Config = Config()) {
                 ).let { st -> if (input.lastKnown != null) st.copy(lastFixMs = null) else st }
                     .let { st -> if (input.autoLeg && input.legs.size > 1 && !input.awakeOnFirst) st.copy(pickLeg = true) else st }
 
-            is Input.FixIn -> onFix(s, input, e)
+            is Input.FixIn -> keepUrgent(s, onFix(s, input, e))
             is Input.Tick -> s
+            is Input.Urgent -> onUrgent(s, input.tMs)
             is Input.Rang -> when (s.phase) {
                 Phase.WAITING, Phase.RIDING, Phase.AWAKE ->
                     s.copy(phase = Phase.RINGING, resumePhase = s.phase, ringReason = s.alarmReason, alarmAtMs = null, alarmReason = null)
@@ -129,6 +135,7 @@ class Engine(val cfg: Config = Config()) {
             lastFixMs = s.lastFixMs,
             lastPos = s.lastPos,
             ackMs = if (awake) nowMs else null,
+            urgentRings = s.urgentRings,
         )
         return withAlarm(st, entryAlarm(st, nowMs))
     }
@@ -173,6 +180,8 @@ class Engine(val cfg: Config = Config()) {
             AlarmReason.OVERSHOOT -> advance(s, nowMs)
             // A safety ring for something further on: carry on as you were.
             AlarmReason.NO_GPS, AlarmReason.NEXT_LEG -> rearm(s.copy(phase = back, ackMs = nowMs), nowMs)
+            // An urgent message: never "awake for this stop" (you may doze off again). Carry on exactly as before.
+            AlarmReason.URGENT -> afterUrgent(s.copy(phase = back), nowMs)
             else -> {
                 val remaining = remainingS(s, nowMs)
                 if (remaining != null && remaining <= cfg.ackCountsWithinS) {
@@ -216,6 +225,64 @@ class Engine(val cfg: Config = Config()) {
     fun remainingArrivalMs(s: EngineState, nowMs: Long): Long? {
         val r = remainingS(s, nowMs) ?: return null
         return if (r > 0) nowMs + (r * 1000).roundToLong() else null
+    }
+
+    // ---- urgent (While You Slept, DESIGN §10) ----
+
+    /** Ring now for an urgent message, while there is a trip to protect and urgent rings are left. */
+    private fun onUrgent(s: EngineState, nowMs: Long): EngineState {
+        if (s.phase !in URGENT_PHASES || s.urgentRings >= cfg.maxUrgentRings) return s
+        val current = s.alarmAtMs
+        // Already due anyway: that ring comes first and says why.
+        if (current != null && current <= nowMs) return s
+        return s.copy(
+            alarmAtMs = nowMs, alarmReason = AlarmReason.URGENT, urgentRings = s.urgentRings + 1,
+            beforeUrgentAtMs = current, beforeUrgentReason = s.alarmReason,
+        )
+    }
+
+    /**
+     * A fix (or a leg change) must not push a pending urgent ring later. The schedule the fix computed is
+     * kept aside, so the ack can restore it.
+     */
+    private fun keepUrgent(prev: EngineState, next: EngineState): EngineState {
+        val urgentAt = prev.alarmAtMs.takeIf { prev.alarmReason == AlarmReason.URGENT } ?: return next
+        if (next.phase !in URGENT_PHASES) return next
+        val computed = next.alarmAtMs
+        if (computed != null && computed <= urgentAt) return next.copy(beforeUrgentAtMs = null, beforeUrgentReason = null)
+        return next.copy(
+            alarmAtMs = urgentAt, alarmReason = AlarmReason.URGENT,
+            beforeUrgentAtMs = computed, beforeUrgentReason = next.alarmReason,
+        )
+    }
+
+    /**
+     * After "I'm awake" on an urgent ring: the schedule as if it never happened, from the newest fix, with
+     * no REARM delay; never later than the alarm it replaced (W1).
+     */
+    private fun afterUrgent(st0: EngineState, nowMs: Long): EngineState {
+        val st = st0.copy(beforeUrgentAtMs = null, beforeUrgentReason = null)
+        var at = st0.beforeUrgentAtMs
+        var reason = st0.beforeUrgentReason
+        val target = alarmTarget(st)
+        val pos = st.lastPos
+        val ft = st.lastFixMs
+        if (target != null && pos != null && ft != null) {
+            val leg = st.legs[target]
+            val ownLeg = target == st.legIndex && st.phase != Phase.AWAKE
+            val lead = leadFor(leg)
+            var fresh = failsafeAt(ft, Geo.distanceM(pos, leg.stop), if (ownLeg) maxOf(cfg.leadS, lead) else cfg.leadS)
+            var freshReason = if (ownLeg) AlarmReason.FAILSAFE else AlarmReason.NEXT_LEG
+            val eta = st.lastEtaS
+            val base = st.lastEtaBaseMs
+            if (ownLeg && eta != null && base != null) {
+                val wake = base + ((eta - lead) * 1000).roundToLong()
+                if (wake <= fresh) { fresh = wake; freshReason = AlarmReason.WAKE }
+            }
+            if (at == null || fresh < at) { at = fresh; reason = freshReason }
+        }
+        if (at == null) return withAlarm(st, null)
+        return withAlarm(st, max(at, nowMs) to (reason ?: AlarmReason.FAILSAFE))
     }
 
     // ---- fixes ----
@@ -429,6 +496,7 @@ class Engine(val cfg: Config = Config()) {
 
     companion object {
         private val ACTIVE = setOf(Phase.WAITING, Phase.RIDING, Phase.RINGING, Phase.AWAKE)
+        private val URGENT_PHASES = setOf(Phase.WAITING, Phase.RIDING, Phase.AWAKE)
         internal fun round1(x: Double): Double = (x * 10).roundToInt() / 10.0
     }
 }

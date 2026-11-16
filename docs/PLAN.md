@@ -49,11 +49,11 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
    - The checkpoint before this run is ticked, or the prompt says it passed. If the prompt says so,
      tick it in the run's first commit.
    - `$ANDROID_HOME` exists, and `./gradlew :engine:test :app:testDebugUnitTest :app:assembleDebug`
-     passes on `main` before you change anything.
+     passes on `main` before you change anything (plus `:brief:test` once it exists).
 3. **Each milestone, in order:**
    1. Implement it.
    2. Write its tests.
-   3. Run `./gradlew :engine:test` (and `:brief:test` once it exists), then `:app:testDebugUnitTest :app:assembleDebug`.
+   3. Run `./gradlew :engine:test :brief:test`, then `:app:testDebugUnitTest :app:assembleDebug`.
    4. Tick the milestone's boxes here.
    5. Make one conventional commit, then push.
 4. Keep `docs/DESIGN.md` in sync whenever behaviour or parameters change.
@@ -109,26 +109,26 @@ A second source-scan test covers W3 and W6: the `notify` and `brief` packages us
 Prerequisite: none beyond a green `main`.
 
 ### B1 Engine: urgent rings
-- [ ] `Input.Urgent` and `AlarmReason.URGENT` per DESIGN §10, with trace kind `urgent` (replay-safe)
-- [ ] Ignored outside WAITING, RIDING and AWAKE, and after `MAX_URGENT_RINGS` (2) per trip (tests)
-- [ ] Acking an URGENT ring follows §2.1: far from the stop, tracking continues and the stop alarm still rings (test)
-- [ ] Property test: the existing random trips with random `Urgent`/`Ack` inserted. At every step the §2 invariant holds, and the alarm is ≤ the same trip's alarm without the inserts, whenever both are scheduled.
-- [ ] Every trace in `engine/src/test/resources/traces/` still replays identically
+- [x] `Input.Urgent` and `AlarmReason.URGENT` per DESIGN §10, with trace kind `urgent` (replay-safe)
+- [x] Ignored outside WAITING, RIDING and AWAKE, and after `MAX_URGENT_RINGS` (2) per trip (tests)
+- [x] Acking an URGENT ring never counts as "awake for this stop", far or near; the stop alarm still rings (tests)
+- [x] Property test: random trips with random `Urgent`/`Ack` inserted. Until either run rings for the stop, the trip is at every step ringing or scheduled no later than without the inserts; the stop ring is no later either.
+- [x] Every trace in `engine/src/test/resources/traces/` still replays identically
 
 ### B2 `:brief` module and plain digest
-- [ ] New module `:brief` with the purity test; `CLAUDE.md` rule 3 mentions it
-- [ ] `Digest` per DESIGN §10, tested with a 64-message group, three one-to-one chats, VIP ordering, and non-chat notifications (counted, not read)
+- [x] New module `:brief` with the purity test; `CLAUDE.md` rule 3 mentions it
+- [x] `Digest` per DESIGN §10, tested with a 64-message group, three one-to-one chats, VIP ordering, and non-chat notifications (counted, not read)
 
 ### B3 Capture and the alarm-screen panel
-- [ ] `CaptureService` stores messages only while a trip runs (W3, W4). Own app and non-chat notifications are counted only.
-- [ ] `MessageStore` is plain Kotlin, tested to clear on close and on Stop, and to keep the newest 200
-- [ ] W3/W6 source-scan test (see "Where things go")
-- [ ] The alarm screen shows the "While you slept" panel with the digest, or "Briefing unavailable" (W2)
-- [ ] Readiness row for notification access, with a button to its settings page
+- [x] `CaptureService` stores messages only while a trip runs (W3, W4). Own app and non-chat notifications are counted only.
+- [x] `MessageStore` is plain Kotlin, tested to clear on close and on Stop, and to keep the newest 200
+- [x] W3/W6 source-scan test (see "Where things go")
+- [x] The alarm screen shows the "While you slept" panel with the digest, or "Briefing unavailable" (W2)
+- [x] Readiness row for notification access, with a button to its settings page
 
 ### B4 Do Not Disturb during trips (experimental, off by default)
-- [ ] A toggle on Readiness, plus the Do Not Disturb access request
-- [ ] `DndRestore` is a pure class. Tests: start then stop restores the old filter; a crash leaves a flag that restores it on next start.
+- [x] A toggle on Readiness, plus the Do Not Disturb access request
+- [x] `DndRestore` is a pure class. Tests: start then stop restores the old filter; a crash leaves a flag that restores it on next start.
 
 **Test on phone (Run 1):**
 - capture from your chat apps (WhatsApp, Messenger, Discord, SMS, whatever you use);
