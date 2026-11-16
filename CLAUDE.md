@@ -2,6 +2,8 @@
 
 Android app that wakes the owner (Tae) before his bus stop so he can sleep on the bus.
 The full spec is in `docs/DESIGN.md`. Read it before any work; it wins over your instincts.
+The work queue is `docs/PLAN.md`. A prompt like `/goal Finish Run N in docs/PLAN.md and open its PR` means:
+follow that file's runbook for Run N, starting from the latest `main`.
 
 ## How this project is worked on
 
@@ -25,6 +27,8 @@ The full spec is in `docs/DESIGN.md`. Read it before any work; it wins over your
    any alarm later, it needs a test proving the invariant in DESIGN §2 still holds.
 5. No new dependencies beyond DESIGN §5 without a one-line reason in the PR.
 6. Live data (AT, roadmap) may only make an alarm earlier, never later. GPS stays the guaranteed fallback.
+7. **The AI can only ring earlier.** The While You Slept briefing (DESIGN §10) never delays, cancels or
+   silences a ring, and message text never reaches traces, logs, files or network code (invariants W1–W6).
 
 ## Commands
 
