@@ -21,7 +21,7 @@ class BriefingTest {
     @Test
     fun `checked model lines replace digest lines, failing ones fall back`() = runBlocking {
         var prompt = ""
-        val briefed = Briefer { p, _ -> prompt = p; answer }.brief(SampleChats.messages)
+        val briefed = Briefer(Llm { p, _ -> prompt = p; answer }).brief(SampleChats.messages)
         assertTrue(prompt.contains("Conversation c2: \"Boss\""))
         // c2 invented 11:00 (W5): dropped. c3 (Kai) got no line: dropped.
         assertEquals(setOf("com.whatsapp/Flat group", "com.whatsapp/Mum"), briefed.keys)
@@ -37,7 +37,7 @@ class BriefingTest {
 
     @Test
     fun `a newer message than the briefing shows the digest line for that chat`() = runBlocking {
-        val briefed = Briefer { _, _ -> answer }.brief(SampleChats.messages)
+        val briefed = Briefer(Llm { _, _ -> answer }).brief(SampleChats.messages)
         val newer = SampleChats.messages + CapturedMessage("com.whatsapp", "Flat group", "Sam", "actually make it 8pm", 99_000)
         val flat = PanelLines.combine(Digests.build(newer, 0), briefed).first { it.title == "Flat group" }
         assertFalse(flat.fromModel)
@@ -46,14 +46,14 @@ class BriefingTest {
 
     @Test
     fun `junk from the model gives the plain digest`() = runBlocking {
-        val briefed = Briefer { _, _ -> "I'm sorry, I can't do that." }.brief(SampleChats.messages)
+        val briefed = Briefer(Llm { _, _ -> "I'm sorry, I can't do that." }).brief(SampleChats.messages)
         assertTrue(briefed.isEmpty())
         assertTrue(PanelLines.combine(Digests.build(SampleChats.messages, 0), briefed).none { it.fromModel })
     }
 
     @Test
     fun `a model that never answers still leaves the digest (W2)`() = runBlocking {
-        val stuck = Briefer { _, _ -> awaitCancellation() }
+        val stuck = Briefer(Llm { _, _ -> awaitCancellation() })
         assertThrows<TimeoutCancellationException> { withTimeout(200) { stuck.brief(SampleChats.messages) } }
         val panel = PanelLines.combine(Digests.build(SampleChats.messages, 0), emptyMap())
         assertEquals(4, panel.size)
@@ -63,7 +63,7 @@ class BriefingTest {
     @Test
     fun `no messages, no model call`() = runBlocking {
         var called = false
-        assertTrue(Briefer { _, _ -> called = true; "" }.brief(emptyList()).isEmpty())
+        assertTrue(Briefer(Llm { _, _ -> called = true; "" }).brief(emptyList()).isEmpty())
         assertFalse(called)
     }
 }

@@ -27,6 +27,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -172,6 +176,27 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
             )
         }
         Section("While you slept (experimental)") {
+            val settings = App.instance.settings
+            val vips by settings.vipNames.collectAsState()
+            val tea by settings.teaTone.collectAsState()
+            var vipText by remember(vips) { mutableStateOf(vips.joinToString(", ")) }
+            Text("Important contacts", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Names as they appear in your chats, separated by commas (e.g. Mum, Daycare). Only their messages can " +
+                    "wake you, and only if the on-phone model judges them urgent. Shown first on the alarm screen.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(value = vipText, onValueChange = { vipText = it }, modifier = Modifier.weight(1f), singleLine = true)
+                TextButton(enabled = vipText != vips.joinToString(", "), onClick = { settings.setVipNames(vipText.split(',')) }) { Text("Save") }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Tea tone", style = MaterialTheme.typography.titleSmall)
+                    Text("Briefing lines in group-chat voice. Same facts, checked again; plain if a rewrite changes one.", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = tea, onCheckedChange = { settings.setTeaTone(it) })
+            }
             val dnd by App.instance.settings.dndDuringTrips.collectAsState()
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

@@ -26,6 +26,7 @@ object PanelText {
 
     /** "needs a reply · affects your plans", or null. */
     fun tags(l: PanelLine): String? = listOfNotNull(
+        "urgent: this woke you".takeIf { l.urgent },
         "needs a reply".takeIf { l.needsReply },
         "affects your plans".takeIf { l.affectsYou },
     ).joinToString(" · ").ifEmpty { null }

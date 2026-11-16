@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import app.nodstop.App
 import app.nodstop.brief.BatchPlan
 import app.nodstop.brief.BriefParser
+import app.nodstop.brief.EvalRunner
+import app.nodstop.brief.Llm
 import app.nodstop.brief.Guardrails
 import app.nodstop.brief.LiteRtLlm
 import app.nodstop.brief.PromptBuilder
@@ -68,6 +70,7 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
     val scope = rememberCoroutineScope()
     var running by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<LabResult?>(null) }
+    var eval by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch { mm.import(uri) }
     }
@@ -123,6 +126,23 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
             if (trip != null) Text("Not during a trip.", style = MaterialTheme.typography.bodySmall)
             result?.let { r -> LabResultView(r) }
         }
+        Section("Quality eval") {
+            Text(
+                "20 made-up conversations, each with facts a good line must keep. Scores facts kept and lines that " +
+                    "invented something (those would be dropped on the alarm screen). Takes a few minutes.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Button(enabled = current != null && !running && trip == null && !imp.running, onClick = {
+                val m = current ?: return@Button
+                running = true
+                eval = null
+                scope.launch {
+                    eval = withContext(Dispatchers.Default) { runEval(m, ctx.cacheDir.absolutePath) }
+                    running = false
+                }
+            }) { Text(if (running) "Running…" else "Run eval") }
+            eval?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        }
     }
 }
 
@@ -142,6 +162,28 @@ private suspend fun runLab(m: ModelManager.Model, cacheDir: String): LabResult {
             if (raw == null) "No answer within ${2 * BatchPlan.LLM_TIMEOUT_MS / 1000} s." else null)
     } catch (t: Throwable) {
         LabResult(m.name, null, null, null, null, emptyList(), "${t::class.simpleName}: ${t.message}")
+    } finally {
+        llm.close()
+    }
+}
+
+/** The eval's score as text for the lab (and to paste into the PR). */
+private suspend fun runEval(m: ModelManager.Model, cacheDir: String): String {
+    val llm = LiteRtLlm(m.path, cacheDir)
+    return try {
+        llm.load()
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        val limited = Llm { p, max -> withTimeoutOrNull(2 * BatchPlan.LLM_TIMEOUT_MS) { llm.generate(p, max) } ?: "" }
+        val r = EvalRunner(limited).run()
+        val secs = (android.os.SystemClock.elapsedRealtime() - t0) / 1000
+        buildString {
+            appendLine("${m.name}: facts kept ${r.factsKept} of ${r.factsTotal} (${r.keptPercent}%), invented ${r.invented}, answered ${r.answered} of ${r.results.size}, ${secs} s")
+            for (c in r.results.filter { it.invented || it.missed.isNotEmpty() }) {
+                appendLine("• ${c.id}: ${if (c.invented) "invented a fact" else "missed ${c.missed.joinToString()}"}${c.line?.let { " — \"$it\"" } ?: ""}")
+            }
+        }.trim()
+    } catch (t: Throwable) {
+        "Eval failed: ${t::class.simpleName}: ${t.message}"
     } finally {
         llm.close()
     }

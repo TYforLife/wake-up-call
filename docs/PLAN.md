@@ -167,7 +167,7 @@ Prerequisite: Run 1 merged, Gate B ticked.
 - post the timings and any crash in a PR comment;
 - do 3 rides with the briefing.
 
-- [ ] **DECISION C (Tae):** default model. Gemma 4 E2B if its final pass finishes in under 60 s with no crashes; otherwise Gemma 3 1B. Recorded in DESIGN §10.
+- [x] **DECISION C (Tae):** Gemma 4 E2B is the default model (owner, 2026-11-16). Recorded in DESIGN §10.
 
 ---
 
@@ -176,18 +176,18 @@ Prerequisite: Run 1 merged, Gate B ticked.
 Prerequisite: Run 2 merged, Decision C recorded.
 
 ### C3 Urgent wake from important contacts
-- [ ] A list of VIP names in settings, typed in (no contacts permission)
-- [ ] Only VIP messages are classified. The prompt and parser are tested with the fake `Llm`. Non-VIP messages never cause `Urgent` (test).
-- [ ] An urgent message sends `Input.Urgent`; the ring goes through the single ring path; the panel shows that conversation first
+- [x] A list of VIP names in settings, typed in (no contacts permission)
+- [x] Only VIP messages are classified. The prompt and parser are tested with the fake `Llm`. Non-VIP messages never cause `Urgent` (test).
+- [x] An urgent message sends `Input.Urgent`; the ring goes through the single ring path; the panel shows that conversation first
 
 ### C4 Tones and share-back
-- [ ] Plain or tea tone. The tea rewrite is re-checked by `Guardrails`, and a failing line falls back to plain (tests).
-- [ ] A Share button per line sends that line only, plus the tagline, through the share sheet (`ShareText` tests)
-- [ ] Source-scan test: `ACTION_SEND` appears only in the share UI (nothing is sent automatically)
+- [x] Plain or tea tone. The tea rewrite is re-checked by `Guardrails`, and a failing line falls back to plain (tests).
+- [x] A Share button per line sends that line only, plus the tagline, through the share sheet (`ShareText` tests)
+- [x] Source-scan test: `ACTION_SEND` appears only in the share UI (nothing is sent automatically)
 
 ### C5 Quality eval
-- [ ] 20 synthetic conversations with the facts that must survive, in `brief/src/test/resources/eval/`
-- [ ] Briefing lab "Run eval" scores facts kept and facts invented on the real model. A JVM test checks the scoring with the fake `Llm`.
+- [x] 20 synthetic conversations with the facts that must survive, in `EvalSet` (`:brief` main code, not test resources, so the lab can run them on the phone)
+- [x] Briefing lab "Run eval" scores facts kept and facts invented on the real model. A JVM test checks the scoring with the fake `Llm`.
 
 **Test on phone (Run 3):**
 - a friend marked as VIP sends an urgent message (it rings) and a non-urgent one (it doesn't);

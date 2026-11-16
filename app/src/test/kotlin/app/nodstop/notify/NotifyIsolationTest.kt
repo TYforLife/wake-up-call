@@ -37,4 +37,14 @@ class NotifyIsolationTest {
         val hits = files.flatMap { f -> code(f).flatMap { (i, l) -> forbidden.filter { l.contains(it) }.map { "${f.name}:${i + 1}: $it" } } }
         assertTrue(hits.isEmpty(), "message types leaked into: $hits")
     }
+
+    /** C4: nothing is ever sent automatically. Sharing a line happens only in the share UI, on a tap. */
+    @Test
+    fun `only the share UI and the trip-log share use ACTION_SEND`() {
+        val allowed = setOf("ShareLine.kt", "TraceLogger.kt")
+        val all = root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
+        val users = all.filter { f -> code(f).any { (_, l) -> l.contains("ACTION_SEND") } }.map { it.name }.toSet()
+        assertTrue("ShareLine.kt" in users, "share UI not found")
+        assertTrue((users - allowed).isEmpty(), "ACTION_SEND outside the share UI: ${users - allowed}")
+    }
 }

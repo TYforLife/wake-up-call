@@ -549,12 +549,18 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   conversations. No AI below 20% battery. The model is loaded once per trip, unloaded after the final pass.
   The lead is short (§3), so the final pass may not finish before the ring: W2 shows the newest
   finished batch plus digest lines for anything newer.
-- Urgent: only for important contacts the rider types in (matched against sender or conversation
-  title; no contacts permission). The model classifies each of their messages; urgent sends
-  `Input.Urgent` (W1).
-- Tones: plain (default) or "tea". Tea rewrites the final lines; W5 is checked again after the rewrite.
-- Share-back: a Share button on each line opens the share sheet with that line only, plus
-  "recapped while I napped · Nodstop". Nothing is ever sent automatically.
+- Urgent: only for important contacts the rider types in on Readiness (matched as whole words against
+  sender or conversation title; no contacts permission). Each new VIP message, newest first and at most
+  5 per check, goes to the model alone ("YES or NO"); anything but a clear YES is not urgent. Urgent
+  checks run before briefing passes, one model job at a time. Urgent sends `Input.Urgent` (W1) and
+  marks that chat, which the alarm screen shows first ("urgent: this woke you").
+- Tones: plain (default) or "tea" (Readiness switch). Tea is a second model call over the checked lines;
+  W5 is checked again on each rewrite, and a failing or missing rewrite keeps the plain line.
+- Share-back: after "I'm awake" on the alarm screen, if there is anything to read, the screen stays
+  open ("You're awake") with a **Share this line** button per line and **Done**. Share unlocks the
+  phone and opens the share sheet with that line only, plus "recapped while I napped · Nodstop"
+  (`ShareText`, `ShareLine`: the only place a line leaves the app). Nothing is ever sent
+  automatically. The messages are cleared on Done (or when that screen goes away), still W3.
 
 ### Model
 
@@ -563,7 +569,8 @@ Default Gemma 4 E2B (`.litertlm`), fallback Gemma 3 1B. Runtime: LiteRT-LM
 Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend. The rider downloads the file on the phone and
 imports it in Debug → **Briefing lab** (`ModelManager`, app storage, select or delete); the lab also
 times the model on made-up chats (`SampleChats`). With no model, the alarm screen shows the digest
-only. The default is confirmed at Decision C (`docs/PLAN.md`).
+only. **Decision C (owner, 2026-11-16): Gemma 4 E2B is the default**; Gemma 3 1B stays the fallback
+for phones where it is too slow.
 
 How a pass runs (`BriefingCoordinator`, asked on every trip tick): `BatchPlan` decides; loading the
 model is not time-limited (the first load can take a minute), only the model call is (60 s); the
@@ -571,6 +578,14 @@ answer is parsed, checked (W5) and stored per conversation with the newest messa
 The alarm screen (`PanelLines`) shows a model line only while it still covers that conversation's
 newest message, else the digest line. Results are tagged with the store's generation, so a pass that
 started before the alarm screen closed can't bring old text back (W3).
+
+### Quality eval
+
+`EvalSet`: 20 made-up conversations, each with the facts a good line must keep. `EvalRunner` sends them
+through the real prompt, parser and guardrails in prompts of 10 and scores facts kept and lines that
+invented something. Debug → Briefing lab → **Run eval** runs it with the real model on the phone; JVM
+tests check the scoring with a fake model. (It already found one guardrail false positive: a possessive
+such as "Lena's" in a message now vouches for "Lena".)
 
 ### Alarm screen
 

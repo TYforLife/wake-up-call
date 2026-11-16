@@ -172,7 +172,8 @@ class TripService : Service() {
         MessageStore.instance.start()
         DndController.onTripStart(this)
         briefing?.stop()
-        briefing = BriefingCoordinator(this, now)
+        // An urgent VIP message (DESIGN §10): ring now, through the engine and the single ring path (W1).
+        briefing = BriefingCoordinator(this, now) { handler.post { input(Input.Urgent(System.currentTimeMillis())) } }
         val file = if (traceFile != null) app.traces.continueTrip(traceFile) else app.traces.newTrip(now)
         note?.let { app.traces.note(now, it) }
         trip = ActiveTrip(routeId, routeName, allLegs, legOffset, 0, startedMs, file.name,

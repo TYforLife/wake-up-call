@@ -13,9 +13,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import app.nodstop.notify.MessageStore
 import app.nodstop.trip.TripService
+import app.nodstop.ui.AfterWakeScreen
 import app.nodstop.ui.AlarmScreen
+import app.nodstop.ui.ShareLine
 
 /**
  * Shown over the lock screen while ringing. Stops the ring with: a 1 s hold on the big "I'm awake" area,
@@ -24,6 +27,8 @@ import app.nodstop.ui.AlarmScreen
  */
 class AlarmActivity : ComponentActivity() {
     private var volumeDownSince = 0L
+    /** "I'm awake" was held here and there's something to read: show it until Done (DESIGN §10). */
+    private val acked = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,9 +42,33 @@ class AlarmActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 val ring by RingService.state.collectAsState()
-                AlarmScreen(ring = ring, holdMs = 1_000, onAwake = { awake(this); finish() }, onClose = { finish() })
+                val current = ring
+                if (current == null && acked.value) {
+                    AfterWakeScreen(onShare = { ShareLine.share(this, it) }, onDone = { close() })
+                } else {
+                    AlarmScreen(ring = current, holdMs = 1_000, onAwake = { awakeHere() }, onClose = { close() })
+                }
             }
         }
+    }
+
+    /** Held "I'm awake" on this screen: keep it open to read the briefing if there is one. */
+    private fun awakeHere() {
+        awake(this, clearMessages = false)
+        val snap = MessageStore.instance.snapshot()
+        if (snap.active && (snap.messages.isNotEmpty() || snap.otherNotifications > 0)) acked.value = true else close()
+    }
+
+    /** Closing the alarm screen forgets the messages it showed (W3). */
+    private fun close() {
+        MessageStore.instance.clear()
+        acked.value = false
+        finish()
+    }
+
+    override fun onDestroy() {
+        if (acked.value && !isChangingConfigurations) MessageStore.instance.clear()
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -80,11 +109,11 @@ class AlarmActivity : ComponentActivity() {
         private const val VOLUME_HOLD_MS = 1_500L
 
         /** "I'm awake": stop the ring and tell the trip; if the trip process was killed, resume it. */
-        fun awake(ctx: Context) {
+        fun awake(ctx: Context, clearMessages: Boolean = true) {
             val wasTest = RingService.state.value?.test == true
             RingService.stop(ctx)
             // The alarm screen is closing: forget the messages it showed (DESIGN §10, W3).
-            MessageStore.instance.clear()
+            if (clearMessages) MessageStore.instance.clear()
             val svc = TripService.instance
             when {
                 svc != null -> svc.ack()

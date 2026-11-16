@@ -41,4 +41,12 @@ class PanelTextTest {
         assertEquals("Mum asks if you're home for dinner.", line.text)
         assertEquals("needs a reply", PanelText.tags(line))
     }
+
+    @Test
+    fun `the urgent chat says it woke you`() {
+        val d = Digests.build(listOf(m("Daycare", "Daycare", "call us now", 5), m("Kai", "Kai", "lol", 6)), 0)
+        val lines = PanelLines.combine(d, emptyMap(), setOf("a/Daycare"))
+        assertEquals("Daycare", lines.first().title)
+        assertEquals("urgent: this woke you", PanelText.tags(lines.first()))
+    }
 }
