@@ -58,4 +58,15 @@ class UrgencyTest {
         assertEquals(listOf(daycare), checked)
         assertNull(UrgencyChecker(model).firstUrgent(listOf(mumLater)))
     }
+
+    /** A check that timed out or failed must not resend the same message on every tick. */
+    @Test
+    fun `each VIP message gets one attempt`() {
+        val checked = HashSet<String>()
+        assertEquals(listOf(daycare, mumLater), Urgency.take(listOf(mumLater, daycare, flat), listOf("Mum", "Daycare"), checked))
+        // The model never answered; the next tick must not pick them again.
+        assertTrue(Urgency.take(listOf(mumLater, daycare, flat), listOf("Mum", "Daycare"), checked).isEmpty())
+        val newer = m("Mum", "Mum", "call me", 99)
+        assertEquals(listOf(newer), Urgency.take(listOf(mumLater, daycare, newer), listOf("Mum", "Daycare"), checked))
+    }
 }

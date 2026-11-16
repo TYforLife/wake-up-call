@@ -21,6 +21,13 @@ object Urgency {
             .take(MAX_PER_PASS)
     }
 
+    /**
+     * Picks the next candidates AND marks them checked: each VIP message gets one model attempt, so a
+     * timeout or an error can't send the same message to the model again on every tick.
+     */
+    fun take(messages: List<CapturedMessage>, vipNames: List<String>, checked: MutableSet<String>): List<CapturedMessage> =
+        candidates(messages, vipNames, checked).also { picked -> picked.forEach { checked += key(it) } }
+
     fun prompt(m: CapturedMessage): String = buildString {
         appendLine("Someone is asleep on a bus. Decide if this message means they must wake up now:")
         appendLine("an emergency, or the sender needs them to act or reply within minutes.")
