@@ -7,6 +7,7 @@ import app.nodstop.data.RouteStore
 import app.nodstop.data.Settings
 import app.nodstop.data.TraceLogger
 import app.nodstop.data.TripStore
+import app.nodstop.model.ModelManager
 import app.nodstop.notify.DndController
 
 /** Manual wiring: one instance of each, no DI framework. */
@@ -17,6 +18,7 @@ class App : Application() {
     lateinit var settings: Settings
     lateinit var traces: TraceLogger
     lateinit var scheduler: AlarmScheduler
+    lateinit var models: ModelManager
 
     override fun onCreate() {
         super.onCreate()
@@ -28,6 +30,7 @@ class App : Application() {
         settings = Settings(this)
         traces = TraceLogger(this)
         scheduler = AlarmScheduler(this)
+        models = ModelManager(this)
         Notifications.createChannels(this)
         // A fresh process has no trip running yet: undo Do Not Disturb if a crash left ours on (DESIGN §10).
         DndController.onTripEnd(this)

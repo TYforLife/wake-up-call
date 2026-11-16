@@ -289,7 +289,8 @@ Kotlin, Jetpack Compose (Material 3), single activity plus `AlarmActivity`.
 No DI framework, no Room, no Hilt: manual wiring (`App`), JSON in app storage.
 
 Dependencies: Compose BOM, `activity-compose` (hosts Compose), `play-services-location`,
-`kotlinx-serialization-json`, `maplibre` (the map: open source, no account or API key); JUnit 5 for
+`kotlinx-serialization-json`, `maplibre` (the map: open source, no account or API key),
+`litertlm-android` (on-device Gemma for While You Slept, §10; about +20 MB of native code); JUnit 5 for
 tests. Nothing else without a reason written in the PR. Test builds include only `arm64-v8a` native
 code (the owner's phone), which keeps MapLibre to about +14 MB.
 
@@ -558,9 +559,18 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
 ### Model
 
 Default Gemma 4 E2B (`.litertlm`), fallback Gemma 3 1B. Runtime: LiteRT-LM
-(`com.google.ai.edge.litertlm:litertlm-android`). The rider downloads the file on the phone and
-imports it; the app copies it into its own storage. With no model, the alarm screen shows the
-digest only. The default is confirmed at Decision C (`docs/PLAN.md`).
+(`com.google.ai.edge.litertlm:litertlm-android` **0.16.1**, the newest built with this project's
+Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend. The rider downloads the file on the phone and
+imports it in Debug → **Briefing lab** (`ModelManager`, app storage, select or delete); the lab also
+times the model on made-up chats (`SampleChats`). With no model, the alarm screen shows the digest
+only. The default is confirmed at Decision C (`docs/PLAN.md`).
+
+How a pass runs (`BriefingCoordinator`, asked on every trip tick): `BatchPlan` decides; loading the
+model is not time-limited (the first load can take a minute), only the model call is (60 s); the
+answer is parsed, checked (W5) and stored per conversation with the newest message time it covers.
+The alarm screen (`PanelLines`) shows a model line only while it still covers that conversation's
+newest message, else the digest line. Results are tagged with the store's generation, so a pass that
+started before the alarm screen closed can't bring old text back (W3).
 
 ### Alarm screen
 
