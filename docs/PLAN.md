@@ -167,7 +167,7 @@ Prerequisite: Run 1 merged, Gate B ticked.
 - post the timings and any crash in a PR comment;
 - do 3 rides with the briefing.
 
-- [ ] **DECISION C (Tae):** default model. Gemma 4 E2B if its final pass finishes in under 60 s with no crashes; otherwise Gemma 3 1B. Recorded in DESIGN §10.
+- [x] **DECISION C (Tae):** Gemma 4 E2B is the default model (owner, 2026-11-16). Recorded in DESIGN §10.
 
 ---
 

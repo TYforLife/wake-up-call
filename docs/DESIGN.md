@@ -563,7 +563,8 @@ Default Gemma 4 E2B (`.litertlm`), fallback Gemma 3 1B. Runtime: LiteRT-LM
 Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend. The rider downloads the file on the phone and
 imports it in Debug → **Briefing lab** (`ModelManager`, app storage, select or delete); the lab also
 times the model on made-up chats (`SampleChats`). With no model, the alarm screen shows the digest
-only. The default is confirmed at Decision C (`docs/PLAN.md`).
+only. **Decision C (owner, 2026-11-16): Gemma 4 E2B is the default**; Gemma 3 1B stays the fallback
+for phones where it is too slow.
 
 How a pass runs (`BriefingCoordinator`, asked on every trip tick): `BatchPlan` decides; loading the
 model is not time-limited (the first load can take a minute), only the model call is (60 s); the
