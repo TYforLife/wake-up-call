@@ -515,12 +515,16 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
 
 ### Engine (`:engine`)
 
-- `Input.Urgent(tMs)`: in WAITING, RIDING or AWAKE, `alarmAt = tMs` with `AlarmReason.URGENT`.
-  Ignored in other phases, and after `MAX_URGENT_RINGS` urgent rings in one trip.
-- Acking an URGENT ring follows §2.1: it counts as "awake for this stop" only when the stop was
-  ≤ 3 min away; otherwise tracking continues and the stop alarm rings as usual (with REARM).
-- Property: adding `Urgent` and `Ack` inputs to any trip never makes any later scheduled alarm
-  later than in the same trip without them, and the §2 invariant still holds.
+- `Input.Urgent(tMs)` (trace kind `urgent`): in WAITING, RIDING or AWAKE, `alarmAt = tMs` with
+  `AlarmReason.URGENT`. Ignored in other phases, when an alarm is already due, and after
+  `MAX_URGENT_RINGS` urgent rings in one trip. Fixes arriving before it rings can't push it later.
+- **Acking an URGENT ring never counts as "awake for this stop"**, however close the stop is: you
+  may doze off again. The engine goes back to the phase it was in and restores the stop alarm it
+  had, or the one the newest fix gives if that's sooner, with no REARM delay.
+- Property (`UrgentTest`, 1,000 random trips): with random urgent rings acked after random delays,
+  until either run first rings for the stop, the trip is at every step ringing or scheduled no later
+  than the same trip without them; and its stop ring comes no later than without them (or than its
+  last urgent ack, if that came after).
 
 ### Capture (`:app`, package `app.nodstop.notify`)
 

@@ -109,11 +109,11 @@ A second source-scan test covers W3 and W6: the `notify` and `brief` packages us
 Prerequisite: none beyond a green `main`.
 
 ### B1 Engine: urgent rings
-- [ ] `Input.Urgent` and `AlarmReason.URGENT` per DESIGN §10, with trace kind `urgent` (replay-safe)
-- [ ] Ignored outside WAITING, RIDING and AWAKE, and after `MAX_URGENT_RINGS` (2) per trip (tests)
-- [ ] Acking an URGENT ring follows §2.1: far from the stop, tracking continues and the stop alarm still rings (test)
-- [ ] Property test: the existing random trips with random `Urgent`/`Ack` inserted. At every step the §2 invariant holds, and the alarm is ≤ the same trip's alarm without the inserts, whenever both are scheduled.
-- [ ] Every trace in `engine/src/test/resources/traces/` still replays identically
+- [x] `Input.Urgent` and `AlarmReason.URGENT` per DESIGN §10, with trace kind `urgent` (replay-safe)
+- [x] Ignored outside WAITING, RIDING and AWAKE, and after `MAX_URGENT_RINGS` (2) per trip (tests)
+- [x] Acking an URGENT ring never counts as "awake for this stop", far or near; the stop alarm still rings (tests)
+- [x] Property test: random trips with random `Urgent`/`Ack` inserted. Until either run rings for the stop, the trip is at every step ringing or scheduled no later than without the inserts; the stop ring is no later either.
+- [x] Every trace in `engine/src/test/resources/traces/` still replays identically
 
 ### B2 `:brief` module and plain digest
 - [ ] New module `:brief` with the purity test; `CLAUDE.md` rule 3 mentions it

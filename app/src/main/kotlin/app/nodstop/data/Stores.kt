@@ -101,7 +101,8 @@ object Resume {
         val awake = when (trip.alarmReason) {
             AlarmReason.WAKE, AlarmReason.OVERSHOOT, AlarmReason.NEXT_LEG -> true
             AlarmReason.FAILSAFE -> remaining != null && remaining <= NEAR_S
-            AlarmReason.NO_GPS, null -> false
+            // An urgent message is never "awake for this stop" (DESIGN §10): keep tracking it.
+            AlarmReason.NO_GPS, AlarmReason.URGENT, null -> false
         }
         return ResumePlan(trip.legs.drop(trip.legIndex), trip.legIndex, awake)
     }

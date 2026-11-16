@@ -46,6 +46,8 @@ data class Config(
     val rearmS: Double = 120.0,
     /** An ack only counts as "awake for this stop" within this ETA; earlier rings keep tracking. */
     val ackCountsWithinS: Double = 180.0,
+    /** While You Slept: urgent-message rings per trip, at most (DESIGN §10). */
+    val maxUrgentRings: Int = 2,
     /** Route learning. */
     val matchRadiusM: Double = 60.0,
     /** Along-route distances are scaled down by this (GPS noise and corner-cutting never make them too long). */

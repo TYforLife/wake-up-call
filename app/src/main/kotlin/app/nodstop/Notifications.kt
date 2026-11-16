@@ -122,6 +122,7 @@ object Notifications {
         AlarmReason.FAILSAFE -> "GPS stopped: your stop may be close. Check where you are."
         AlarmReason.NEXT_LEG -> "GPS stopped: check where you are."
         AlarmReason.OVERSHOOT -> "You passed your stop."
+        AlarmReason.URGENT -> "An urgent message from someone you marked important. Your stop alarm is still on."
         else -> null
     }
 
@@ -136,7 +137,11 @@ object Notifications {
             Intent(ctx, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(AlarmActivity.EXTRA_ACK, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = if (reason == AlarmReason.OVERSHOOT) "You passed your stop!" else "Wake up! Your stop is close"
+        val title = when (reason) {
+            AlarmReason.OVERSHOOT -> "You passed your stop!"
+            AlarmReason.URGENT -> "Urgent message"
+            else -> "Wake up! Your stop is close"
+        }
         return Notification.Builder(ctx, CH_ALARM)
             .setSmallIcon(R.drawable.ic_tile)
             .setContentTitle(title)

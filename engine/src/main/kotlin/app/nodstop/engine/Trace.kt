@@ -6,7 +6,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * One JSON Lines record, shared by the app's trip logger and the replay test.
- * Kinds: start (legs, including what was learned about each stop), fix, tick, rang, ack, skip, stop (inputs);
+ * Kinds: start (legs, including what was learned about each stop), fix, tick, rang, ack, skip, stop, urgent (inputs);
  * out (engine output summary);
  * rate and note (app annotations, ignored by replay).
  */
@@ -60,6 +60,7 @@ object Trace {
         is Input.Ack -> TraceEvent(input.tMs, "ack")
         is Input.SkipLeg -> TraceEvent(input.tMs, "skip")
         is Input.Stop -> TraceEvent(input.tMs, "stop")
+        is Input.Urgent -> TraceEvent(input.tMs, "urgent")
     }
 
     fun toInput(e: TraceEvent): Input? = when (e.k) {
@@ -73,6 +74,7 @@ object Trace {
         "ack" -> Input.Ack(e.t)
         "skip" -> Input.SkipLeg(e.t)
         "stop" -> Input.Stop(e.t)
+        "urgent" -> Input.Urgent(e.t)
         else -> null
     }
 
