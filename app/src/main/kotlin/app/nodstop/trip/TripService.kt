@@ -16,6 +16,7 @@ import android.util.Log
 import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
+import app.nodstop.brief.BriefingCoordinator
 import app.nodstop.notify.DndController
 import app.nodstop.notify.MessageStore
 import app.nodstop.data.ActiveTrip
@@ -68,10 +69,13 @@ class TripService : Service() {
     private var lastNotifyMs = 0L
     private var lastReason: AlarmReason? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var briefing: BriefingCoordinator? = null
 
     private val tick = object : Runnable {
         override fun run() {
-            input(Input.Tick(System.currentTimeMillis()))
+            val now = System.currentTimeMillis()
+            input(Input.Tick(now))
+            briefing?.onTick(now, lastScheduled)
             handler.postDelayed(this, TICK_MS)
         }
     }
@@ -167,6 +171,8 @@ class TripService : Service() {
         // While You Slept (DESIGN §10): catch chat notifications while this trip runs, in memory only.
         MessageStore.instance.start()
         DndController.onTripStart(this)
+        briefing?.stop()
+        briefing = BriefingCoordinator(this, now)
         val file = if (traceFile != null) app.traces.continueTrip(traceFile) else app.traces.newTrip(now)
         note?.let { app.traces.note(now, it) }
         trip = ActiveTrip(routeId, routeName, allLegs, legOffset, 0, startedMs, file.name,
@@ -257,6 +263,7 @@ class TripService : Service() {
     }
 
     private fun shutdown() {
+        briefing?.stop(); briefing = null
         MessageStore.instance.stop()
         DndController.onTripEnd(this)
         source?.stop()
@@ -279,6 +286,7 @@ class TripService : Service() {
 
     override fun onDestroy() {
         // Do NOT cancel the alarm here: if the system destroys us, the scheduled alarm is the dead-man's switch.
+        briefing?.stop(); briefing = null
         MessageStore.instance.stop()
         DndController.onTripEnd(this)
         source?.stop()

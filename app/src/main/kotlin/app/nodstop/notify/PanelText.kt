@@ -1,7 +1,7 @@
 package app.nodstop.notify
 
 import app.nodstop.brief.Digest
-import app.nodstop.brief.DigestLine
+import app.nodstop.brief.PanelLine
 
 /** Words for the alarm screen's "While you slept" panel (DESIGN §10). Plain Kotlin, tested on the JVM. */
 object PanelText {
@@ -22,8 +22,11 @@ object PanelText {
         }
     }
 
-    fun title(l: DigestLine): String = if (l.count > 1) "${l.title} (${l.count})" else l.title
+    fun title(l: PanelLine): String = if (l.count > 1) "${l.title} (${l.count})" else l.title
 
-    fun body(l: DigestLine): String =
-        if (l.latestSender != null && l.latestSender != l.title) "${l.latestSender}: ${l.latestText}" else l.latestText
+    /** "needs a reply · affects your plans", or null. */
+    fun tags(l: PanelLine): String? = listOfNotNull(
+        "needs a reply".takeIf { l.needsReply },
+        "affects your plans".takeIf { l.affectsYou },
+    ).joinToString(" · ").ifEmpty { null }
 }

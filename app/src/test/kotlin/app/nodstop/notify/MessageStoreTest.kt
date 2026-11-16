@@ -15,7 +15,9 @@ class MessageStoreTest {
         val s = MessageStore()
         assertFalse(s.add(m(1)))
         s.countOther("k")
-        assertEquals(MessageStore.Snapshot(false, emptyList(), 0), s.snapshot())
+        val snap = s.snapshot()
+        assertFalse(snap.active)
+        assertTrue(snap.messages.isEmpty() && snap.otherNotifications == 0)
     }
 
     @Test
@@ -35,10 +37,10 @@ class MessageStoreTest {
         val s = MessageStore()
         s.start(); s.add(m(1)); s.countOther("a")
         s.clear()
-        assertEquals(MessageStore.Snapshot(true, emptyList(), 0), s.snapshot())
+        s.snapshot().let { assertTrue(it.active && it.messages.isEmpty() && it.otherNotifications == 0 && it.added == 0) }
         assertTrue(s.add(m(2)))
         s.stop()
-        assertEquals(MessageStore.Snapshot(false, emptyList(), 0), s.snapshot())
+        s.snapshot().let { assertFalse(it.active); assertTrue(it.messages.isEmpty() && it.briefed.isEmpty()) }
         assertFalse(s.add(m(3)))
     }
 
@@ -59,5 +61,31 @@ class MessageStoreTest {
         s.start(); s.add(m(1))
         s.start()
         assertTrue(s.snapshot().messages.isEmpty())
+    }
+
+    @Test
+    fun `added keeps counting past the 200 kept`() {
+        val s = MessageStore()
+        s.start()
+        (1..250).forEach { s.add(m(it)) }
+        assertEquals(250, s.snapshot().added)
+        assertEquals(200, s.snapshot().messages.size)
+    }
+
+    @Test
+    fun `briefing lines from before a clear are dropped (W3)`() {
+        val s = MessageStore()
+        s.start(); s.add(m(1))
+        val gen = s.snapshot().generation
+        val line = app.nodstop.brief.BriefedLine("com.whatsapp/Flat", "Jess said hi.", false, false, 1)
+        s.mergeBriefed(gen, mapOf(line.convKey to line))
+        assertEquals(setOf("com.whatsapp/Flat"), s.snapshot().briefed.keys)
+        s.clear()
+        assertTrue(s.snapshot().briefed.isEmpty())
+        s.mergeBriefed(gen, mapOf(line.convKey to line)) // a pass that started before the clear
+        assertTrue(s.snapshot().briefed.isEmpty())
+        s.stop()
+        s.mergeBriefed(s.snapshot().generation, mapOf(line.convKey to line)) // no trip
+        assertTrue(s.snapshot().briefed.isEmpty())
     }
 }

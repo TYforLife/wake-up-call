@@ -150,16 +150,16 @@ Prerequisite: Run 1 merged, Gate B ticked.
 - [x] W6 source-scan test still passes; the runtime adds no network use from our code
 
 ### C2 Briefing pipeline
-- [ ] `PromptBuilder`: golden tests; long chats trimmed to a budget, newest messages kept
-- [ ] `BriefParser`: tested with valid lines, junk, partial output and empty output; failures fall back per conversation
-- [ ] `Guardrails` (W5): tested with an invented time, an invented name, a changed number and a clean pass
-- [ ] `BatchPlan` is a pure class tested with time passed in:
+- [x] `PromptBuilder`: golden tests; long chats trimmed to a budget, newest messages kept
+- [x] `BriefParser`: tested with valid lines, junk, partial output and empty output; failures fall back per conversation
+- [x] `Guardrails` (W5): tested with an invented time, an invented name, a changed number and a clean pass
+- [x] `BatchPlan` is a pure class tested with time passed in:
   - a batch every 180 s or every 30 messages;
   - a final pass once the alarm is ≤ 3 min away;
   - a 60 s timeout per call;
   - no AI below 20% battery;
   - the model unloaded after the final pass
-- [ ] End-to-end test with the fake `Llm`: messages in, panel lines out. A model that never answers still gives the digest (W2).
+- [x] End-to-end test with the fake `Llm`: messages in, panel lines out. A model that never answers still gives the digest (W2).
 
 **Test on phone (Run 2):**
 - import Gemma 4 E2B (and Gemma 3 1B);

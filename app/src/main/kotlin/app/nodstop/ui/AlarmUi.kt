@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
 import app.nodstop.brief.Digests
+import app.nodstop.brief.PanelLines
 import app.nodstop.engine.AlarmReason
 import app.nodstop.notify.MessageStore
 import app.nodstop.notify.PanelText
@@ -101,6 +102,7 @@ fun AlarmScreen(ring: RingService.RingUi?, holdMs: Int, onAwake: () -> Unit, onC
 private fun WhileYouSleptPanel(modifier: Modifier) {
     val snap by MessageStore.instance.state.collectAsState()
     val digest = remember(snap) { Digests.build(snap.messages, snap.otherNotifications) }
+    val lines = remember(snap) { PanelLines.combine(digest, snap.briefed) }
     Column(
         modifier
             .clip(RoundedCornerShape(20.dp))
@@ -111,10 +113,11 @@ private fun WhileYouSleptPanel(modifier: Modifier) {
     ) {
         Text("While you slept", color = Color(0xFFFFC94A), fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Text(PanelText.summary(snap.active, digest), color = Color(0xFF9AA7C7), fontSize = 13.sp)
-        for (line in digest.lines.take(PanelText.MAX_LINES)) {
+        for (line in lines.take(PanelText.MAX_LINES)) {
             Spacer(Modifier.height(2.dp))
             Text(PanelText.title(line), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Text(PanelText.body(line), color = Color(0xFFDDE3F5), fontSize = 14.sp)
+            Text(line.text, color = Color(0xFFDDE3F5), fontSize = 14.sp)
+            PanelText.tags(line)?.let { Text(it, color = Color(0xFFFFD27A), fontSize = 12.sp) }
         }
     }
 }
