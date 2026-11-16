@@ -120,11 +120,11 @@ Prerequisite: none beyond a green `main`.
 - [x] `Digest` per DESIGN §10, tested with a 64-message group, three one-to-one chats, VIP ordering, and non-chat notifications (counted, not read)
 
 ### B3 Capture and the alarm-screen panel
-- [ ] `CaptureService` stores messages only while a trip runs (W3, W4). Own app and non-chat notifications are counted only.
-- [ ] `MessageStore` is plain Kotlin, tested to clear on close and on Stop, and to keep the newest 200
-- [ ] W3/W6 source-scan test (see "Where things go")
-- [ ] The alarm screen shows the "While you slept" panel with the digest, or "Briefing unavailable" (W2)
-- [ ] Readiness row for notification access, with a button to its settings page
+- [x] `CaptureService` stores messages only while a trip runs (W3, W4). Own app and non-chat notifications are counted only.
+- [x] `MessageStore` is plain Kotlin, tested to clear on close and on Stop, and to keep the newest 200
+- [x] W3/W6 source-scan test (see "Where things go")
+- [x] The alarm screen shows the "While you slept" panel with the digest, or "Briefing unavailable" (W2)
+- [x] Readiness row for notification access, with a button to its settings page
 
 ### B4 Do Not Disturb during trips (experimental, off by default)
 - [ ] A toggle on Readiness, plus the Do Not Disturb access request
