@@ -441,6 +441,8 @@ Anything device-only goes on the couch-test checklist in the PR description.
 
 ## 8. Roadmap (after v0 is trusted)
 
+**While You Slept** (on-device notification briefing on the alarm screen): spec in §10, work order in `docs/PLAN.md`.
+
 **Rule for everything below:** live data from AT can only make an alarm earlier, never later. The
 GPS dead-man's switch stays the guaranteed fallback; ghost buses or a dead feed degrade to GPS-only.
 
@@ -482,3 +484,87 @@ GPS dead-man's switch stays the guaranteed fallback; ghost buses or a dead feed 
   Check Play's payments policy before adding any in-app tip button.
 - Final name and application ID (Nodstop / `app.nodstop` for now): check the name is free on Play
   and as a domain before the first release.
+
+---
+
+## 10. While You Slept (v1: on-device briefing)
+
+While you sleep, the phone holds your notifications and reads your chats on the phone itself.
+When the alarm rings, the alarm screen also shows what you missed: a few lines per conversation.
+The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
+
+### Invariants (rank with §2; each one has a test)
+
+- **W1. The AI can only ring earlier.** Its only way into the engine is `Input.Urgent`, which
+  schedules the alarm at `now` (reason URGENT). Nothing on the briefing path can cancel, delay
+  or silence a ring.
+- **W2. The ring never waits for the briefing.** The alarm screen shows the best thing ready:
+  the Gemma briefing, else the plain digest, else "Briefing unavailable".
+- **W3. Message text lives in process memory only.** It never goes into traces, `note` or `rate` lines,
+  logs, files or crash reports. It is cleared when the alarm screen closes or the trip stops; a process
+  death loses it (W2 covers that).
+- **W4. Chats only.** Text is read only from notifications with MessagingStyle or category `msg`, from
+  other apps, while a trip runs. Everything else is counted, never read. News is never summarized.
+- **W5. Facts are copied, not invented.** Every name, time, date, number and place in a briefing line
+  must appear in that conversation's source text. A line that fails is replaced by its digest line.
+- **W6. Message text never touches network code.** The app needs `INTERNET` for map tiles (§5),
+  so this is enforced in the code: `:brief` is pure Kotlin, and a source-scan test fails if the
+  `notify` or `brief` packages use networking (`java.net`, sockets, HTTP clients, MapLibre).
+  Message types never cross into map, tile or trace code. The rider imports the model file through
+  the system file picker; the app never downloads it.
+
+### Engine (`:engine`)
+
+- `Input.Urgent(tMs)`: in WAITING, RIDING or AWAKE, `alarmAt = tMs` with `AlarmReason.URGENT`.
+  Ignored in other phases, and after `MAX_URGENT_RINGS` urgent rings in one trip.
+- Acking an URGENT ring follows §2.1: it counts as "awake for this stop" only when the stop was
+  ≤ 3 min away; otherwise tracking continues and the stop alarm rings as usual (with REARM).
+- Property: adding `Urgent` and `Ack` inputs to any trip never makes any later scheduled alarm
+  later than in the same trip without them, and the §2 invariant still holds.
+
+### Capture (`:app`, package `app.nodstop.notify`)
+
+- `CaptureService` (NotificationListenerService) writes to an in-memory `MessageStore`, only while a
+  trip runs. Conversation key = package + conversation title. Newest 200 messages per trip.
+- **Do Not Disturb during trips**: optional, off by default, experimental until Gate B confirms the
+  earbud tone and the at-stop buzz still come through. Sets `INTERRUPTION_FILTER_ALARMS` at Start,
+  restores the previous filter on Stop, DONE or service destroy, and on next app start if a
+  "set by us" flag survived a crash.
+
+### Briefing (`:brief`, pure Kotlin/JVM: same rules as `:engine`)
+
+- `Digest`: per conversation, the sender, message count and latest message (≤ 120 chars); important
+  contacts (VIPs) first, then by count; plus "N other notifications".
+- `PromptBuilder`, `BriefParser` (JSON lines `{"c":"<conv id>","line":"…","tags":["affects_you","needs_reply"]}`),
+  `Guardrails` (W5), `ShareText`. The model sits behind
+  `interface Llm { suspend fun generate(prompt: String, maxTokens: Int): String }`: LiteRT-LM in `:app`,
+  a fake in tests.
+- Timing: summarize in batches (every 180 s, or every 30 new messages); a final pass once the
+  scheduled alarm is ≤ 3 min away. Each call times out at 60 s and falls back to the digest for its
+  conversations. No AI below 20% battery. The model is loaded once per trip, unloaded after the final pass.
+  The lead is short (§3), so the final pass may not finish before the ring: W2 shows the newest
+  finished batch plus digest lines for anything newer.
+- Urgent: only for important contacts the rider types in (matched against sender or conversation
+  title; no contacts permission). The model classifies each of their messages; urgent sends
+  `Input.Urgent` (W1).
+- Tones: plain (default) or "tea". Tea rewrites the final lines; W5 is checked again after the rewrite.
+- Share-back: a Share button on each line opens the share sheet with that line only, plus
+  "recapped while I napped · Nodstop". Nothing is ever sent automatically.
+
+### Model
+
+Default Gemma 4 E2B (`.litertlm`), fallback Gemma 3 1B. Runtime: LiteRT-LM
+(`com.google.ai.edge.litertlm:litertlm-android`). The rider downloads the file on the phone and
+imports it; the app copies it into its own storage. With no model, the alarm screen shows the
+digest only. The default is confirmed at Decision C (`docs/PLAN.md`).
+
+### Alarm screen
+
+Below the existing stop name, reason and hold area, a scrollable "While you slept" panel shows the
+briefing or digest. For URGENT rings, the urgent conversation's line comes first.
+
+### Parameters
+
+`MAX_URGENT_RINGS` 2 · `BATCH_INTERVAL` 180 s · `BATCH_SIZE` 30 · `FINAL_PASS_BEFORE_ALARM` 180 s ·
+`LLM_TIMEOUT` 60 s · `MIN_BATTERY_FOR_AI` 20% · `MAX_MESSAGES_PER_TRIP` 200 (keep newest).
+New dependency in this phase: `litertlm-android` (on-device Gemma runtime).
