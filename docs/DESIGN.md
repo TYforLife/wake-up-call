@@ -549,12 +549,18 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   conversations. No AI below 20% battery. The model is loaded once per trip, unloaded after the final pass.
   The lead is short (§3), so the final pass may not finish before the ring: W2 shows the newest
   finished batch plus digest lines for anything newer.
-- Urgent: only for important contacts the rider types in (matched against sender or conversation
-  title; no contacts permission). The model classifies each of their messages; urgent sends
-  `Input.Urgent` (W1).
-- Tones: plain (default) or "tea". Tea rewrites the final lines; W5 is checked again after the rewrite.
-- Share-back: a Share button on each line opens the share sheet with that line only, plus
-  "recapped while I napped · Nodstop". Nothing is ever sent automatically.
+- Urgent: only for important contacts the rider types in on Readiness (matched as whole words against
+  sender or conversation title; no contacts permission). Each new VIP message, newest first and at most
+  5 per check, goes to the model alone ("YES or NO"); anything but a clear YES is not urgent. Urgent
+  checks run before briefing passes, one model job at a time. Urgent sends `Input.Urgent` (W1) and
+  marks that chat, which the alarm screen shows first ("urgent: this woke you").
+- Tones: plain (default) or "tea" (Readiness switch). Tea is a second model call over the checked lines;
+  W5 is checked again on each rewrite, and a failing or missing rewrite keeps the plain line.
+- Share-back: after "I'm awake" on the alarm screen, if there is anything to read, the screen stays
+  open ("You're awake") with a **Share this line** button per line and **Done**. Share unlocks the
+  phone and opens the share sheet with that line only, plus "recapped while I napped · Nodstop"
+  (`ShareText`, `ShareLine`: the only place a line leaves the app). Nothing is ever sent
+  automatically. The messages are cleared on Done (or when that screen goes away), still W3.
 
 ### Model
 

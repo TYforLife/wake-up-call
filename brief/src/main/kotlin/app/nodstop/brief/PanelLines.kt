@@ -11,6 +11,8 @@ data class PanelLine(
     val affectsYou: Boolean,
     val needsReply: Boolean,
     val vip: Boolean,
+    /** A VIP's message the model judged urgent: it rang, and it is shown first. */
+    val urgent: Boolean = false,
 )
 
 /**
@@ -18,7 +20,7 @@ data class PanelLine(
  * the plain digest line everywhere else. Order and grouping follow the digest.
  */
 object PanelLines {
-    fun combine(d: Digest, briefed: Map<String, BriefedLine>): List<PanelLine> = d.lines.map { l ->
+    fun combine(d: Digest, briefed: Map<String, BriefedLine>, urgentConvKeys: Set<String> = emptySet()): List<PanelLine> = d.lines.map { l ->
         val b = briefed[l.convKey]?.takeIf { it.coveredUntilMs >= l.latestMs }
         PanelLine(
             convKey = l.convKey,
@@ -29,8 +31,9 @@ object PanelLines {
             affectsYou = b?.affectsYou == true,
             needsReply = b?.needsReply == true,
             vip = l.vip,
+            urgent = l.convKey in urgentConvKeys,
         )
-    }
+    }.sortedByDescending { it.urgent }
 
     fun digestText(l: DigestLine): String =
         if (l.latestSender != null && l.latestSender != l.title) "${l.latestSender}: ${l.latestText}" else l.latestText

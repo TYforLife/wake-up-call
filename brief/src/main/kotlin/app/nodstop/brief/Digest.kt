@@ -45,7 +45,7 @@ object Digests {
      * [otherNotifications] (non-chat ones) are only counted, never read (W4).
      */
     fun build(messages: List<CapturedMessage>, otherNotifications: Int, vipNames: List<String> = emptyList()): Digest {
-        val vips = vipNames.map(::normalize).filter { it.isNotEmpty() }
+        val vips = normalizeVips(vipNames)
         val lines = messages.groupBy { it.convKey }.map { (key, msgs) ->
             val latest = msgs.maxWith(compareBy<CapturedMessage> { it.tMs })
             DigestLine(
@@ -78,6 +78,9 @@ object Digests {
         val flat = text.replace(Regex("\\s+"), " ").trim()
         return if (flat.length <= max) flat else flat.take(max - 1).trimEnd() + "…"
     }
+
+    /** VIP names as [isVip] expects them: lower case, punctuation as spaces, blanks dropped. */
+    fun normalizeVips(names: List<String>): List<String> = names.map(::normalize).filter { it.isNotEmpty() }
 
     private fun normalize(s: String): String = s.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
 }

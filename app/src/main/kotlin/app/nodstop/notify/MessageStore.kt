@@ -21,6 +21,8 @@ class MessageStore(private val maxMessages: Int = 200) {
         val generation: Int = 0,
         /** Checked model lines per conversation (DESIGN §10); the digest covers the rest. */
         val briefed: Map<String, BriefedLine> = emptyMap(),
+        /** Conversations with a message the model judged urgent (shown first). */
+        val urgent: Set<String> = emptySet(),
     )
 
     private val lock = Any()
@@ -31,6 +33,7 @@ class MessageStore(private val maxMessages: Int = 200) {
     private var added = 0
     private var generation = 0
     private val briefed = LinkedHashMap<String, BriefedLine>()
+    private val urgent = LinkedHashSet<String>()
     private val _state = MutableStateFlow(Snapshot(false, emptyList(), 0))
     val state: StateFlow<Snapshot> = _state
 
@@ -69,6 +72,14 @@ class MessageStore(private val maxMessages: Int = 200) {
 
     fun snapshot(): Snapshot = _state.value
 
+    /** An urgent VIP message in [convKey], found by a check started at [forGeneration]. */
+    fun markUrgent(forGeneration: Int, convKey: String): Boolean = synchronized(lock) {
+        if (!active || forGeneration != generation) return false
+        urgent += convKey
+        publishLocked()
+        true
+    }
+
     /** Results of a briefing pass started at [forGeneration]; ignored if the store was cleared since. */
     fun mergeBriefed(forGeneration: Int, lines: Map<String, BriefedLine>) = synchronized(lock) {
         if (!active || forGeneration != generation || lines.isEmpty()) return
@@ -77,14 +88,14 @@ class MessageStore(private val maxMessages: Int = 200) {
     }
 
     private fun clearLocked() {
-        messages.clear(); seenMessages.clear(); otherKeys.clear(); briefed.clear()
+        messages.clear(); seenMessages.clear(); otherKeys.clear(); briefed.clear(); urgent.clear()
         added = 0
         generation++
         publishLocked()
     }
 
     private fun publishLocked() {
-        _state.value = Snapshot(active, messages.sortedBy { it.tMs }, otherKeys.size, added, generation, LinkedHashMap(briefed))
+        _state.value = Snapshot(active, messages.sortedBy { it.tMs }, otherKeys.size, added, generation, LinkedHashMap(briefed), LinkedHashSet(urgent))
     }
 
     private fun trim(set: LinkedHashSet<String>, max: Int) {

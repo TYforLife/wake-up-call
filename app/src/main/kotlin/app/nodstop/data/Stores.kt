@@ -212,7 +212,26 @@ class Settings(context: Context) {
         }.commit()
     }
 
+    private val _vipNames = MutableStateFlow(readVips())
+    /** While You Slept: important contacts, typed in (no contacts permission). Only their messages can ring. */
+    val vipNames: StateFlow<List<String>> = _vipNames
+
+    private fun readVips(): List<String> = prefs.getString(KEY_VIPS, "").orEmpty().split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+
+    fun setVipNames(names: List<String>) {
+        val clean = names.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        prefs.edit().putString(KEY_VIPS, clean.joinToString("\n")).apply(); _vipNames.value = clean
+    }
+
+    private val _teaTone = MutableStateFlow(prefs.getBoolean(KEY_TEA, false))
+    /** While You Slept: rewrite briefing lines in group-chat "tea" voice (facts re-checked). */
+    val teaTone: StateFlow<Boolean> = _teaTone
+
+    fun setTeaTone(on: Boolean) { prefs.edit().putBoolean(KEY_TEA, on).apply(); _teaTone.value = on }
+
     private companion object {
+        const val KEY_VIPS = "wys_vip_names"
+        const val KEY_TEA = "wys_tea_tone"
         const val KEY_DND = "dnd_during_trips"
         const val KEY_DND_SET = "dnd_set_by_us"
         const val KEY_DND_PREV = "dnd_previous_filter"

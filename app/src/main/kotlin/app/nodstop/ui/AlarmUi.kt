@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,6 +39,8 @@ import androidx.compose.ui.unit.sp
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
 import app.nodstop.brief.Digests
+import app.nodstop.App
+import app.nodstop.brief.PanelLine
 import app.nodstop.brief.PanelLines
 import app.nodstop.engine.AlarmReason
 import app.nodstop.notify.MessageStore
@@ -97,12 +100,30 @@ fun AlarmScreen(ring: RingService.RingUi?, holdMs: Int, onAwake: () -> Unit, onC
     }
 }
 
+/**
+ * After "I'm awake", while there's something to read: the panel with a Share button per line, and Done.
+ * The messages are cleared when this screen closes (DESIGN §10, W3).
+ */
+@Composable
+fun AfterWakeScreen(onShare: (PanelLine) -> Unit, onDone: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().background(Color(0xFF0E1630)).padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("You're awake", color = Color(0xFFFFC94A), fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
+        Text("Messages are cleared when you tap Done.", color = Color(0xFF9AA7C7), fontSize = 14.sp)
+        WhileYouSleptPanel(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp), onShare)
+        Button(onClick = onDone, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Done", fontSize = 18.sp) }
+    }
+}
+
 /** What you missed, from the trip's chat notifications (DESIGN §10). Memory only; cleared when this screen closes. */
 @Composable
-private fun WhileYouSleptPanel(modifier: Modifier) {
+private fun WhileYouSleptPanel(modifier: Modifier, onShare: ((PanelLine) -> Unit)? = null) {
     val snap by MessageStore.instance.state.collectAsState()
-    val digest = remember(snap) { Digests.build(snap.messages, snap.otherNotifications) }
-    val lines = remember(snap) { PanelLines.combine(digest, snap.briefed) }
+    val vips by App.instance.settings.vipNames.collectAsState()
+    val digest = remember(snap, vips) { Digests.build(snap.messages, snap.otherNotifications, vips) }
+    val lines = remember(snap, digest) { PanelLines.combine(digest, snap.briefed, snap.urgent) }
     Column(
         modifier
             .clip(RoundedCornerShape(20.dp))
@@ -118,6 +139,7 @@ private fun WhileYouSleptPanel(modifier: Modifier) {
             Text(PanelText.title(line), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Text(line.text, color = Color(0xFFDDE3F5), fontSize = 14.sp)
             PanelText.tags(line)?.let { Text(it, color = Color(0xFFFFD27A), fontSize = 12.sp) }
+            if (onShare != null) TextButton(onClick = { onShare(line) }) { Text("Share this line") }
         }
     }
 }

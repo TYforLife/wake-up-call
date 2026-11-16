@@ -13,15 +13,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Runs the briefing during a trip (DESIGN §10): asked every tick, [BatchPlan] decides; results go into
- * [MessageStore] for the alarm screen. Never touches the alarm (W1, W2): a slow, failing or killed model
- * only means the digest is shown.
+ * Runs While You Slept during a trip (DESIGN §10), asked on every trip tick:
+ * - urgent check first: new messages from VIPs go to the model one by one; an urgent one calls [onUrgent]
+ *   (the trip sends `Input.Urgent`: the single ring path, earlier only, W1);
+ * - otherwise [BatchPlan] decides when to brief; results go into [MessageStore] for the alarm screen.
+ * One model job at a time. A slow, failing or killed model only means the digest is shown (W2).
  */
-class BriefingCoordinator(private val ctx: Context, tripStartMs: Long) {
+class BriefingCoordinator(
+    private val ctx: Context,
+    tripStartMs: Long,
+    private val onUrgent: () -> Unit,
+) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var plan = BatchPlan.start(tripStartMs)
     private var job: Job? = null
     private var seenGeneration = -1
+    private val checked = HashSet<String>()
     @Volatile private var llm: LiteRtLlm? = null
 
     /** Called on the trip's tick (main thread) with the currently scheduled alarm. */
@@ -32,19 +39,45 @@ class BriefingCoordinator(private val ctx: Context, tripStartMs: Long) {
         if (snap.generation != seenGeneration) {
             if (seenGeneration >= 0) plan = BatchPlan.cleared(plan, nowMs)
             seenGeneration = snap.generation
+            synchronized(checked) { checked.clear() }
         }
-        val model = App.instance.models.current()
-        val d = BatchPlan.decide(plan, nowMs, alarmAtMs, snap.added, battery(), model != null, job?.isActive == true)
-        if (!d.run || model == null) return
+        if (job?.isActive == true) return
+        val model = App.instance.models.current() ?: return
+        val battery = battery()
+        if (battery != null && battery < BatchPlan.MIN_BATTERY_PCT) return
+        val generation = snap.generation
+        val settings = App.instance.settings
+
+        // 1. Urgent check: only VIP messages, never seen before.
+        val candidates = synchronized(checked) { Urgency.candidates(snap.messages, settings.vipNames.value, checked.toSet()) }
+        if (candidates.isNotEmpty()) {
+            job = scope.launch {
+                val l = llmFor(model)
+                try {
+                    l.load()
+                    val urgent = withTimeoutOrNull(BatchPlan.LLM_TIMEOUT_MS) {
+                        UrgencyChecker(l).firstUrgent(candidates) { m -> synchronized(checked) { checked += Urgency.key(m) } }
+                    }
+                    if (urgent != null && store.markUrgent(generation, urgent.convKey)) onUrgent()
+                } catch (_: Throwable) {
+                    // Not urgent as far as we know: the stop alarm is unaffected either way.
+                }
+            }
+            return
+        }
+
+        // 2. Briefing passes.
+        val d = BatchPlan.decide(plan, nowMs, alarmAtMs, snap.added, battery, modelAvailable = true, running = false)
+        if (!d.run) return
         plan = BatchPlan.ran(plan, nowMs, snap.added, d.final)
         val messages = snap.messages
-        val generation = snap.generation
+        val tone = if (settings.teaTone.value) Tone.TEA else Tone.PLAIN
         job = scope.launch {
-            val l = llm ?: LiteRtLlm(model.path, ctx.cacheDir.absolutePath).also { llm = it }
+            val l = llmFor(model)
             try {
-                // Loading can take a while on first use; only the model call itself is limited.
+                // Loading can take a while on first use; only the model calls are limited.
                 l.load()
-                val lines = withTimeoutOrNull(BatchPlan.LLM_TIMEOUT_MS) { Briefer(l).brief(messages) }
+                val lines = withTimeoutOrNull(BatchPlan.LLM_TIMEOUT_MS) { Briefer(l, tone).brief(messages) }
                 if (lines != null) store.mergeBriefed(generation, lines)
             } catch (_: Throwable) {
                 // Any failure: the digest stays (W2).
@@ -59,6 +92,9 @@ class BriefingCoordinator(private val ctx: Context, tripStartMs: Long) {
         scope.cancel()
         unload()
     }
+
+    private fun llmFor(model: app.nodstop.model.ModelManager.Model): LiteRtLlm =
+        llm ?: LiteRtLlm(model.path, ctx.cacheDir.absolutePath).also { llm = it }
 
     private fun unload() {
         llm?.close()
