@@ -186,8 +186,8 @@ Prerequisite: Run 2 merged, Decision C recorded.
 - [x] Source-scan test: `ACTION_SEND` appears only in the share UI (nothing is sent automatically)
 
 ### C5 Quality eval
-- [ ] 20 synthetic conversations with the facts that must survive, in `brief/src/test/resources/eval/`
-- [ ] Briefing lab "Run eval" scores facts kept and facts invented on the real model. A JVM test checks the scoring with the fake `Llm`.
+- [x] 20 synthetic conversations with the facts that must survive, in `EvalSet` (`:brief` main code, not test resources, so the lab can run them on the phone)
+- [x] Briefing lab "Run eval" scores facts kept and facts invented on the real model. A JVM test checks the scoring with the fake `Llm`.
 
 **Test on phone (Run 3):**
 - a friend marked as VIP sends an urgent message (it rings) and a non-urgent one (it doesn't);

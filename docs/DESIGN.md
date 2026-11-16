@@ -579,6 +579,14 @@ The alarm screen (`PanelLines`) shows a model line only while it still covers th
 newest message, else the digest line. Results are tagged with the store's generation, so a pass that
 started before the alarm screen closed can't bring old text back (W3).
 
+### Quality eval
+
+`EvalSet`: 20 made-up conversations, each with the facts a good line must keep. `EvalRunner` sends them
+through the real prompt, parser and guardrails in prompts of 10 and scores facts kept and lines that
+invented something. Debug → Briefing lab → **Run eval** runs it with the real model on the phone; JVM
+tests check the scoring with a fake model. (It already found one guardrail false positive: a possessive
+such as "Lena's" in a message now vouches for "Lena".)
+
 ### Alarm screen
 
 Below the existing stop name, reason and hold area, a scrollable "While you slept" panel shows the

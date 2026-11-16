@@ -23,7 +23,10 @@ object Guardrails {
             for (m in source) { m.sender?.let { append(it).append('\n') }; append(m.text).append('\n') }
         }
         val srcDigits = digits.findAll(src).map { it.value.trimStart('0').ifEmpty { "0" } }.toSet()
-        val srcWords = word.findAll(src.lowercase()).map { it.value.trim('\'', '’', '-') }.toSet()
+        // "Lena's" or "Western-Springs" in a message also vouch for "Lena" and "Springs".
+        val srcWords = word.findAll(src.lowercase()).map { it.value.trim('\'', '’', '-') }
+            .flatMap { w -> listOf(w, w.removeSuffix("'s"), w.removeSuffix("’s")) + w.split('-', '\'', '’') }
+            .filter { it.isNotEmpty() }.toSet()
 
         for (d in digits.findAll(line)) if (d.value.trimStart('0').ifEmpty { "0" } !in srcDigits) return false
 
