@@ -7,6 +7,7 @@ import app.nodstop.data.RouteStore
 import app.nodstop.data.Settings
 import app.nodstop.data.TraceLogger
 import app.nodstop.data.TripStore
+import app.nodstop.notify.DndController
 
 /** Manual wiring: one instance of each, no DI framework. */
 class App : Application() {
@@ -28,6 +29,8 @@ class App : Application() {
         traces = TraceLogger(this)
         scheduler = AlarmScheduler(this)
         Notifications.createChannels(this)
+        // A fresh process has no trip running yet: undo Do Not Disturb if a crash left ours on (DESIGN §10).
+        DndController.onTripEnd(this)
         Shortcuts.update(this, routes.routes.value)
     }
 

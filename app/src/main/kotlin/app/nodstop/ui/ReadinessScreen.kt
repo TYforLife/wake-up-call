@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.nodstop.App
 import app.nodstop.notify.CaptureService
+import app.nodstop.notify.DndController
 
 object Readiness {
     sealed interface Fix {
@@ -169,6 +170,28 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                     "Check Settings → Sounds and vibration → Vibration intensity isn't at zero.",
                 style = MaterialTheme.typography.bodySmall,
             )
+        }
+        Section("While you slept (experimental)") {
+            val dnd by App.instance.settings.dndDuringTrips.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Do Not Disturb during trips", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Holds other notifications while you sleep (alarms still get through), and puts your " +
+                            "setting back when the trip ends. Untested on Samsung: check the earbud ring still plays.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = dnd, onCheckedChange = { on ->
+                    App.instance.settings.setDndDuringTrips(on)
+                    if (on && !DndController.granted(ctx)) {
+                        runCatching { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
+                    }
+                })
+            }
+            if (dnd && !DndController.granted(ctx)) {
+                Text("Needs Do Not Disturb access for Nodstop: tap the switch again after allowing it.", style = MaterialTheme.typography.bodySmall, color = Color(0xFFD32F2F))
+            }
         }
         Section("Samsung: do these once") {
             Text("1. Settings → Apps → Nodstop → Battery → Unrestricted")

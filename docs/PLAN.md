@@ -127,8 +127,8 @@ Prerequisite: none beyond a green `main`.
 - [x] Readiness row for notification access, with a button to its settings page
 
 ### B4 Do Not Disturb during trips (experimental, off by default)
-- [ ] A toggle on Readiness, plus the Do Not Disturb access request
-- [ ] `DndRestore` is a pure class. Tests: start then stop restores the old filter; a crash leaves a flag that restores it on next start.
+- [x] A toggle on Readiness, plus the Do Not Disturb access request
+- [x] `DndRestore` is a pure class. Tests: start then stop restores the old filter; a crash leaves a flag that restores it on next start.
 
 **Test on phone (Run 1):**
 - capture from your chat apps (WhatsApp, Messenger, Discord, SMS, whatever you use);

@@ -2,6 +2,7 @@ package app.nodstop.data
 
 import android.content.Context
 import app.nodstop.engine.AlarmReason
+import app.nodstop.notify.DndRestore
 import app.nodstop.engine.Eta
 import app.nodstop.engine.LatLng
 import app.nodstop.engine.Learned
@@ -190,7 +191,31 @@ class Settings(context: Context) {
         _pendingRating.value = r
     }
 
+    private val _dndDuringTrips = MutableStateFlow(prefs.getBoolean(KEY_DND, false))
+    /** While You Slept: Do Not Disturb (alarms only) during trips. Off by default, experimental (DESIGN §10). */
+    val dndDuringTrips: StateFlow<Boolean> = _dndDuringTrips
+
+    fun setDndDuringTrips(on: Boolean) {
+        prefs.edit().putBoolean(KEY_DND, on).apply(); _dndDuringTrips.value = on
+    }
+
+    /** What Nodstop changed in Do Not Disturb, so it can be put back (also after a crash). */
+    fun dndRecord(): DndRestore.Record? =
+        if (!prefs.getBoolean(KEY_DND_SET, false)) null
+        else DndRestore.Record(true, prefs.getInt(KEY_DND_PREV, DndRestore.FILTER_ALL))
+
+    fun setDndRecord(r: DndRestore.Record?) {
+        // commit(), not apply(): this must be on disk before the filter changes.
+        prefs.edit().apply {
+            if (r == null || !r.setByUs) { remove(KEY_DND_SET); remove(KEY_DND_PREV) }
+            else { putBoolean(KEY_DND_SET, true); putInt(KEY_DND_PREV, r.previousFilter) }
+        }.commit()
+    }
+
     private companion object {
+        const val KEY_DND = "dnd_during_trips"
+        const val KEY_DND_SET = "dnd_set_by_us"
+        const val KEY_DND_PREV = "dnd_previous_filter"
         const val KEY_SPEAKER = "speaker_last_resort"
         const val KEY_RATING = "pending_rating"
     }
