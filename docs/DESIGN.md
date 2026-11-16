@@ -382,7 +382,7 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 
 ## 6. Build and delivery (phone-only)
 
-- Gradle project: `:engine` (Kotlin JVM) and `:app`. Gradle wrapper committed. Versions in
+- Gradle project: `:engine` and `:brief` (Kotlin JVM) and `:app`. Gradle wrapper committed. Versions in
   `gradle/libs.versions.toml`.
 - Debug signing: `keystore/debug.keystore` (standard debug credentials) is committed and
   `signingConfigs.debug` points at it, so every CI build installs over the previous one. It is never used for release.
@@ -391,7 +391,7 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
   - On push to any branch, plus `workflow_dispatch`.
   - `build` job: per-branch concurrency (a new push cancels only that branch's older run).
     `actions/setup-java` (Temurin 21) and `gradle/actions/setup-gradle`;
-    `./gradlew :engine:test :app:testDebugUnitTest :app:assembleDebug`.
+    `./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug`.
   - `publish` job: `concurrency: debug-release`, cancel in progress; `permissions: contents: write`;
     publishes with the `gh` CLI to the rolling prerelease `debug-latest`: create it if missing,
     `gh release upload ... app-debug.apk --clobber`, and set the notes to branch, SHA and build number.

@@ -49,11 +49,11 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
    - The checkpoint before this run is ticked, or the prompt says it passed. If the prompt says so,
      tick it in the run's first commit.
    - `$ANDROID_HOME` exists, and `./gradlew :engine:test :app:testDebugUnitTest :app:assembleDebug`
-     passes on `main` before you change anything.
+     passes on `main` before you change anything (plus `:brief:test` once it exists).
 3. **Each milestone, in order:**
    1. Implement it.
    2. Write its tests.
-   3. Run `./gradlew :engine:test` (and `:brief:test` once it exists), then `:app:testDebugUnitTest :app:assembleDebug`.
+   3. Run `./gradlew :engine:test :brief:test`, then `:app:testDebugUnitTest :app:assembleDebug`.
    4. Tick the milestone's boxes here.
    5. Make one conventional commit, then push.
 4. Keep `docs/DESIGN.md` in sync whenever behaviour or parameters change.
@@ -116,8 +116,8 @@ Prerequisite: none beyond a green `main`.
 - [x] Every trace in `engine/src/test/resources/traces/` still replays identically
 
 ### B2 `:brief` module and plain digest
-- [ ] New module `:brief` with the purity test; `CLAUDE.md` rule 3 mentions it
-- [ ] `Digest` per DESIGN §10, tested with a 64-message group, three one-to-one chats, VIP ordering, and non-chat notifications (counted, not read)
+- [x] New module `:brief` with the purity test; `CLAUDE.md` rule 3 mentions it
+- [x] `Digest` per DESIGN §10, tested with a 64-message group, three one-to-one chats, VIP ordering, and non-chat notifications (counted, not read)
 
 ### B3 Capture and the alarm-screen panel
 - [ ] `CaptureService` stores messages only while a trip runs (W3, W4). Own app and non-chat notifications are counted only.
