@@ -80,8 +80,8 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
 | Dependency | Reason |
 | --- | --- |
 | Everything already in DESIGN §5 | Already approved |
-| `kotlinx-coroutines-core` (`:brief`) and `kotlinx-coroutines-test` (tests) | `Llm.generate` is a suspend call (CLAUDE.md: coroutines and Flow) |
-| `com.google.ai.edge.litertlm:litertlm-android` (Run 2 only; pin the exact version, 0.19.1 as of 2026-11-16) | Runs Gemma on the phone (DESIGN §10) |
+| `kotlinx-coroutines-core` (`:brief` tests) and `kotlinx-serialization-json` (`:brief`, already in DESIGN §5) | Testing the suspend `Llm` call; parsing the model's JSON lines |
+| `com.google.ai.edge.litertlm:litertlm-android` 0.16.1 (Run 2; the newest built with Kotlin 2.2.21, 0.17+ needs Kotlin 2.4) | Runs Gemma on the phone (DESIGN §10) |
 
 ## Where things go
 
@@ -135,7 +135,7 @@ Prerequisite: none beyond a green `main`.
 - message text appears only on the alarm screen;
 - with DND on: a test ring in earbuds, plus a simulated trip's at-stop buzz.
 
-- [ ] **GATE B (Tae):** 5 rides with the digest; the DND verdict (keep or leave off) is written into DESIGN §10
+- [x] **GATE B (Tae):** passed (owner, 2026-11-16). The DND verdict is not recorded yet, so it stays experimental and off by default.
 
 ---
 
@@ -144,22 +144,22 @@ Prerequisite: none beyond a green `main`.
 Prerequisite: Run 1 merged, Gate B ticked.
 
 ### C1 Runtime, model import, Briefing lab
-- [ ] `litertlm-android` added at an exact version. `LiteRtLlm` implements `Llm`.
-- [ ] `ModelManager`: import a `.litertlm` file through the system file picker into app storage; show its name and size; delete it
-- [ ] Debug → "Briefing lab" runs `SampleChats` through the real model. It shows load time, time to first token, total time and the output. With no model it says so, and nothing crashes.
-- [ ] W6 source-scan test still passes; the runtime adds no network use from our code
+- [x] `litertlm-android` added at an exact version. `LiteRtLlm` implements `Llm`.
+- [x] `ModelManager`: import a `.litertlm` file through the system file picker into app storage; show its name and size; delete it
+- [x] Debug → "Briefing lab" runs `SampleChats` through the real model. It shows load time, time to first token, total time and the output. With no model it says so, and nothing crashes.
+- [x] W6 source-scan test still passes; the runtime adds no network use from our code
 
 ### C2 Briefing pipeline
-- [ ] `PromptBuilder`: golden tests; long chats trimmed to a budget, newest messages kept
-- [ ] `BriefParser`: tested with valid lines, junk, partial output and empty output; failures fall back per conversation
-- [ ] `Guardrails` (W5): tested with an invented time, an invented name, a changed number and a clean pass
-- [ ] `BatchPlan` is a pure class tested with time passed in:
+- [x] `PromptBuilder`: golden tests; long chats trimmed to a budget, newest messages kept
+- [x] `BriefParser`: tested with valid lines, junk, partial output and empty output; failures fall back per conversation
+- [x] `Guardrails` (W5): tested with an invented time, an invented name, a changed number and a clean pass
+- [x] `BatchPlan` is a pure class tested with time passed in:
   - a batch every 180 s or every 30 messages;
   - a final pass once the alarm is ≤ 3 min away;
   - a 60 s timeout per call;
   - no AI below 20% battery;
   - the model unloaded after the final pass
-- [ ] End-to-end test with the fake `Llm`: messages in, panel lines out. A model that never answers still gives the digest (W2).
+- [x] End-to-end test with the fake `Llm`: messages in, panel lines out. A model that never answers still gives the digest (W2).
 
 **Test on phone (Run 2):**
 - import Gemma 4 E2B (and Gemma 3 1B);

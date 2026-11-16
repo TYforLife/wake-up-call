@@ -1,5 +1,6 @@
 package app.nodstop.notify
 
+import app.nodstop.brief.BriefedLine
 import app.nodstop.brief.CapturedMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,13 +11,26 @@ import kotlinx.coroutines.flow.StateFlow
  * stops. A process death loses it, and the alarm screen then says the briefing is unavailable (W2).
  */
 class MessageStore(private val maxMessages: Int = 200) {
-    data class Snapshot(val active: Boolean, val messages: List<CapturedMessage>, val otherNotifications: Int)
+    data class Snapshot(
+        val active: Boolean,
+        val messages: List<CapturedMessage>,
+        val otherNotifications: Int,
+        /** Messages added since the last clear (keeps counting past the 200 kept). */
+        val added: Int = 0,
+        /** Bumped on every clear, so a briefing started before it can't bring old text back. */
+        val generation: Int = 0,
+        /** Checked model lines per conversation (DESIGN §10); the digest covers the rest. */
+        val briefed: Map<String, BriefedLine> = emptyMap(),
+    )
 
     private val lock = Any()
     private var active = false
     private val messages = ArrayList<CapturedMessage>()
     private val seenMessages = LinkedHashSet<String>()
     private val otherKeys = LinkedHashSet<String>()
+    private var added = 0
+    private var generation = 0
+    private val briefed = LinkedHashMap<String, BriefedLine>()
     private val _state = MutableStateFlow(Snapshot(false, emptyList(), 0))
     val state: StateFlow<Snapshot> = _state
 
@@ -37,6 +51,7 @@ class MessageStore(private val maxMessages: Int = 200) {
         if (!seenMessages.add("${m.convKey}\u0000${m.tMs}\u0000${m.sender}\u0000${m.text}")) return false
         trim(seenMessages, maxMessages * 10)
         messages += m
+        added++
         if (messages.size > maxMessages) {
             messages.sortBy { it.tMs }
             while (messages.size > maxMessages) messages.removeAt(0)
@@ -54,13 +69,22 @@ class MessageStore(private val maxMessages: Int = 200) {
 
     fun snapshot(): Snapshot = _state.value
 
+    /** Results of a briefing pass started at [forGeneration]; ignored if the store was cleared since. */
+    fun mergeBriefed(forGeneration: Int, lines: Map<String, BriefedLine>) = synchronized(lock) {
+        if (!active || forGeneration != generation || lines.isEmpty()) return
+        briefed.putAll(lines)
+        publishLocked()
+    }
+
     private fun clearLocked() {
-        messages.clear(); seenMessages.clear(); otherKeys.clear()
+        messages.clear(); seenMessages.clear(); otherKeys.clear(); briefed.clear()
+        added = 0
+        generation++
         publishLocked()
     }
 
     private fun publishLocked() {
-        _state.value = Snapshot(active, messages.sortedBy { it.tMs }, otherKeys.size)
+        _state.value = Snapshot(active, messages.sortedBy { it.tMs }, otherKeys.size, added, generation, LinkedHashMap(briefed))
     }
 
     private fun trim(set: LinkedHashSet<String>, max: Int) {

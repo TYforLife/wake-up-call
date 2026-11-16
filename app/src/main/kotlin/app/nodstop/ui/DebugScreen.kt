@@ -79,6 +79,10 @@ fun DebugScreen(go: (Screen) -> Unit) {
             }) { Text("Start simulated trip") }
         }
 
+        Section("While you slept") {
+            Text("Import a Gemma model and time it on made-up chats (Decision C).")
+            Button(onClick = { go(Screen.BriefingLab) }) { Text("Briefing lab") }
+        }
         Section("Kill test") {
             Text("Kills the app process now, like One UI would. The scheduled alarm must still ring.")
             OutlinedButton(onClick = { confirmKill = true }) { Text("Kill app now") }

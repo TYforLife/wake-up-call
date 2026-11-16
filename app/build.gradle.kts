@@ -74,6 +74,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     // The map (pins, you or your bus): open-source, no account or API key, free OpenFreeMap tiles.
     implementation(libs.maplibre)
+    // On-device Gemma for While You Slept (DESIGN §10, pre-approved in docs/PLAN.md).
+    implementation(libs.litertlm)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
