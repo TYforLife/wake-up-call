@@ -14,6 +14,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -130,16 +134,45 @@ private fun WhileYouSleptPanel(modifier: Modifier, onShare: ((PanelLine) -> Unit
             .background(Color(0xFF17213F))
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("While you slept", color = Color(0xFFFFC94A), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Text(PanelText.summary(snap.active, digest), color = Color(0xFF9AA7C7), fontSize = 13.sp)
-        for (line in lines.take(PanelText.MAX_LINES)) {
-            Spacer(Modifier.height(2.dp))
-            Text(PanelText.title(line), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Text(line.text, color = Color(0xFFDDE3F5), fontSize = 14.sp)
-            PanelText.tags(line)?.let { Text(it, color = Color(0xFFFFD27A), fontSize = 12.sp) }
-            if (onShare != null) TextButton(onClick = { onShare(line) }) { Text("Share this line") }
+        Text("While you slept", color = Color(0xFFFFC94A), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(PanelText.summary(snap.active, digest), color = Color(0xFFB8C3DD), fontSize = 15.sp)
+        for (line in lines.take(PanelText.MAX_LINES)) PanelLineCard(line, onShare)
+        PanelText.more(lines.size)?.let { Text(it, color = Color(0xFFB8C3DD), fontSize = 15.sp) }
+    }
+}
+
+private fun markerColor(kind: PanelText.MarkerKind?): Color = when (kind) {
+    PanelText.MarkerKind.URGENT -> Color(0xFFFF6B6B)
+    PanelText.MarkerKind.REPLY -> Color(0xFFFFC94A)
+    PanelText.MarkerKind.PLANS -> Color(0xFF7FB2FF)
+    null -> Color(0xFF33416E)
+}
+
+/** One chat, readable half-asleep: a coloured edge for what matters, big text, labelled chips. */
+@Composable
+private fun PanelLineCard(line: PanelLine, onShare: ((PanelLine) -> Unit)?) {
+    val markers = PanelText.markers(line)
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFF1E2A4D)).height(IntrinsicSize.Min),
+    ) {
+        Box(Modifier.width(6.dp).fillMaxHeight().background(markerColor(markers.firstOrNull()?.kind)))
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(PanelText.title(line), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(line.text, color = Color(0xFFE6EBF8), fontSize = 17.sp, lineHeight = 23.sp)
+            if (markers.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (m in markers) {
+                    Text(
+                        m.text,
+                        color = Color(0xFF0E1630), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(markerColor(m.kind)).padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+            if (onShare != null) {
+                OutlinedButton(onClick = { onShare(line) }, modifier = Modifier.height(44.dp)) { Text("Share this line", fontSize = 15.sp) }
+            }
         }
     }
 }

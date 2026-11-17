@@ -621,7 +621,9 @@ such as "Lena's" in a message now vouches for "Lena".)
 ### Alarm screen
 
 Below the existing stop name, reason and hold area, a scrollable "While you slept" panel shows the
-briefing or digest. For URGENT rings, the urgent conversation's line comes first.
+briefing or digest, made to be read half-asleep: one card per chat (up to 8, then "+N more chats"), big
+text, a coloured edge for what matters most (red urgent, amber needs a reply, blue affects your plans)
+and labelled chips for each. For URGENT rings, the urgent conversation's card comes first.
 
 ### Parameters
 

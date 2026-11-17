@@ -30,4 +30,19 @@ object PanelText {
         "needs a reply".takeIf { l.needsReply },
         "affects your plans".takeIf { l.affectsYou },
     ).joinToString(" · ").ifEmpty { null }
+
+    enum class MarkerKind { URGENT, REPLY, PLANS }
+
+    data class Marker(val text: String, val kind: MarkerKind)
+
+    /** Chips for a line, most important first; the first one also colours the line's edge. */
+    fun markers(l: PanelLine): List<Marker> = listOfNotNull(
+        Marker("URGENT", MarkerKind.URGENT).takeIf { l.urgent },
+        Marker("NEEDS A REPLY", MarkerKind.REPLY).takeIf { l.needsReply },
+        Marker("AFFECTS YOUR PLANS", MarkerKind.PLANS).takeIf { l.affectsYou },
+    )
+
+    /** "+3 more chats" when the panel can't show them all, else null. */
+    fun more(totalLines: Int): String? =
+        (totalLines - MAX_LINES).takeIf { it > 0 }?.let { "+$it more chat${if (it == 1) "" else "s"}" }
 }
