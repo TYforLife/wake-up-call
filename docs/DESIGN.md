@@ -570,7 +570,10 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
 
 Default Gemma 4 E2B (`.litertlm`), fallback Gemma 3 1B. Runtime: LiteRT-LM
 (`com.google.ai.edge.litertlm:litertlm-android` **0.16.1**, the newest built with this project's
-Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend. The rider downloads the file on the phone and
+Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend by default. Readiness → **Use the GPU (experimental)**
+tries the GPU first and falls back to the CPU if the phone or model can't use it; the lab shows which
+one ran, so both can be compared. A GPU driver can crash natively, past any `try`, so trips use the GPU
+only after the lab has loaded the model on it successfully on this phone (`gpuVerified`). The rider downloads the file on the phone and
 imports it in Debug → **Briefing lab** (`ModelManager`, app storage, select or delete); the lab also
 times the model on made-up chats (`SampleChats`). With no model, the alarm screen shows the digest
 only. **Decision C (owner, 2026-11-16): Gemma 4 E2B is the default**; Gemma 3 1B stays the fallback

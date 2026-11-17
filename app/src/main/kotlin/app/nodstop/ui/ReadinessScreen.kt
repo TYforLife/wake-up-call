@@ -197,6 +197,19 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                 }
                 Switch(checked = tea, onCheckedChange = { settings.setTeaTone(it) })
             }
+            val gpu by settings.useGpu.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Use the GPU (experimental)", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Runs the model on the graphics chip: often faster and lighter on the battery. Falls back to the CPU " +
+                            "if the phone or model can't. Trips use it only after Debug → Briefing lab → Run has worked on " +
+                            "the GPU once on this phone.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = gpu, onCheckedChange = { settings.setUseGpu(it) })
+            }
             val dnd by App.instance.settings.dndDuringTrips.collectAsState()
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
