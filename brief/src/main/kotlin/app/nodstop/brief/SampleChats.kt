@@ -18,4 +18,7 @@ object SampleChats {
         m(WA, "Mum", "Mum", "Are you home for dinner tonight?", 9_000),
         m(WA, "Kai", "Kai", "lol did you see that", 10_000),
     )
+
+    /** For couch-testing urgent wake: add "Daycare" to your important contacts first. */
+    val urgent: CapturedMessage = m(WA, "Daycare", "Daycare", "Please call us now, Mia has a fever", 11_000)
 }

@@ -36,6 +36,9 @@ class TraceLogger(private val context: Context) {
 
     fun note(tMs: Long, msg: String) = write(listOf(TraceEvent(tMs, "note", msg = msg)))
 
+    /** While You Slept at a ring: counts only (e.g. "chats=4 model=3 ..."), never message text (W3). */
+    fun wys(tMs: Long, counts: String) = write(listOf(TraceEvent(tMs, "wys", msg = counts)))
+
     fun rate(fileName: String, tMs: Long, leg: Int, value: String) {
         File(dir, fileName).takeIf { it.exists() }?.appendText(Trace.encode(TraceEvent(tMs, "rate", leg = leg, msg = value)) + "\n")
     }

@@ -77,4 +77,17 @@ class ToneAndShareTest {
         assertTrue(lines.first().urgent)
         assertEquals(1, lines.count { it.urgent })
     }
+
+    @Test
+    fun `ring stats count what was ready, never text`() {
+        val d = Digests.build(SampleChats.messages, 2)
+        val briefed = mapOf("com.whatsapp/Mum" to BriefedLine("com.whatsapp/Mum", "Mum asks about dinner.", false, true, 9_000))
+        val s = RingStats.of(PanelLines.combine(d, briefed, setOf("com.whatsapp/Mum")), d.otherNotifications, modelAvailable = true)
+        assertEquals(RingStats(chats = 4, modelLines = 1, urgent = 1, others = 2, modelAvailable = true), s)
+        assertEquals(false, s.ready)
+        assertEquals("chats=4 model=1 urgent=1 others=2 modelOn=true ready=false", s.encode())
+        assertFalse(s.encode().contains("dinner"))
+        assertEquals(null, RingStats.of(emptyList(), 0, false).ready)
+        assertEquals(true, RingStats(2, 2, 0, 0, true).ready)
+    }
 }

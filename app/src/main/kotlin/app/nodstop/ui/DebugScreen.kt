@@ -29,6 +29,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodstop.App
+import app.nodstop.brief.SampleChats
+import app.nodstop.notify.MessageStore
 import app.nodstop.trip.TripService
 
 @Composable
@@ -82,6 +84,15 @@ fun DebugScreen(go: (Screen) -> Unit) {
         Section("While you slept") {
             Text("Import a Gemma model and time it on made-up chats (Decision C).")
             Button(onClick = { go(Screen.BriefingLab) }) { Text("Briefing lab") }
+            Text(
+                "Couch test without real chats: start a simulated trip, then add made-up chats to it. " +
+                    "Add \"Daycare\" to Important contacts (Readiness) to test the urgent wake.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(enabled = tripActive && MessageStore.instance.isActive, onClick = {
+                val now = System.currentTimeMillis()
+                (SampleChats.messages + SampleChats.urgent).forEachIndexed { i, m -> MessageStore.instance.add(m.copy(app = "debug.sample", tMs = now + i)) }
+            }) { Text("Add sample chats to this trip") }
         }
         Section("Kill test") {
             Text("Kills the app process now, like One UI would. The scheduled alarm must still ring.")

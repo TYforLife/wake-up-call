@@ -48,15 +48,18 @@ class BriefingCoordinator(
         val generation = snap.generation
         val settings = App.instance.settings
 
-        // 1. Urgent check: only VIP messages, never seen before.
-        val candidates = synchronized(checked) { Urgency.candidates(snap.messages, settings.vipNames.value, checked.toSet()) }
+        // 1. Urgent check: only VIP messages, never seen before. Each gets ONE attempt, marked before the
+        // call, so a timeout or a model error can't send the same message to the model every tick.
+        val candidates = synchronized(checked) {
+            Urgency.take(snap.messages, settings.vipNames.value, checked)
+        }
         if (candidates.isNotEmpty()) {
             job = scope.launch {
                 val l = llmFor(model)
                 try {
                     l.load()
                     val urgent = withTimeoutOrNull(BatchPlan.LLM_TIMEOUT_MS) {
-                        UrgencyChecker(l).firstUrgent(candidates) { m -> synchronized(checked) { checked += Urgency.key(m) } }
+                        UrgencyChecker(l).firstUrgent(candidates)
                     }
                     if (urgent != null && store.markUrgent(generation, urgent.convKey)) onUrgent()
                 } catch (_: Throwable) {

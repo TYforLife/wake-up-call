@@ -17,6 +17,9 @@ import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
 import app.nodstop.brief.BriefingCoordinator
+import app.nodstop.brief.Digests
+import app.nodstop.brief.PanelLines
+import app.nodstop.brief.RingStats
 import app.nodstop.notify.DndController
 import app.nodstop.notify.MessageStore
 import app.nodstop.data.ActiveTrip
@@ -277,7 +280,20 @@ class TripService : Service() {
 
     // ---- called in-process ----
 
-    fun onRang() = input(Input.Rang(System.currentTimeMillis()))
+    fun onRang() {
+        val now = System.currentTimeMillis()
+        input(Input.Rang(now))
+        logRingStats(now)
+    }
+
+    /** Gate C: what the alarm screen had ready at this ring, as counts in the trip log (never text). */
+    private fun logRingStats(now: Long) {
+        val snap = MessageStore.instance.snapshot()
+        if (!snap.active) return
+        val digest = Digests.build(snap.messages, snap.otherNotifications, app.settings.vipNames.value)
+        val lines = PanelLines.combine(digest, snap.briefed, snap.urgent)
+        app.traces.wys(now, RingStats.of(lines, digest.otherNotifications, app.models.current() != null).encode())
+    }
     fun ack() = input(Input.Ack(System.currentTimeMillis()))
     fun skipLeg() = input(Input.SkipLeg(System.currentTimeMillis()))
 
