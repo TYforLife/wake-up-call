@@ -66,4 +66,22 @@ class BriefingTest {
         assertTrue(Briefer(Llm { _, _ -> called = true; "" }).brief(emptyList()).isEmpty())
         assertFalse(called)
     }
+
+    @Test
+    fun `a second pass only briefs chats with something new`() = runBlocking {
+        val first = Briefer(Llm { _, _ -> answer }).brief(SampleChats.messages)
+        val newer = SampleChats.messages + CapturedMessage("com.whatsapp", "Kai", "Kai", "ok call me later", 99_000)
+        var prompt = ""
+        val second = Briefer(Llm { p, _ -> prompt = p; """{"c":"c1","line":"Kai says call later.","tags":[]}""" }).brief(newer, first)
+        // Flat group and Mum were covered and unchanged; Boss and Kai had no line, so they're stale too.
+        assertTrue(!prompt.contains("\"Flat group\"") && !prompt.contains("\"Mum\""), prompt)
+        assertTrue(prompt.contains("\"Kai\"") && prompt.contains("\"Boss\""))
+        assertEquals(setOf("com.whatsapp/Kai"), second.keys)
+        // Nothing new at all: no model call.
+        var called = false
+        assertTrue(Briefer(Llm { _, _ -> called = true; "" }).brief(SampleChats.messages, first + second + mapOf(
+            "com.Slack/Boss" to BriefedLine("com.Slack/Boss", "x", false, false, 8_000),
+        )).isEmpty())
+        assertFalse(called)
+    }
 }

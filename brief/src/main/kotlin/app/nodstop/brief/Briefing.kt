@@ -12,9 +12,17 @@ enum class Tone { PLAIN, TEA }
  * Timeouts are the caller's job (it wraps this in a 60 s limit).
  */
 class Briefer(private val llm: Llm, private val tone: Tone = Tone.PLAIN) {
-    suspend fun brief(messages: List<CapturedMessage>): Map<String, BriefedLine> {
+    /**
+     * Briefs only the chats with something new since [previous] (a line that already covers a chat's
+     * newest message is kept as is), so later passes are small and quick. Returns the new lines only.
+     */
+    suspend fun brief(messages: List<CapturedMessage>, previous: Map<String, BriefedLine> = emptyMap()): Map<String, BriefedLine> {
         if (messages.isEmpty()) return emptyMap()
-        val convs = PromptBuilder.conversations(messages)
+        val stale = messages.groupBy { it.convKey }
+            .filter { (key, ms) -> previous[key]?.let { it.coveredUntilMs < ms.maxOf { m -> m.tMs } } ?: true }
+            .values.flatten()
+        if (stale.isEmpty()) return emptyMap()
+        val convs = PromptBuilder.conversations(stale)
         if (convs.isEmpty()) return emptyMap()
         val answer = llm.generate(PromptBuilder.build(convs), PromptBuilder.maxTokens(convs))
         val parsed = BriefParser.parse(answer, convs.map { it.id }.toSet())

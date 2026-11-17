@@ -7,11 +7,12 @@ import org.junit.jupiter.api.Test
 class BatchPlanTest {
     private val t0 = 1_000_000L
     private val s = BatchPlan.start(t0)
-    private fun decide(now: Long, alarm: Long? = now + 3_600_000, count: Int = 5, battery: Int? = 80, model: Boolean = true, running: Boolean = false, st: BatchPlan.State = s) =
+    private val min = 60_000L
+    private fun decide(now: Long, alarm: Long? = now + 10 * min, count: Int = 5, battery: Int? = 80, model: Boolean = true, running: Boolean = false, st: BatchPlan.State = s) =
         BatchPlan.decide(st, now, alarm, count, battery, model, running)
 
     @Test
-    fun `a batch every 3 minutes when something new arrived`() {
+    fun `a pass every 3 minutes when the stop is near-ish and something new arrived`() {
         assertEquals(Decision(false), decide(t0 + 179_000))
         assertEquals(Decision(true), decide(t0 + 180_000))
         val after = BatchPlan.ran(s, t0 + 180_000, 5, final = false)
@@ -20,15 +21,25 @@ class BatchPlanTest {
     }
 
     @Test
-    fun `30 new messages start a batch at once`() {
+    fun `while the alarm is over 15 minutes away, passes are 6 minutes apart (battery)`() {
+        assertEquals(Decision(false), decide(t0 + 300_000, alarm = t0 + 300_000 + 20 * min))
+        assertEquals(Decision(true), decide(t0 + 360_000, alarm = t0 + 360_000 + 20 * min))
+    }
+
+    @Test
+    fun `30 new messages start a pass at once`() {
         assertEquals(Decision(false), decide(t0 + 10_000, count = 29))
         assertEquals(Decision(true), decide(t0 + 10_000, count = 30))
     }
 
     @Test
-    fun `final pass once the alarm is 3 minutes away, then unload`() {
-        assertEquals(Decision(true, final = true, unloadAfter = true), decide(t0 + 10_000, alarm = t0 + 190_000))
-        assertEquals(Decision(false), decide(t0 + 10_000, alarm = t0 + 190_001))
+    fun `final passes start 5 minutes before the alarm, at most one a minute`() {
+        assertEquals(Decision(true, final = true), decide(t0 + 10_000, alarm = t0 + 310_000))
+        assertEquals(Decision(false), decide(t0 + 10_000, alarm = t0 + 310_001))
+        val fin = BatchPlan.ran(s, t0 + 10_000, 5, final = true)
+        assertEquals(Decision(false), decide(t0 + 69_999, alarm = t0 + 200_000, count = 6, st = fin))
+        assertEquals(Decision(true, final = true), decide(t0 + 70_000, alarm = t0 + 200_000, count = 6, st = fin))
+        assertEquals(Decision(false), decide(t0 + 70_000, alarm = t0 + 200_000, count = 5, st = fin)) // nothing new
     }
 
     @Test

@@ -545,9 +545,12 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   `Guardrails` (W5), `ShareText`. The model sits behind
   `interface Llm { suspend fun generate(prompt: String, maxTokens: Int): String }`: LiteRT-LM in `:app`,
   a fake in tests.
-- Timing: summarize in batches (every 180 s, or every 30 new messages); a final pass once the
-  scheduled alarm is ≤ 3 min away. Each call times out at 60 s and falls back to the digest for its
-  conversations. No AI below 20% battery. The model is loaded once per trip, unloaded after the final pass.
+- Timing: summarize in passes: every 180 s (every 360 s while the alarm is over 15 min away, to save
+  battery), or at once for 30 new messages; final passes once the scheduled alarm is ≤ 5 min away, at
+  most one a minute, so the briefing is fresh at the ring. Each pass re-briefs only chats with something
+  new since their last line, so later passes are small and quick. Each model call times out at 60 s and
+  falls back to the digest for its conversations. No AI below 20% battery. The model stays loaded from
+  the first pass until the ring (then it is unloaded until the next pass needs it).
   The lead is short (§3), so the final pass may not finish before the ring: W2 shows the newest
   finished batch plus digest lines for anything newer.
 - Urgent: only for important contacts the rider types in on Readiness (matched as whole words against
@@ -619,6 +622,7 @@ briefing or digest. For URGENT rings, the urgent conversation's line comes first
 
 ### Parameters
 
-`MAX_URGENT_RINGS` 2 · `BATCH_INTERVAL` 180 s · `BATCH_SIZE` 30 · `FINAL_PASS_BEFORE_ALARM` 180 s ·
+`MAX_URGENT_RINGS` 2 · `BATCH_INTERVAL` 180 s (360 s while the alarm is > 15 min away) · `BATCH_SIZE` 30 ·
+`FINAL_PASS_BEFORE_ALARM` 300 s (one pass a minute at most) ·
 `LLM_TIMEOUT` 60 s · `MIN_BATTERY_FOR_AI` 20% · `MAX_MESSAGES_PER_TRIP` 200 (keep newest).
 New dependency in this phase: `litertlm-android` (on-device Gemma runtime).

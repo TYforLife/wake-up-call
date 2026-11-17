@@ -284,6 +284,7 @@ class TripService : Service() {
         val now = System.currentTimeMillis()
         input(Input.Rang(now))
         logRingStats(now)
+        briefing?.onRang()
     }
 
     /** Gate C: what the alarm screen had ready at this ring, as counts in the trip log (never text). */

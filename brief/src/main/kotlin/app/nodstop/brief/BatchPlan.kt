@@ -2,20 +2,26 @@ package app.nodstop.brief
 
 /**
  * When to run the model during a trip (DESIGN §10). Pure: time, alarm and battery come in as inputs.
- * - a batch every BATCH_INTERVAL, or as soon as BATCH_SIZE new messages are waiting;
- * - a final pass once the scheduled alarm is FINAL_PASS_BEFORE_ALARM away (then unload the model);
+ * - a pass every BATCH_INTERVAL (FAR_INTERVAL while the alarm is over FAR_ALARM away: the chats will
+ *   change again before you need them, so fewer passes save battery), or at once for BATCH_SIZE new messages;
+ * - final passes once the alarm is FINAL_PASS_BEFORE_ALARM away, at most one per FINAL_MIN_GAP, so the
+ *   briefing is fresh at the ring; the model stays loaded until the ring (the trip unloads it then);
  * - never below MIN_BATTERY, never with nothing new, never while one is running, never without a model.
+ * Each pass only re-briefs chats with new messages (Briefer), so later passes are small and quick.
  */
 object BatchPlan {
     const val BATCH_INTERVAL_MS = 180_000L
+    const val FAR_INTERVAL_MS = 360_000L
+    const val FAR_ALARM_MS = 15 * 60_000L
     const val BATCH_SIZE = 30
-    const val FINAL_PASS_BEFORE_ALARM_MS = 180_000L
+    const val FINAL_PASS_BEFORE_ALARM_MS = 300_000L
+    const val FINAL_MIN_GAP_MS = 60_000L
     const val LLM_TIMEOUT_MS = 60_000L
     const val MIN_BATTERY_PCT = DeviceGate.MIN_BATTERY_PCT
 
     data class State(val lastRunMs: Long, val messagesAtLastRun: Int = 0, val finalDone: Boolean = false)
 
-    data class Decision(val run: Boolean, val final: Boolean = false, val unloadAfter: Boolean = false)
+    data class Decision(val run: Boolean, val final: Boolean = false)
 
     fun start(tripStartMs: Long) = State(lastRunMs = tripStartMs)
 
@@ -32,9 +38,13 @@ object BatchPlan {
         if (batteryPct != null && batteryPct < MIN_BATTERY_PCT) return Decision(false)
         val fresh = messageCount - s.messagesAtLastRun
         if (fresh <= 0) return Decision(false)
-        val finalWindow = alarmAtMs != null && alarmAtMs - nowMs <= FINAL_PASS_BEFORE_ALARM_MS
-        if (finalWindow) return Decision(run = true, final = true, unloadAfter = true)
-        if (fresh >= BATCH_SIZE || nowMs - s.lastRunMs >= BATCH_INTERVAL_MS) return Decision(run = true)
+        val sinceLast = nowMs - s.lastRunMs
+        val toAlarm = alarmAtMs?.let { it - nowMs }
+        if (toAlarm != null && toAlarm <= FINAL_PASS_BEFORE_ALARM_MS) {
+            return if (!s.finalDone || sinceLast >= FINAL_MIN_GAP_MS) Decision(run = true, final = true) else Decision(false)
+        }
+        val interval = if (toAlarm != null && toAlarm > FAR_ALARM_MS) FAR_INTERVAL_MS else BATCH_INTERVAL_MS
+        if (fresh >= BATCH_SIZE || sinceLast >= interval) return Decision(run = true)
         return Decision(false)
     }
 
