@@ -81,20 +81,24 @@ class BriefingCoordinator(
         if (!d.run) return
         plan = BatchPlan.ran(plan, nowMs, snap.added, d.final)
         val messages = snap.messages
+        val previous = snap.briefed
         val tone = if (settings.teaTone.value) Tone.TEA else Tone.PLAIN
         job = scope.launch {
             val l = llmFor(model)
             try {
                 // Loading can take a while on first use; only the model calls are limited.
                 l.load()
-                val lines = withTimeoutOrNull(BatchPlan.LLM_TIMEOUT_MS) { Briefer(l, tone).brief(messages) }
+                val lines = withTimeoutOrNull(BatchPlan.LLM_TIMEOUT_MS) { Briefer(l, tone).brief(messages, previous) }
                 if (lines != null) store.mergeBriefed(generation, lines)
             } catch (_: Throwable) {
                 // Any failure: the digest stays (W2).
-            } finally {
-                if (d.unloadAfter) unload()
             }
         }
+    }
+
+    /** The alarm rang: free the model's memory until the next pass needs it. */
+    fun onRang() {
+        if (job?.isActive != true) unload()
     }
 
     fun stop() {
