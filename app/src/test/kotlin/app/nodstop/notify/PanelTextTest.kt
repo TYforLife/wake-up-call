@@ -49,4 +49,15 @@ class PanelTextTest {
         assertEquals("Daycare", lines.first().title)
         assertEquals("urgent: this woke you", PanelText.tags(lines.first()))
     }
+
+    @Test
+    fun `markers come most important first, and more chats are counted`() {
+        val d = Digests.build(listOf(m("Daycare", "Daycare", "call us now", 5)), 0)
+        val urgentLine = PanelLines.combine(d, mapOf("a/Daycare" to BriefedLine("a/Daycare", "Daycare asks you to call now.", affectsYou = true, needsReply = true, coveredUntilMs = 5)), setOf("a/Daycare")).single()
+        assertEquals(listOf("URGENT", "NEEDS A REPLY", "AFFECTS YOUR PLANS"), PanelText.markers(urgentLine).map { it.text })
+        assertEquals(PanelText.MarkerKind.URGENT, PanelText.markers(urgentLine).first().kind)
+        assertEquals(null, PanelText.more(PanelText.MAX_LINES))
+        assertEquals("+1 more chat", PanelText.more(PanelText.MAX_LINES + 1))
+        assertEquals("+3 more chats", PanelText.more(PanelText.MAX_LINES + 3))
+    }
 }
