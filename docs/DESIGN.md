@@ -599,6 +599,10 @@ test the urgent wake.
   running call.
 - Each VIP message gets one urgency attempt, marked before the call (`Urgency.take`), so a timeout or
   error can't resend it every tick.
+- `DeviceGate`: the model shares the trip's process, so it steps aside (and is unloaded) when the battery
+  is under 20%, the thermal status is severe or worse, the system reports low memory, or (before
+  loading) free memory is under min(model file, 2 GB) + 512 MB. The digest is shown instead (W2). The
+  Briefing lab shows the phone's current memory, heat and battery and whether a briefing would run.
 
 ### Quality eval
 
