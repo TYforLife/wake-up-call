@@ -47,6 +47,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 /** One run of the lab: timings and what the model wrote for the made-up chats. */
 private data class LabResult(
     val model: String,
+    val backend: String? = null,
     val loadMs: Long?,
     val firstTokenMs: Long?,
     val totalMs: Long?,
@@ -152,9 +153,11 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
 }
 
 private suspend fun runLab(m: ModelManager.Model, cacheDir: String): LabResult {
-    val llm = LiteRtLlm(m.path, cacheDir)
+    val llm = LiteRtLlm(m.path, cacheDir, App.instance.settings.useGpu.value)
     return try {
         val loadMs = llm.load()
+        // Survived a GPU load on this phone: trips may now try the GPU too (see Settings.gpuVerified).
+        if (App.instance.settings.useGpu.value) App.instance.settings.setGpuVerified(llm.backendUsed == "GPU")
         val convs = PromptBuilder.conversations(SampleChats.messages)
         val raw = withTimeoutOrNull(2 * BatchPlan.LLM_TIMEOUT_MS) { llm.generate(PromptBuilder.build(convs), PromptBuilder.maxTokens(convs)) }
         val s = llm.lastStats
@@ -163,10 +166,10 @@ private suspend fun runLab(m: ModelManager.Model, cacheDir: String): LabResult {
             val l = parsed[c.id] ?: return@mapNotNull null
             Triple(c.title, l.line, Guardrails.passes(l.line, SampleChats.messages.filter { it.convKey == c.convKey }, c.title))
         }
-        LabResult(m.name, loadMs, s.firstTokenMs, if (raw == null) null else s.totalMs, raw, lines,
+        LabResult(m.name, llm.backendUsed, loadMs, s.firstTokenMs, if (raw == null) null else s.totalMs, raw, lines,
             if (raw == null) "No answer within ${2 * BatchPlan.LLM_TIMEOUT_MS / 1000} s." else null)
     } catch (t: Throwable) {
-        LabResult(m.name, null, null, null, null, emptyList(), "${t::class.simpleName}: ${t.message}")
+        LabResult(m.name, llm.backendUsed, null, null, null, null, emptyList(), "${t::class.simpleName}: ${t.message}")
     } finally {
         llm.close()
     }
@@ -190,7 +193,7 @@ private fun deviceStatus(ctx: android.content.Context, modelBytes: Long?): Strin
 
 /** The eval's score as text for the lab (and to paste into the PR). */
 private suspend fun runEval(m: ModelManager.Model, cacheDir: String): String {
-    val llm = LiteRtLlm(m.path, cacheDir)
+    val llm = LiteRtLlm(m.path, cacheDir, App.instance.settings.useGpu.value)
     return try {
         llm.load()
         val t0 = android.os.SystemClock.elapsedRealtime()
@@ -198,7 +201,7 @@ private suspend fun runEval(m: ModelManager.Model, cacheDir: String): String {
         val r = EvalRunner(limited).run()
         val secs = (android.os.SystemClock.elapsedRealtime() - t0) / 1000
         buildString {
-            appendLine("${m.name}: facts kept ${r.factsKept} of ${r.factsTotal} (${r.keptPercent}%), invented ${r.invented}, answered ${r.answered} of ${r.results.size}, ${secs} s")
+            appendLine("${m.name} (${llm.backendUsed}): facts kept ${r.factsKept} of ${r.factsTotal} (${r.keptPercent}%), invented ${r.invented}, answered ${r.answered} of ${r.results.size}, ${secs} s")
             for (c in r.results.filter { it.invented || it.missed.isNotEmpty() }) {
                 appendLine("• ${c.id}: ${if (c.invented) "invented a fact" else "missed ${c.missed.joinToString()}"}${c.line?.let { " — \"$it\"" } ?: ""}")
             }
@@ -213,7 +216,7 @@ private suspend fun runEval(m: ModelManager.Model, cacheDir: String): String {
 @Composable
 private fun LabResultView(r: LabResult) {
     fun s(ms: Long?) = ms?.let { "%.1f s".format(it / 1000.0) } ?: "–"
-    Text(r.model, style = MaterialTheme.typography.titleSmall)
+    Text("${r.model} on ${r.backend ?: "?"}", style = MaterialTheme.typography.titleSmall)
     Text("Load ${s(r.loadMs)} · first token ${s(r.firstTokenMs)} · answer ${s(r.totalMs)}", style = MaterialTheme.typography.bodyMedium)
     val total = r.totalMs
     if (total != null) Text(

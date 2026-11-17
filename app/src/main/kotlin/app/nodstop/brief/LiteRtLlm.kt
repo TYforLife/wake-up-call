@@ -28,9 +28,18 @@ import kotlin.coroutines.resumeWithException
  * every call to finish before closing the engine. If the runtime never finishes, the engine is left open
  * rather than closed under a running call: a leak until the process ends beats a native crash mid-trip.
  */
-class LiteRtLlm(private val modelPath: String, private val cacheDir: String) : Llm, AutoCloseable {
+class LiteRtLlm(
+    private val modelPath: String,
+    private val cacheDir: String,
+    /** Try the GPU first (experimental): often faster and lighter on the battery; falls back to the CPU. */
+    private val preferGpu: Boolean = false,
+) : Llm, AutoCloseable {
     /** Timings of the last call, for the Briefing lab. */
     data class Stats(val loadMs: Long? = null, val firstTokenMs: Long? = null, val totalMs: Long? = null, val chars: Int = 0)
+
+    /** "GPU" or "CPU" once loaded (GPU falls back to CPU if the phone or model can't use it). */
+    @Volatile var backendUsed: String? = null
+        private set
 
     @Volatile var lastStats = Stats()
         private set
@@ -46,9 +55,7 @@ class LiteRtLlm(private val modelPath: String, private val cacheDir: String) : L
         check(!closed) { "closed" }
         if (engine != null) return 0
         val t0 = SystemClock.elapsedRealtime()
-        val e = Engine(EngineConfig(modelPath = modelPath, backend = Backend.CPU(), maxNumTokens = MAX_TOKENS, cacheDir = cacheDir))
-        e.initialize()
-        engine = e
+        engine = (if (preferGpu) start(Backend.GPU(), "GPU") else null) ?: start(Backend.CPU(), "CPU") ?: error("model failed to load")
         SystemClock.elapsedRealtime() - t0
     }
 
@@ -112,6 +119,20 @@ class LiteRtLlm(private val modelPath: String, private val cacheDir: String) : L
         thread(name = "litertlm-close", isDaemon = true) {
             val allStopped = running.all { it.await(STOP_WAIT_S, TimeUnit.SECONDS) }
             if (allStopped) runCatching { e.close() }
+        }
+    }
+
+    /** An initialised engine on [backend], or null if it couldn't start (e.g. no GPU support). */
+    private fun start(backend: Backend, name: String): Engine? {
+        val e = Engine(EngineConfig(modelPath = modelPath, backend = backend, maxNumTokens = MAX_TOKENS, cacheDir = cacheDir))
+        return try {
+            e.initialize()
+            backendUsed = name
+            e
+        } catch (t: Throwable) {
+            runCatching { e.close() }
+            if (name == "CPU") throw t
+            null
         }
     }
 

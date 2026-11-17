@@ -229,9 +229,26 @@ class Settings(context: Context) {
 
     fun setTeaTone(on: Boolean) { prefs.edit().putBoolean(KEY_TEA, on).apply(); _teaTone.value = on }
 
+    private val _useGpu = MutableStateFlow(prefs.getBoolean(KEY_GPU, false))
+    /** While You Slept: run the model on the GPU (experimental, falls back to the CPU). */
+    val useGpu: StateFlow<Boolean> = _useGpu
+
+    fun setUseGpu(on: Boolean) { prefs.edit().putBoolean(KEY_GPU, on).apply(); _useGpu.value = on }
+
+    /**
+     * The Briefing lab loaded the model on the GPU on this phone without crashing. Trips only try the GPU
+     * after that: a GPU driver can crash natively in ways no `try` can catch, so the first try happens in
+     * the lab, never mid-trip.
+     */
+    val gpuVerified: Boolean get() = prefs.getBoolean(KEY_GPU_OK, false)
+
+    fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
+
     private companion object {
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
+        const val KEY_GPU = "wys_use_gpu"
+        const val KEY_GPU_OK = "wys_gpu_verified"
         const val KEY_DND = "dnd_during_trips"
         const val KEY_DND_SET = "dnd_set_by_us"
         const val KEY_DND_PREV = "dnd_previous_filter"

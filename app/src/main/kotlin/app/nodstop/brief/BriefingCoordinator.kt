@@ -108,7 +108,7 @@ class BriefingCoordinator(
     }
 
     private fun llmFor(model: app.nodstop.model.ModelManager.Model): LiteRtLlm =
-        llm ?: LiteRtLlm(model.path, ctx.cacheDir.absolutePath).also { llm = it }
+        llm ?: LiteRtLlm(model.path, ctx.cacheDir.absolutePath, App.instance.settings.let { it.useGpu.value && it.gpuVerified }).also { llm = it }
 
     private fun unload() {
         llm?.close()
