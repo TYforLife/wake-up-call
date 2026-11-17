@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import app.nodstop.App
 import app.nodstop.brief.BatchPlan
 import app.nodstop.brief.BriefParser
+import app.nodstop.brief.DeviceGate
 import app.nodstop.brief.EvalRunner
 import app.nodstop.brief.Llm
 import app.nodstop.brief.Guardrails
@@ -108,6 +109,10 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
             }
             imp.error?.let { Text(it, color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall) }
         }
+        Section("Phone now") {
+            val status = remember(models, running, result, eval) { deviceStatus(ctx, current?.sizeBytes) }
+            Text(status, style = MaterialTheme.typography.bodySmall)
+        }
         Section("Run on sample chats") {
             Text(
                 "Made-up chats, never yours. The first load can take a minute or more. " +
@@ -165,6 +170,22 @@ private suspend fun runLab(m: ModelManager.Model, cacheDir: String): LabResult {
     } finally {
         llm.close()
     }
+}
+
+/** Free memory, heat and battery, and whether a trip's briefing would run now (DeviceGate). */
+private fun deviceStatus(ctx: android.content.Context, modelBytes: Long?): String {
+    val mem = android.app.ActivityManager.MemoryInfo().also { ctx.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(it) }
+    val thermal = runCatching { ctx.getSystemService(android.os.PowerManager::class.java).currentThermalStatus }.getOrNull()
+    val battery = runCatching {
+        ctx.getSystemService(android.os.BatteryManager::class.java).getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+    }.getOrNull()
+    val verdict = modelBytes?.let { DeviceGate.check(battery, thermal, mem.availMem, mem.lowMemory, it, modelLoaded = false) }
+    return "Free memory ${ModelManager.mb(mem.availMem)} MB · thermal status ${thermal ?: "?"} (3+ stops AI) · battery ${battery ?: "?"}%\n" +
+        when {
+            verdict == null -> "No model imported."
+            verdict == DeviceGate.Verdict.OK -> "A trip's briefing would run now."
+            else -> "A trip's briefing would step aside now: ${verdict.reason}. The digest is shown instead."
+        }
 }
 
 /** The eval's score as text for the lab (and to paste into the PR). */

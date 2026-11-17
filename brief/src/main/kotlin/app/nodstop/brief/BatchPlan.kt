@@ -11,7 +11,7 @@ object BatchPlan {
     const val BATCH_SIZE = 30
     const val FINAL_PASS_BEFORE_ALARM_MS = 180_000L
     const val LLM_TIMEOUT_MS = 60_000L
-    const val MIN_BATTERY_PCT = 20
+    const val MIN_BATTERY_PCT = DeviceGate.MIN_BATTERY_PCT
 
     data class State(val lastRunMs: Long, val messagesAtLastRun: Int = 0, val finalDone: Boolean = false)
 

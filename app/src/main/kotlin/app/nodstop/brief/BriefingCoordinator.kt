@@ -1,7 +1,9 @@
 package app.nodstop.brief
 
+import android.app.ActivityManager
 import android.content.Context
 import android.os.BatteryManager
+import android.os.PowerManager
 import app.nodstop.App
 import app.nodstop.notify.MessageStore
 import kotlinx.coroutines.CoroutineScope
@@ -44,7 +46,12 @@ class BriefingCoordinator(
         if (job?.isActive == true) return
         val model = App.instance.models.current() ?: return
         val battery = battery()
-        if (battery != null && battery < BatchPlan.MIN_BATTERY_PCT) return
+        // Memory, heat and battery first: the trip shares this process and must never be put at risk.
+        val gate = deviceVerdict(battery, model.sizeBytes)
+        if (gate != DeviceGate.Verdict.OK) {
+            unload() // free the memory now; the digest covers everything
+            return
+        }
         val generation = snap.generation
         val settings = App.instance.settings
 
@@ -102,6 +109,12 @@ class BriefingCoordinator(
     private fun unload() {
         llm?.close()
         llm = null
+    }
+
+    private fun deviceVerdict(battery: Int?, modelBytes: Long): DeviceGate.Verdict {
+        val mem = runCatching { ActivityManager.MemoryInfo().also { ctx.getSystemService(ActivityManager::class.java).getMemoryInfo(it) } }.getOrNull()
+        val thermal = runCatching { ctx.getSystemService(PowerManager::class.java).currentThermalStatus }.getOrNull()
+        return DeviceGate.check(battery, thermal, mem?.availMem, mem?.lowMemory == true, modelBytes, modelLoaded = llm != null)
     }
 
     private fun battery(): Int? = runCatching {
