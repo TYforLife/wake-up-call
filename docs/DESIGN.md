@@ -374,28 +374,40 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 `POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `INTERNET` (map tiles only, from
 OpenFreeMap; the tile server sees roughly which area you're looking at, nothing else is sent).
 
-### Screens (v0)
+### Screens
 
-- **Home**: if full-screen alarms are off, a red card at the top ("The alarm can't turn your screen on")
-  with the button to allow them. Then the list of Routes, Start per route (or the Quick Settings tile), the running trip (or an "interrupted" card if the app
-  was killed mid-trip, with the alarm time still set), Stop trip (confirmed), a "How was the ring
-  timing?" card after each trip (too early / good / too late per leg, written to the trip log), only
-  for legs not already asked about. Optional: after "I'm awake" on a stop's own ring (Wake or
-  Failsafe, not simulated), a silent notification asks the same for that leg, with three buttons
-  (gone after 15 min). Readiness → "Ask after each ring" turns both off.
-  Shows the build number and short SHA (from BuildConfig) at the bottom.
-- **Route editor**: name, plus 1–3 legs. Each leg has a name, where you get off (paste a point or a
-  Maps link, or **Use my location** at the stop), and an alarm on/off toggle. **No times.** Shows what's
-  been learned ("learned from 3 rides: real stop is 85 m from this point", Forget).
-  The parser accepts `-36.78123, 174.75123`, `-36.78123 174.75123`, and Google Maps URLs containing
-  `@lat,lng` or `q=lat,lng` / `query=lat,lng`. Warn if the point is outside New Zealand.
-- **Trip**: Waiting for the bus / On the bus / Get off at X, a progress bar, distance (along the route or
-  straight), a realistic ETA, speed, GPS age, alarm time and why, how much is learned, plus
-  "I'm off this bus" (SkipLeg).
-- **Readiness**: a green or red row per check, each with a button that opens the right settings page:
-  notifications, fine location, `canUseFullScreenIntent()`, `canScheduleExactAlarms()`,
-  ignoring battery optimisations, alarm-stream volume above 0 (only when the speaker is on). The
-  speaker-last-resort toggle. Plus static Samsung instructions:
+**Design system** (`ui/Design.kt`, PLAN U6): Nodstop's own palette in light and dark (night-bus navy
+with an amber accent, the alarm screen's family; no wallpaper colours), a type scale readable at arm's
+length, a spacing scale, cards (tinted by tone for alerts), primary / secondary / quiet buttons (56 dp
+primary), status chips (ok / warn / bad / info / neutral), big stats for distance and ETA, setting
+rows. Every screen's content is a stateless composable with a screenshot test (`ScreensScreenshotTest`,
+`AlarmScreenshotTest`); CI attaches the PNGs to `debug-latest`. Before/after shots of Run 5 are in
+`docs/screens/`.
+
+- **Home**: a Ready / Check setup chip at the top. If full-screen alarms are off, a red card ("The
+  alarm can't turn your screen on") with the button to allow them; if a required check is off, a card
+  with Fix. A running trip is a highlighted card on top: where you get off, distance and ETA in big
+  type, progress, Open trip and Stop (confirmed); an "interrupted" card if the app was killed mid-trip,
+  with the alarm time still set. A "How was the ring timing?" card after each trip, one tap per leg
+  (too early / good / too late, written to the trip log), only for legs not already asked about.
+  Optional: after "I'm awake" on a stop's own ring (Wake or Failsafe, not simulated), a silent
+  notification asks the same for that leg, with three buttons (gone after 15 min). Readiness → "Ask
+  about ring timing" turns both off. Then one big card per route with **Start** (and "Start from a
+  later leg…", Edit), Add a route, Map / Readiness / Debug, and the build number and short SHA.
+- **Route editor**: the name, then one card per bus (1–3). Each has the stop name, **I'm at the stop:
+  use my location** first, or paste a point or a Maps link, a status chip for the pin, what's learned
+  (rides, your ratings' lead, Forget), and "Wake me for this stop". **No times.** One primary action:
+  Save. The parser accepts `-36.78123, 174.75123`, `-36.78123 174.75123`, and Google Maps URLs
+  containing `@lat,lng` or `q=lat,lng` / `query=lat,lng`. Warn if the point is outside New Zealand.
+- **Trip**: glanceable at arm's length: phase and GPS chips, the stop name large, distance (along the
+  route or straight) and a realistic ETA in big type, a progress bar, the alarm time and why, then
+  **I'm off this bus** (SkipLeg), Show on map, details (ETA source, speed, rides learned) and Stop trip.
+- **Readiness**: collapses to **All set** when every required check is green (Show all checks);
+  otherwise the checks to fix come first, each with Fix (opens the right settings page): notifications,
+  fine location, `canUseFullScreenIntent()`, `canScheduleExactAlarms()`, ignoring battery
+  optimisations, alarm-stream volume above 0 (only when the speaker is on). Optional checks apart.
+  The last ring's report. Grouped settings (Alarm; While you slept), plain language, plus the static
+  Samsung steps:
   - Settings → Apps → Nodstop → Battery → Unrestricted
   - Settings → Battery → Background usage limits → make sure it's not in Sleeping / Deep sleeping apps;
     add it to Never sleeping apps
@@ -403,10 +415,14 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 - **Map** (from Home, and "Show on map" on the Trip screen): MapLibre with OpenFreeMap's "liberty"
   style. Shows you as a blue dot (waiting, no trip, or off the bus) or a bus icon (on the bus: RIDING,
   or still at bus speed while ringing/awake), every pinned stop (the trip's current stop highlighted),
-  and faint learned routes. Frames you and the
-  current stop, then **follows you by default** every time it opens. Dragging the map pauses following;
-  it resumes 10 s after your last drag, or at once when you tap **Follow** (`FollowPolicy`). With no trip running it gets your position only while open.
-  It's for checking the pins sit on the right spots; it doesn't change any alarm.
+  wake zones and faint learned routes. **Turn and tilt with two fingers** like Google Maps; the compass
+  shows once turned and puts north back up. Frames you and the current stop, then **follows you by
+  default** every time it opens. Any gesture pauses following; it resumes 10 s after your last one
+  (`FollowPolicy`). The follow button: **Follow me** when paused; while following it switches **North
+  up** / **Heading up** (`FollowMode`: the map turns so the way you're going is up, tilted 45°;
+  heading from your positions, held while standing still, `Heading`). Tap a stop pin for its wake-zone
+  sheet (presets, the size in big type, a slider; Save applies to a running trip too). With no trip
+  running it gets your position only while open.
 - **Debug**: Test ring in 30 s (the real AlarmManager path; disabled during a trip), Simulated trip
   (§5 LocationSource), **Kill app now** (`Process.killProcess`), Forget all learned stops, Share last
   trip log, a view of the last 200 trace events.
