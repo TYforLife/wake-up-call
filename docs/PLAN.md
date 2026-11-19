@@ -326,9 +326,9 @@ happened, and say so in the PR. Add it to `engine/src/test/resources/traces/` as
 - [ ] The trip notification says when it's on ("Quiet trip: 6 held").
 
 ### R3 The circle rings when the bus enters it
-- [ ] Inside your circle at bus speed rings, even if boarding was never detected (e.g. trip started already on the bus at a crawl). Walking speed inside it still doesn't, before boarding.
-- [ ] With a circle set, `wakeAt` and the failsafe aim at the circle's edge (`straight − radius`), not the stop, so a GPS gap can't carry you deep inside before it rings. Earlier only: invariant suite plus a test with a 60-s gap just before the circle.
-- [ ] A ride where fixes stop near the circle (Samsung batching with the screen off) still rings by the failsafe before the edge: scenario test.
+- [x] Inside your circle at bus speed rings, even if boarding was never detected (e.g. trip started already on the bus at a crawl). Walking speed inside it still doesn't, before boarding.
+- [x] With a circle set, `wakeAt` and the failsafe aim at the circle's edge (`straight − radius`), not the stop, so a GPS gap can't carry you deep inside before it rings. Earlier only: invariant suite plus a test with a 60-s gap just before the circle.
+- [x] A ride where fixes stop near the circle (Samsung batching with the screen off) still rings by the failsafe before the edge: scenario test.
 
 ### R4 Map shows this trip
 - [ ] While a trip runs, the map shows only that trip's stops, circles and learned route; with no trip, only the stops of the route you last used (a chip switches routes). Test in `MapModelTest`.

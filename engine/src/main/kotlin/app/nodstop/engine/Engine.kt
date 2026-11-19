@@ -259,7 +259,8 @@ class Engine(val cfg: Config = Config()) {
         val zone = leg.wakeRadiusM
         val inside = zone != null && pos != null && Geo.distanceM(pos, leg.stop) <= zone
         val due = st.alarmAtMs?.let { it <= input.tMs } == true
-        return if (st.phase in setOf(Phase.WAITING, Phase.RIDING) && leg.alarmEnabled && st.boarded && inside && !due) {
+        val onBus = st.boarded || (st.lastSpeed ?: 0.0) >= cfg.boardKmh / 3.6
+        return if (st.phase in setOf(Phase.WAITING, Phase.RIDING) && leg.alarmEnabled && onBus && inside && !due) {
             st.copy(alarmAtMs = input.tMs, alarmReason = AlarmReason.WAKE)
         } else st
     }
@@ -497,9 +498,19 @@ class Engine(val cfg: Config = Config()) {
         // No speed information yet (start of a leg, or back from a dropout): a fix may pull the alarm earlier, never later.
         val current = s.alarmAtMs
         if (short == null && current != null && current < alarm) { alarm = current; reason = s.alarmReason ?: reason }
-        // Your own wake zone (DESIGN §2.6): on the bus and inside it, ring now (whichever comes first).
+        // Your own wake zone (DESIGN §2.6). Aim at its edge too (PLAN R3): the estimate and the failsafe for the
+        // circle, with no extra lead (the circle is your margin). Only ever earlier than the stop's own times.
         val zone = leg.wakeRadiusM
-        if (zone != null && boarded && straight <= zone) { alarm = now; reason = AlarmReason.WAKE }
+        // From outside it only: waiting at a stop that's already inside your circle must not ring before the bus.
+        if (zone != null && straight > zone) {
+            val edgeWake = ft + ((max(0.0, dEff - zone) / vEst) * 1000).roundToLong()
+            val edgeFailsafe = failsafeAt(ft, max(0.0, straight - zone), 0.0)
+            val edge = min(edgeWake, edgeFailsafe)
+            if (edge < alarm) { alarm = edge; reason = if (edgeWake <= edgeFailsafe) AlarmReason.WAKE else AlarmReason.FAILSAFE }
+        }
+        // Inside it on the bus, ring now. "On the bus" = boarding detected, or bus speed right now (a trip started
+        // on a crawling bus may never have detected boarding).
+        if (zone != null && straight <= zone && (boarded || (short ?: 0.0) >= cfg.boardKmh / 3.6)) { alarm = now; reason = AlarmReason.WAKE }
         // Rode past the stop without ringing (e.g. a mis-pasted stop): ring now.
         if (passed) { alarm = now; reason = AlarmReason.OVERSHOOT }
         alarm = max(alarm, now)

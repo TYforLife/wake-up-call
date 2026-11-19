@@ -181,7 +181,14 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
   rings now; property-tested never to make an alarm later). A simulated trip's stops can be set too (for
   that trip only). Once you're on the bus and inside
   it, it rings, unless the timing rang first: **whichever comes first**, so it can only ring earlier.
-  Waiting at a stop inside the zone doesn't ring until you're on the bus.
+  "On the bus" is boarding detected **or bus speed right now** (≥ 15 km/h over the last 15 s), so a
+  trip started on a crawling bus, where boarding was never detected, still rings on entry (PLAN R3).
+  From outside the circle, the estimate and the failsafe also aim at **its edge**, with no extra lead
+  (the circle is your margin): `ft + (d − r) / v_est` and `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`,
+  each taken only if earlier. GPS already runs at 1–2 s for the whole trip, so no faster checking is
+  needed near the circle; a GPS gap is covered by the failsafe (tested: a gap from 60 s before the edge
+  still rings before it). Waiting at a stop inside the zone doesn't ring until you're on the bus.
+  Property-tested: with a circle, the first ring is never later than without one (300 random trips).
 
 ### Why the approximations err early
 
