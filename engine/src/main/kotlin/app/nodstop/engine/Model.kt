@@ -15,12 +15,12 @@ data class TrackPoint(val lat: Double, val lng: Double, val toEndM: Double, val 
 @Serializable
 data class Track(val points: List<TrackPoint>)
 
-/** What the app has learned about a stop from past rides: the way there, and a suggested stop position. */
+/** What the app has learned about a stop from past rides: the way there, and your ratings. */
 @Serializable
 data class Learned(
     /**
-     * A SUGGESTION only: roughly where you got off on past rides (from GPS, so it varies with where you
-     * stood or walked). Never used for the alarm: your pin is the stop. Shown faintly, with "Use suggestion".
+     * Your pin. (Before PLAN U4 this was a "suggested stop" averaged from where you got off; where a trip
+     * ends says nothing reliable about the stop, so it's no longer derived or shown.) Never used for the alarm.
      */
     val stop: LatLng,
     /** Most recent rides first. */
@@ -150,4 +150,4 @@ data class Output(
 )
 
 /** A new ride to merge for the leg whose pasted stop is [dest]. */
-data class LearnedUpdate(val dest: LatLng, val stop: LatLng, val track: Track?)
+data class LearnedUpdate(val dest: LatLng, val track: Track?)

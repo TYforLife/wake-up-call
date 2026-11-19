@@ -40,6 +40,17 @@ object Eta {
         return next.coerceIn(cfg.minLeadS, cfg.maxLeadS)
     }
 
+    /**
+     * Exponentially weighted speed: each new [mps] at [tMs] moves the average by 1 − e^(−Δt/τ), so the last
+     * τ seconds weigh most and the whole ride still counts. First value: [mps] itself.
+     */
+    fun ewma(prev: Double?, prevMs: Long?, mps: Double, tMs: Long, tauS: Double): Double {
+        if (prev == null || prevMs == null) return mps
+        val dt = ((tMs - prevMs) / 1000.0).coerceAtLeast(0.0)
+        val a = 1 - kotlin.math.exp(-dt / tauS)
+        return prev + a * (mps - prev)
+    }
+
     /** The ETA to show, in seconds, or null when it can't be known (e.g. still waiting for the bus). */
     fun display(typicalToEndS: Double?, pace: Double?, distanceM: Double, recentMps: Double?, waiting: Boolean): Double? {
         if (waiting) return null

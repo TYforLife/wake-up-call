@@ -34,6 +34,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import app.nodstop.engine.LatLng
 import app.nodstop.engine.CoordParser
+import app.nodstop.engine.Geo
 import app.nodstop.App
 import app.nodstop.data.LegDraft
 import app.nodstop.data.Route
@@ -41,7 +42,20 @@ import app.nodstop.trip.FusedLocationSource
 import app.nodstop.trip.TripService
 import app.nodstop.ui.Readiness
 import app.nodstop.ui.Screen
+import app.nodstop.ui.Hint
+import app.nodstop.ui.NodstopPalette
+import app.nodstop.ui.PrimaryButton
+import app.nodstop.ui.Radius
+import app.nodstop.ui.SecondaryButton
+import app.nodstop.ui.Space
+import app.nodstop.ui.StatusChip
+import app.nodstop.ui.Tone
 import app.nodstop.ui.TopBar
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
@@ -76,8 +90,7 @@ import org.maplibre.android.geometry.LatLng as MLatLng
 
 /**
  * Where you are and where your stops are pinned, to check the pins sit on the right spots.
- * You're a blue dot while waiting (or off the bus) and a bus once you're on it. Faint markers are
- * suggestions (where you got off on past rides); faint lines are learned routes.
+ * You're a blue dot while waiting (or off the bus) and a bus once you're on it. Faint lines are learned routes.
  */
 @Composable
 fun MapScreen(go: (Screen) -> Unit) {
@@ -116,7 +129,17 @@ fun MapScreen(go: (Screen) -> Unit) {
     // Follows you every time the map opens; a drag pauses it for 10 s (or until you tap Follow).
     val policy = remember { FollowPolicy() }
     var follow by remember { mutableStateOf(true) }
+    var mode by remember { mutableStateOf(FollowMode.NORTH_UP) }
     var dragTick by remember { mutableStateOf(0) }
+    // Which way you're going (for heading-up), from your positions.
+    var lastPos by remember { mutableStateOf<LatLng?>(null) }
+    var heading by remember { mutableStateOf<Double?>(null) }
+    LaunchedEffect(me) {
+        val p = me ?: return@LaunchedEffect
+        heading = Heading.update(lastPos, p, heading)
+        val lp = lastPos
+        if (lp == null || Geo.distanceM(lp, p) >= Heading.MIN_MOVE_M) lastPos = p
+    }
     LaunchedEffect(dragTick) {
         while (!policy.following(System.currentTimeMillis())) {
             follow = false
@@ -126,20 +149,17 @@ fun MapScreen(go: (Screen) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.padding(horizontal = 16.dp)) { TopBar("Map", onBack = { go(Screen.Home) }) }
+        Box(Modifier.padding(horizontal = Space.l)) { TopBar("Map", onBack = { go(Screen.Home) }) }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            MapLibreView(layers, me, kind, follow, onUserDrag = { policy.onUserDrag(System.currentTimeMillis()); dragTick++ },
+            MapLibreView(layers, me, kind, follow, mode, heading, onUserDrag = { policy.onUserDrag(System.currentTimeMillis()); dragTick++ },
                 onPinTap = { routeId, leg ->
                     selected = routeId to leg
                     draft = allRoutes.firstOrNull { it.id == routeId }?.legs?.getOrNull(leg)?.wakeRadiusM
                 })
-            Row(
-                Modifier.align(Alignment.BottomEnd).padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilledTonalButton(onClick = { policy.onFollowTapped(); follow = true; dragTick++ }) {
-                    Text(if (follow) "Following you" else "Follow")
-                }
+            // Not following: tap to follow again. Following: tap to switch north up / heading up.
+            FollowButton(follow, mode, Modifier.align(Alignment.BottomEnd).padding(Space.m)) {
+                if (follow) mode = mode.next()
+                policy.onFollowTapped(); follow = true; dragTick++
             }
         }
         val sel = selected
@@ -148,50 +168,94 @@ fun MapScreen(go: (Screen) -> Unit) {
         val selLeg = sel?.let { s -> selRoute?.legs?.getOrNull(s.second) }
         if (sel != null && selRoute != null && selLeg != null) {
             val pin = layers.pins.firstOrNull { it.routeId == sel.first && it.legIndex == sel.second }
-            val d = draft
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Wake zone · ${selLeg.name}", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    if (d == null) "Auto · about ${pin?.zoneM?.toInt() ?: 0} m" else ZoneScale.label(d),
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-                Text(
-                    if (d == null) "From past rides (or your lead × 25 km/h). Pick a size to set your own."
-                    else "Rings as soon as the bus enters it, or earlier by the usual timing. Applies to a trip that's running too.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    androidx.compose.material3.FilterChip(selected = d == null, onClick = { draft = null }, label = { Text("Auto") })
-                    for (p in ZoneScale.PRESETS) {
-                        androidx.compose.material3.FilterChip(selected = d == p, onClick = { draft = p }, label = { Text(ZoneScale.label(p)) })
+            ZoneSheet(
+                legName = selLeg.name, draft = draft, autoM = pin?.zoneM ?: 0.0, onDraft = { draft = it },
+                onSave = {
+                    if (routes.any { it.id == selRoute.id }) {
+                        app.routes.upsert(selRoute.copy(legs = selRoute.legs.mapIndexed { i, l -> if (i == sel.second) l.copy(wakeRadiusM = draft) else l }))
+                    } else {
+                        CoordParser.parse(selLeg.coords)?.let { p -> TripService.instance?.setWakeRadius(p, draft) }
                     }
-                }
-                androidx.compose.material3.Slider(
-                    value = d?.let { ZoneScale.toPos(it) } ?: 0f,
-                    onValueChange = { v -> draft = ZoneScale.toMeters(v) },
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.Button(onClick = {
-                        if (routes.any { it.id == selRoute.id }) {
-                            app.routes.upsert(selRoute.copy(legs = selRoute.legs.mapIndexed { i, l -> if (i == sel.second) l.copy(wakeRadiusM = draft) else l }))
-                        } else {
-                            CoordParser.parse(selLeg.coords)?.let { p -> TripService.instance?.setWakeRadius(p, draft) }
-                        }
-                        selected = null
-                    }) { Text("Save") }
-                    androidx.compose.material3.TextButton(onClick = { selected = null }) { Text("Cancel") }
-                }
-            }
+                    selected = null
+                },
+                onCancel = { selected = null },
+            )
         }
-        Text(
+        if (sel == null) MapLegend(
             when {
                 me == null -> "Waiting for your location…"
-                kind == MapModel.Me.BUS -> "🚌 You're on the bus."
-                else -> "🔵 That's you."
-            } + "  📍 your pins (tap one to set its wake zone) · circles: where it rings · faint dots: suggested stops",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(12.dp),
+                kind == MapModel.Me.BUS -> "You're on the bus"
+                else -> "That's you"
+            },
         )
+    }
+}
+
+/** Follow / North up / Heading up, bottom right of the map. */
+@Composable
+private fun FollowButton(follow: Boolean, mode: FollowMode, modifier: Modifier, onClick: () -> Unit) {
+    androidx.compose.material3.Button(
+        onClick = onClick, modifier = modifier.heightIn(min = 48.dp), shape = Radius.button,
+        colors = if (follow) androidx.compose.material3.ButtonDefaults.buttonColors()
+        else androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Text(
+            when {
+                !follow -> "◎  Follow me"
+                mode == FollowMode.HEADING_UP -> "➤  Heading up"
+                else -> "▲  North up"
+            },
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
+}
+
+/** What's on the map, in one line, under it. */
+@Composable
+private fun MapLegend(me: String) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = Space.l, vertical = Space.m), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+        Text(me, style = MaterialTheme.typography.titleSmall)
+        Hint("Tap a stop pin to set where it rings · two fingers to turn or tilt · the compass puts north back up")
+    }
+}
+
+/** A stop's wake zone: presets, the value in big type, a slider (most of its track under 1 km). Stateless. */
+@Composable
+fun ZoneSheet(legName: String, draft: Double?, autoM: Double, onDraft: (Double?) -> Unit, onSave: () -> Unit, onCancel: () -> Unit) {
+    val d = draft
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = Space.l, vertical = Space.l),
+        verticalArrangement = Arrangement.spacedBy(Space.s),
+    ) {
+        Hint("Wake zone · $legName")
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(if (d == null) "Auto" else ZoneScale.label(d), style = NodstopPalette.bigNumber)
+            if (d == null) Hint("  about ${autoM.toInt()} m", Modifier.padding(bottom = Space.s))
+        }
+        Hint(
+            if (d == null) "From past rides (or your lead × 25 km/h). Pick a size to set your own."
+            else "Rings as soon as the bus is inside it, or earlier by the usual timing. Applies to a running trip too.",
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+            val options = listOf<Double?>(null) + ZoneScale.PRESETS
+            for (p in options) {
+                StatusChip(
+                    if (p == null) "Auto" else ZoneScale.label(p), if (d == p) Tone.INFO else Tone.NEUTRAL,
+                    Modifier.weight(1f), onClick = { onDraft(p) },
+                )
+            }
+        }
+        androidx.compose.material3.Slider(
+            value = d?.let { ZoneScale.toPos(it) } ?: 0f,
+            onValueChange = { v -> onDraft(ZoneScale.toMeters(v)) },
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+            SecondaryButton("Cancel", onCancel, Modifier.weight(1f))
+            PrimaryButton("Save", onSave, Modifier.weight(1f))
+        }
     }
 }
 
@@ -202,7 +266,7 @@ private const val FAINT = "#6E7BA8"
 
 @Composable
 private fun MapLibreView(
-    layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me, follow: Boolean,
+    layers: MapModel.Layers, me: LatLng?, kind: MapModel.Me, follow: Boolean, mode: FollowMode, heading: Double?,
     onUserDrag: () -> Unit, onPinTap: (String, Int) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -235,7 +299,13 @@ private fun MapLibreView(
     LaunchedEffect(Unit) {
         mapView.getMapAsync { m ->
             map = m
-            m.uiSettings.isRotateGesturesEnabled = false
+            // Turn and tilt with two fingers, like Google Maps; the compass appears once turned and resets north.
+            m.uiSettings.isRotateGesturesEnabled = true
+            m.uiSettings.isTiltGesturesEnabled = true
+            m.uiSettings.isCompassEnabled = true
+            m.uiSettings.setCompassFadeFacingNorth(true)
+            val px = ctx.resources.displayMetrics.density
+            m.uiSettings.setCompassMargins(0, (16 * px).toInt(), (16 * px).toInt(), 0)
             // Only your own gestures pause following (not the camera moves we make ourselves).
             m.addOnCameraMoveStartedListener { reason ->
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) onUserDrag()
@@ -260,15 +330,13 @@ private fun MapLibreView(
     LaunchedEffect(style, layers) {
         val s = style ?: return@LaunchedEffect
         s.getSourceAs<GeoJsonSource>("tracks")?.setGeoJson(MapModel.tracksJson(layers))
-        s.getSourceAs<GeoJsonSource>("sugg-lines")?.setGeoJson(MapModel.suggestionLinesJson(layers))
-        s.getSourceAs<GeoJsonSource>("sugg")?.setGeoJson(MapModel.suggestionsJson(layers))
         s.getSourceAs<GeoJsonSource>("pins")?.setGeoJson(MapModel.pinsJson(layers))
         s.getSourceAs<GeoJsonSource>("zones")?.setGeoJson(MapModel.zonesJson(layers))
     }
     LaunchedEffect(style, me, kind) {
         style?.getSourceAs<GeoJsonSource>("me")?.setGeoJson(MapModel.meJson(me, kind))
     }
-    LaunchedEffect(style, me, follow) {
+    LaunchedEffect(style, me, follow, mode, heading) {
         val m = map ?: return@LaunchedEffect
         if (style == null) return@LaunchedEffect
         if (!framed) {
@@ -281,16 +349,19 @@ private fun MapLibreView(
             }
             framed = me != null || pts.isNotEmpty()
         } else if (follow && me != null) {
-            // Following: keep you centred, and zoom in to street level if the first frame was wide.
+            // Following: keep you centred (zoomed to street level if the first frame was wide). North up resets
+            // the bearing; heading up turns the map so the way you're going is up, tilted like navigation.
             val zoom = maxOf(m.cameraPosition.zoom, 15.0)
-            m.animateCamera(CameraUpdateFactory.newLatLngZoom(MLatLng(me.lat, me.lng), zoom), 600)
+            val bearing = if (mode.bearingFollows) heading ?: m.cameraPosition.bearing else 0.0
+            val cam = CameraPosition.Builder().target(MLatLng(me.lat, me.lng)).zoom(zoom).bearing(bearing).tilt(mode.tilt).build()
+            m.animateCamera(CameraUpdateFactory.newCameraPosition(cam), 600)
         }
     }
 }
 
 private fun addLayers(s: Style) {
     val empty = """{"type":"FeatureCollection","features":[]}"""
-    for (id in listOf("zones", "tracks", "sugg-lines", "sugg", "pins", "me")) s.addSource(GeoJsonSource(id, empty))
+    for (id in listOf("zones", "tracks", "pins", "me")) s.addSource(GeoJsonSource(id, empty))
     // Wake zones: where it will ring. Solid = yours, dashed = automatic.
     s.addLayer(org.maplibre.android.style.layers.FillLayer("zones-f", "zones").withProperties(
         org.maplibre.android.style.layers.PropertyFactory.fillColor(CURRENT),
@@ -300,13 +371,6 @@ private fun addLayers(s: Style) {
     s.addLayer(LineLayer("zones-auto", "zones").withProperties(lineColor(CURRENT), lineWidth(2f), lineOpacity(0.7f), lineDasharray(arrayOf(3f, 2f)))
         .withFilter(org.maplibre.android.style.expressions.Expression.eq(get("yours"), false)))
     s.addLayer(LineLayer("tracks-l", "tracks").withProperties(lineColor(FAINT), lineWidth(3f), lineOpacity(0.35f)))
-    s.addLayer(LineLayer("sugg-lines-l", "sugg-lines").withProperties(
-        lineColor(FAINT), lineWidth(2f), lineOpacity(0.6f), lineDasharray(arrayOf(2f, 2f))))
-    s.addLayer(CircleLayer("sugg-l", "sugg").withProperties(
-        circleRadius(6f), circleColor(FAINT), circleOpacity(0.45f), circleStrokeWidth(1f), circleStrokeColor("#FFFFFF")))
-    s.addLayer(SymbolLayer("sugg-t", "sugg").withProperties(
-        textField(get("label")), textFont(arrayOf("Noto Sans Regular")), textSize(11f), textColor(FAINT),
-        textOffset(arrayOf(0f, 1.3f)), textAnchor("top"), textHaloColor("#FFFFFF"), textHaloWidth(1.5f)))
     s.addLayer(CircleLayer("pins-l", "pins").withProperties(
         circleRadius(8f), circleColor(PIN), circleStrokeWidth(2f), circleStrokeColor("#FFFFFF")))
     s.addLayer(CircleLayer("pins-current", "pins").withProperties(

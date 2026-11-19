@@ -26,7 +26,7 @@ Owner's commute (the first test):
 Both routes are seeded with stop names only. **There are no time inputs anywhere**: you set where
 you get off (paste a Google Maps point, or stand at the stop and tap "Use my location"), and GPS
 does the rest. **Your pin is always the stop.** After a ride or two the app learns the way the bus
-goes and *suggests* where the stop really is (§2.3); you choose whether to move the pin.
+goes (§2.3). Where a trip ends is never taken as the stop: you often end it as soon as you're awake.
 Personal coordinates stay on the phone, never in the repo.
 
 Earbuds are usually in; otherwise the phone is in hand, pocket or bag.
@@ -60,7 +60,11 @@ On every good GPS fix (time `ft`) for the leg you might sleep on, the engine sch
     - `avg15`: current speed, path length ÷ time over the last 15 s.
     - `v_route` on a learned route: `d ÷ the fastest time any past ride took from here`. That's how fast a
       bus really covers the rest: it knows the last stretch is slow city streets, and that a bus held at
-      a light near the stop can pull away fast. On a first ride, the fastest 15-s average of the last 30 s.
+      a light near the stop can pull away fast. On a first ride, the larger of the fastest 15-s average of
+      the last 30 s and the **whole-ride speed**: `avg15` since boarding, exponentially weighted with
+      `TRIP_TAU` = 60 s (recent minutes count most), so a bus held at lights or stuck behind a turning
+      truck for a minute still counts as the speed it's been doing. As a term in the max it can only
+      ring earlier (property test: 300 random trips).
     - `V_FLOOR` = 25 km/h (halved on a learned route). It also means "ring by ~310 m" when stopped.
 - **failsafeAt**: when the alarm must ring if no further fixes arrive, assuming the bus could go as
   fast as `V_MAX`: `ft + max(DEADMAN_MIN, straight / V_MAX − LEAD)`. Measured on the straight line.
@@ -122,7 +126,7 @@ the cold path cancels it.
 | Phone silent / DND | System alarm, alarm-usage vibration, earbuds (media stream), plus a full-screen intent. |
 | Bus faster than expected | `V_MAX` in the failsafe, `avg15`, and past rides' fastest times in wakeAt. |
 | Bus slower than expected | Rings a bit early. |
-| Roughly pasted stop | A pin past the real stop costs ~d/v seconds (e.g. 150 m at 40 km/h ≈ 14 s). The app suggests a better spot (§2.3); you decide. |
+| Roughly pasted stop | A pin past the real stop costs ~d/v seconds (e.g. 150 m at 40 km/h ≈ 14 s), and rides that never pass within 60 m of it aren't learned. Use "Use my location" at the stop. |
 
 There is a single ring path: `AlarmManager` → `AlarmReceiver` → `RingService` → `AlarmActivity`.
 "Ring now" means scheduling the alarm at `now`. The at-stop nudge is a single short vibration and a
@@ -130,15 +134,13 @@ notification, not the alarm.
 
 ### 2.3 Route learning
 
-When a leg ends with you getting off (and you'd boarded), the engine emits a ride: the trail (a point
-every ~25 m from boarding to the point nearest **your pin**, each with the distance and time left on
-that ride) and the get-off spot. The app stores it per pin (`learned.json`, on the phone only):
-
-- **Suggested stop**: a running average of where you got off (ignored if > 300 m from your pin).
-  It's only a suggestion: GPS-detected getting off varies with where you stood or walked, so the alarm
-  never uses it. The route editor (and the map) show it faintly with **Use suggestion**, which moves
-  your pin there and starts learning afresh.
-- **Tracks**: the newest 5 rides.
+When a leg ends with you getting off (and you'd boarded), the engine emits a ride, **only if GPS
+passed within 60 m of your pin** (`LEARN_PASS`): the trail (a point every ~25 m from boarding to the
+point nearest your pin, each with the distance and time left on that ride). A trip you stop by hand,
+or a leg that ends 300 m short (a long red light after "I'm awake"), teaches nothing. Where you got
+off, acked or stopped the trip is never learned or suggested: you often end the trip as soon as you're
+awake, so it says nothing about where the stop is (PLAN U4; the old "suggested stop" is gone). The app
+stores the newest 5 tracks per pin (`learned.json`, on the phone only), with your timing ratings.
 
 On later rides each fix is matched onto the tracks (nearest segment within 60 m). The distance left is
 the smallest over the matching tracks, × 0.95, so GPS noise or a cut corner never makes it too long.
@@ -150,8 +152,8 @@ the straight line. Changing a stop's coordinates starts learning afresh; "Forget
 Buses don't go at one speed (motorway, then residential streets), so a speed × distance ETA is far off.
 On a learned route the ETA is **past rides' typical (median) time left from this exact point × today's
 pace**, where pace = the time you took over the last ~4 min ÷ the time past rides took over the same
-stretch (needs ≥ 45 s of it; clamped 0.5–2.5×). On a first ride it's the distance at your average speed
-over the last minute; none while waiting or stopped (`Eta`). Shown on the Trip screen (with its source)
+stretch (needs ≥ 45 s of it; clamped 0.5–2.5×). On a first ride it's the distance at the whole-ride
+speed (§2, falling back to the average over the last minute); none while waiting or stopped (`Eta`). Shown on the Trip screen (with its source)
 and the trip notification. This is display only here; §2's alarm uses its own early-biased estimate.
 
 ### 2.5 Smarter waking (learned time, per-stop lead)
@@ -223,7 +225,8 @@ trips break the bound without the failsafe, or without `V_FLOOR`.
 | Quick get-off | circle or 150 m (≤ 500 m), < 8 km/h, 10 s | After "I'm awake"; then the old stop is watched 120 s. |
 | `REARM` | 120 s | After an ack, stale fixes can't ring sooner. |
 | `RERING` | 60 s | While ringing, the alarm stays scheduled this far ahead (§2). |
-| Learning | 60 m match, × 0.95, 25 m trail, 5 tracks, 300 m max stop shift | §2.3 |
+| Learning | 60 m match, × 0.95, 25 m trail, 5 tracks, ride counts if it passed within 60 m of the pin | §2.3 |
+| `TRIP_TAU` | 60 s | Whole-ride speed weighting (first rides, §2). |
 
 ---
 
@@ -295,7 +298,8 @@ Extra tests:
 - motorway then slow city (the 866 complaint): 64 s first ride, 44 s learned
 - a red light near the stop, with and without a learned route
 - **the evening commute regression**: an alarm-off hop, two transfers, rings for both sleep legs, none while waiting
-- your pin stays the stop; the suggested spot, once used, gives 30–60 s
+- a ride is learned only if it reached your pin; stopping a trip early teaches nothing
+- a slow city end on a first ride: 45–49 s without the whole-ride speed, 54–55 s with it
 - an early failsafe ring that doesn't use up the leg
 - riding past after an ack
 - the at-stop nudge, boarding detection, resume awake
@@ -370,28 +374,40 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 `POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `INTERNET` (map tiles only, from
 OpenFreeMap; the tile server sees roughly which area you're looking at, nothing else is sent).
 
-### Screens (v0)
+### Screens
 
-- **Home**: if full-screen alarms are off, a red card at the top ("The alarm can't turn your screen on")
-  with the button to allow them. Then the list of Routes, Start per route (or the Quick Settings tile), the running trip (or an "interrupted" card if the app
-  was killed mid-trip, with the alarm time still set), Stop trip (confirmed), a "How was the ring
-  timing?" card after each trip (too early / good / too late per leg, written to the trip log), only
-  for legs not already asked about. Optional: after "I'm awake" on a stop's own ring (Wake or
-  Failsafe, not simulated), a silent notification asks the same for that leg, with three buttons
-  (gone after 15 min). Readiness → "Ask after each ring" turns both off.
-  Shows the build number and short SHA (from BuildConfig) at the bottom.
-- **Route editor**: name, plus 1–3 legs. Each leg has a name, where you get off (paste a point or a
-  Maps link, or **Use my location** at the stop), and an alarm on/off toggle. **No times.** Shows what's
-  been learned ("learned from 3 rides: real stop is 85 m from this point", Forget).
-  The parser accepts `-36.78123, 174.75123`, `-36.78123 174.75123`, and Google Maps URLs containing
-  `@lat,lng` or `q=lat,lng` / `query=lat,lng`. Warn if the point is outside New Zealand.
-- **Trip**: Waiting for the bus / On the bus / Get off at X, a progress bar, distance (along the route or
-  straight), a realistic ETA, speed, GPS age, alarm time and why, how much is learned, plus
-  "I'm off this bus" (SkipLeg).
-- **Readiness**: a green or red row per check, each with a button that opens the right settings page:
-  notifications, fine location, `canUseFullScreenIntent()`, `canScheduleExactAlarms()`,
-  ignoring battery optimisations, alarm-stream volume above 0 (only when the speaker is on). The
-  speaker-last-resort toggle. Plus static Samsung instructions:
+**Design system** (`ui/Design.kt`, PLAN U6): Nodstop's own palette in light and dark (night-bus navy
+with an amber accent, the alarm screen's family; no wallpaper colours), a type scale readable at arm's
+length, a spacing scale, cards (tinted by tone for alerts), primary / secondary / quiet buttons (56 dp
+primary), status chips (ok / warn / bad / info / neutral), big stats for distance and ETA, setting
+rows. Every screen's content is a stateless composable with a screenshot test (`ScreensScreenshotTest`,
+`AlarmScreenshotTest`); CI attaches the PNGs to `debug-latest`. Before/after shots of Run 5 are in
+`docs/screens/`.
+
+- **Home**: a Ready / Check setup chip at the top. If full-screen alarms are off, a red card ("The
+  alarm can't turn your screen on") with the button to allow them; if a required check is off, a card
+  with Fix. A running trip is a highlighted card on top: where you get off, distance and ETA in big
+  type, progress, Open trip and Stop (confirmed); an "interrupted" card if the app was killed mid-trip,
+  with the alarm time still set. A "How was the ring timing?" card after each trip, one tap per leg
+  (too early / good / too late, written to the trip log), only for legs not already asked about.
+  Optional: after "I'm awake" on a stop's own ring (Wake or Failsafe, not simulated), a silent
+  notification asks the same for that leg, with three buttons (gone after 15 min). Readiness → "Ask
+  about ring timing" turns both off. Then one big card per route with **Start** (and "Start from a
+  later leg…", Edit), Add a route, Map / Readiness / Debug, and the build number and short SHA.
+- **Route editor**: the name, then one card per bus (1–3). Each has the stop name, **I'm at the stop:
+  use my location** first, or paste a point or a Maps link, a status chip for the pin, what's learned
+  (rides, your ratings' lead, Forget), and "Wake me for this stop". **No times.** One primary action:
+  Save. The parser accepts `-36.78123, 174.75123`, `-36.78123 174.75123`, and Google Maps URLs
+  containing `@lat,lng` or `q=lat,lng` / `query=lat,lng`. Warn if the point is outside New Zealand.
+- **Trip**: glanceable at arm's length: phase and GPS chips, the stop name large, distance (along the
+  route or straight) and a realistic ETA in big type, a progress bar, the alarm time and why, then
+  **I'm off this bus** (SkipLeg), Show on map, details (ETA source, speed, rides learned) and Stop trip.
+- **Readiness**: collapses to **All set** when every required check is green (Show all checks);
+  otherwise the checks to fix come first, each with Fix (opens the right settings page): notifications,
+  fine location, `canUseFullScreenIntent()`, `canScheduleExactAlarms()`, ignoring battery
+  optimisations, alarm-stream volume above 0 (only when the speaker is on). Optional checks apart.
+  The last ring's report. Grouped settings (Alarm; While you slept), plain language, plus the static
+  Samsung steps:
   - Settings → Apps → Nodstop → Battery → Unrestricted
   - Settings → Battery → Background usage limits → make sure it's not in Sleeping / Deep sleeping apps;
     add it to Never sleeping apps
@@ -399,10 +415,14 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 - **Map** (from Home, and "Show on map" on the Trip screen): MapLibre with OpenFreeMap's "liberty"
   style. Shows you as a blue dot (waiting, no trip, or off the bus) or a bus icon (on the bus: RIDING,
   or still at bus speed while ringing/awake), every pinned stop (the trip's current stop highlighted),
-  faint suggested stops with a dashed line to their pin, and faint learned routes. Frames you and the
-  current stop, then **follows you by default** every time it opens. Dragging the map pauses following;
-  it resumes 10 s after your last drag, or at once when you tap **Follow** (`FollowPolicy`). With no trip running it gets your position only while open.
-  It's for checking the pins sit on the right spots; it doesn't change any alarm.
+  wake zones and faint learned routes. **Turn and tilt with two fingers** like Google Maps; the compass
+  shows once turned and puts north back up. Frames you and the current stop, then **follows you by
+  default** every time it opens. Any gesture pauses following; it resumes 10 s after your last one
+  (`FollowPolicy`). The follow button: **Follow me** when paused; while following it switches **North
+  up** / **Heading up** (`FollowMode`: the map turns so the way you're going is up, tilted 45°;
+  heading from your positions, held while standing still, `Heading`). Tap a stop pin for its wake-zone
+  sheet (presets, the size in big type, a slider; Save applies to a running trip too). With no trip
+  running it gets your position only while open.
 - **Debug**: Test ring in 30 s (the real AlarmManager path; disabled during a trip), Simulated trip
   (§5 LocationSource), **Kill app now** (`Process.killProcess`), Forget all learned stops, Share last
   trip log, a view of the last 200 trace events.
@@ -592,8 +612,14 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   marks that chat, which the alarm screen shows first ("urgent: this woke you").
 - Tones: plain (default) or "tea" (Readiness switch). Tea is a second model call over the checked lines;
   W5 is checked again on each rewrite, and a failing or missing rewrite keeps the plain line.
-- Share-back: after "I'm awake" on the alarm screen, if there is anything to read, the screen stays
-  open ("You're awake") with a **Share this line** button per line and **Done**. Share unlocks the
+- After "I'm awake" (PLAN U5): a hold on the alarm screen **always** opens "You're awake", then
+  **Done**. With nothing to read it says "Nothing new while you slept"; with notification access off,
+  "Briefing unavailable: turn on While you slept…" and a one-tap **Turn on While you slept** button.
+  Acked from the notification button or the volume key, the messages are kept and a silent
+  **"What you missed (N chats)"** notification is posted: counts only (W3), private on the lock
+  screen. Tapping it opens "You're awake" after unlocking; swiping it away, Done, or the trip ending
+  forgets the messages.
+- Share-back: "You're awake" has a **Share this line** button per line. Share unlocks the
   phone and opens the share sheet with that line only, plus "recapped while I napped · Nodstop"
   (`ShareText`, `ShareLine`: the only place a line leaves the app). Nothing is ever sent
   automatically. The messages are cleared on Done (or when that screen goes away), still W3.

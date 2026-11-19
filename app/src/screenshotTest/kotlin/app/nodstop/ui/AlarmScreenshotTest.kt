@@ -65,4 +65,14 @@ class AlarmScreenshotTest {
     fun after_wake_with_share() = shot("alarm_after_wake_with_share") {
         AfterWakeScreen({}, {}) { WhileYouSleptContent(it, summary, lines, onShare = {}) }
     }
+
+    @Test
+    fun after_wake_nothing_new() = shot("alarm_after_wake_nothing_new") {
+        AfterWakeScreen({}, {}, kind = PanelText.AfterWake.NOTHING_NEW) { WhileYouSleptContent(it, "Nothing new.", emptyList()) }
+    }
+
+    @Test
+    fun after_wake_needs_access() = shot("alarm_after_wake_needs_access") {
+        AfterWakeScreen({}, {}, kind = PanelText.AfterWake.NEEDS_ACCESS, onFix = {}) { WhileYouSleptContent(it, "Briefing unavailable.", emptyList()) }
+    }
 }

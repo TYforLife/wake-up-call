@@ -48,10 +48,13 @@ class InvariantPropertyTest {
 
     private var leadOverride: Double? = null
 
-    /** The test has teeth: the same trips with the speed floor or the V_MAX failsafe removed do break it. */
+    /**
+     * The test has teeth: the same trips with the speed floor or the V_MAX failsafe removed do break it.
+     * "Without V_FLOOR" also removes the other speed backstops (recent peak, whole-ride speed).
+     */
     @Test
     fun `without V_FLOOR or the failsafe the same generator finds violations`() {
-        val worstNoFloor = withEngineConfig(Config(vFloorKmh = 0.1, winPeakS = 0.0)) { (1..300).minOf { runCase(it).worstMarginS } }
+        val worstNoFloor = withEngineConfig(Config(vFloorKmh = 0.1, winPeakS = 0.0, tripTauS = 0.0)) { (1..300).minOf { runCase(it).worstMarginS } }
         assertTrue(worstNoFloor < 0, "expected a violation without V_FLOOR, worst margin $worstNoFloor")
         val worstNoFailsafe = withEngineConfig(Config(vMaxKmh = 1.0)) { (1..300).minOf { runCase(it).worstMarginS } }
         assertTrue(worstNoFailsafe < 0, "expected a violation without the failsafe, worst margin $worstNoFailsafe")

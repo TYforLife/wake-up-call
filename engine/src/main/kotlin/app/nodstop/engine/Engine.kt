@@ -38,6 +38,9 @@ data class EngineState(
     /** Today's pace vs past rides (1.2 = 20% slower), or null. */
     val pace: Double? = null,
     val lastVest: Double? = null,
+    /** Whole-ride speed since boarding, exponentially weighted (recent minutes count most), and its time. */
+    val tripV: Double? = null,
+    val tripVMs: Long? = null,
     val lastSpeed: Double? = null,
     val lastFixMs: Long? = null,
     val lastPos: LatLng? = null,
@@ -382,10 +385,16 @@ class Engine(val cfg: Config = Config()) {
         val learnedV = learnedTime?.takeIf { it >= 1.0 }?.let { dEff / it }
         // On a learned route, past rides are a better guide than the fixed floor (city streets under 25 km/h).
         val floor = if (learnedV != null) cfg.vFloor * cfg.learnedFloorFrac else cfg.vFloor
-        val vEst = maxOf(floor, short ?: 0.0, learnedV ?: peak ?: 0.0)
+        // Whole-ride speed (PLAN U4): a bus that slows for a few lights near the end still counts as the
+        // speed it's been doing. Only after boarding (walking to the stop says nothing about the bus).
+        val tripV = if (cfg.tripTauS <= 0) null else if (!s.boarded || short == null) s.tripV
+        else Eta.ewma(s.tripV, s.tripVMs, short, ft, cfg.tripTauS)
+        val tripVMs = if (tripV !== s.tripV) ft else s.tripVMs
+        // Off a learned route it joins the max (can only ring earlier); on one, past rides know the slow end better.
+        val vEst = maxOf(floor, short ?: 0.0, learnedV ?: maxOf(peak ?: 0.0, tripV ?: 0.0))
         val etaS = dEff / vEst
         val recentV = avgSpeed(samples, ft, cfg.etaSpeedWinS, cfg.minSpanS)
-        val displayEta = Eta.display(match?.typicalToEndS, pace, dEff, recentV, s.phase == Phase.WAITING && !s.boarded)
+        val displayEta = Eta.display(match?.typicalToEndS, pace, dEff, tripV ?: recentV, s.phase == Phase.WAITING && !s.boarded)
 
         var boarded = s.boarded
         var phase = s.phase
@@ -406,7 +415,7 @@ class Engine(val cfg: Config = Config()) {
         var st = s.copy(
             phase = phase, samples = samples, shortAvgs = shortAvgs, trail = trail, boarded = boarded,
             minD = minD, lastD = dEff, startD = s.startD ?: if (boarded) dEff else null,
-            lastVest = vEst, lastSpeed = short, lastFixMs = ft, lastPos = pos, onLearned = match != null,
+            lastVest = vEst, lastSpeed = short, tripV = tripV, tripVMs = tripVMs, lastFixMs = ft, lastPos = pos, onLearned = match != null,
             displayEtaS = displayEta, dwellSinceMs = dwellSince, dwellStartPos = dwellPos,
             paceSamples = paceSamples, pace = pace,
         )
@@ -460,9 +469,8 @@ class Engine(val cfg: Config = Config()) {
                 st = st.copy(arrivedSent = true)
             }
             if (dwellSince != null && ft - dwellSince >= cfg.alightDwellS * 1000) {
-                val stop = dwellPos ?: pos
-                // The track ends at your pin (what the alarm aims for); where you got off is only a suggestion.
-                if (boarded) e.learned = LearnedUpdate(leg.dest, stop, Learning.buildTrack(trail, leg.dest))
+                // Learned only if this ride really reached your pin (PLAN U4): not where you got off or stopped.
+                if (boarded && minD <= cfg.learnPassM) e.learned = LearnedUpdate(leg.dest, Learning.buildTrack(trail, leg.dest))
                 return advance(st, now)
             }
             // Quick get-off (PLAN U3): awake, in the stop's circle, at walking pace for a few seconds.
@@ -471,7 +479,7 @@ class Engine(val cfg: Config = Config()) {
                 val walking = nearStop <= radius && slow10 != null && slow10 < cfg.alightSlowKmh / 3.6
                 val since = if (walking) s.quickSinceMs ?: ft else null
                 if (since != null && ft - since >= cfg.quickAlightS * 1000) {
-                    if (boarded) e.learned = LearnedUpdate(leg.dest, pos, Learning.buildTrack(trail, leg.dest))
+                    if (boarded && minD <= cfg.learnPassM) e.learned = LearnedUpdate(leg.dest, Learning.buildTrack(trail, leg.dest))
                     return quickAdvance(st.copy(quickSinceMs = null), now, ft, leg.stop)
                 }
                 st = st.copy(quickSinceMs = since)

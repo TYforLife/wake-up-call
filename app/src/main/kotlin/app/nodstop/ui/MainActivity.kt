@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,9 +48,7 @@ class MainActivity : ComponentActivity() {
         handle(intent)
         setContent {
             NodstopTheme {
-                Surface(Modifier.fillMaxSize()) {
-                    AppRoot(resumeTick.intValue, pendingStart)
-                }
+                AppRoot(resumeTick.intValue, pendingStart)
             }
         }
     }
@@ -73,13 +69,6 @@ class MainActivity : ComponentActivity() {
             intent.removeExtra(Shortcuts.EXTRA_START_ROUTE_ID)
         }
     }
-}
-
-@Composable
-fun NodstopTheme(content: @Composable () -> Unit) {
-    val ctx = LocalContext.current
-    val scheme = if (isSystemInDarkTheme()) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-    MaterialTheme(colorScheme = scheme, content = content)
 }
 
 @Composable

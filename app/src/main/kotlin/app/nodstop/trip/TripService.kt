@@ -280,6 +280,7 @@ class TripService : Service() {
     private fun shutdown() {
         briefing?.stop(); briefing = null
         MessageStore.instance.stop()
+        Notifications.cancelMissed(this) // the messages it pointed to are gone
         DndController.onTripEnd(this)
         source?.stop()
         source = null

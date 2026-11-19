@@ -274,20 +274,20 @@ export then import.
 Prerequisite: Run 4 merged.
 
 ### U4 Estimate and learning
-- [ ] Whole-trip speed: an exponentially weighted average over the trip (recent minutes count most) joins `v_est` as one more term in the max (it can only ring earlier), plus today's pace vs past rides for the display ETA. Invariant and scenario tests stay green; real traces regenerated with the reason in the PR.
-- [ ] Learning ignores how a trip ended: a ride counts only if GPS passed within 60 m of the pin, and "suggested stop" is never derived from where you stopped the trip, acked or got off. Remove the suggestion UI if nothing trustworthy is left to suggest.
+- [x] Whole-trip speed: an exponentially weighted average over the trip (recent minutes count most) joins `v_est` as one more term in the max (it can only ring earlier), plus today's pace vs past rides for the display ETA. Invariant and scenario tests stay green; real traces regenerated with the reason in the PR.
+- [x] Learning ignores how a trip ended: a ride counts only if GPS passed within 60 m of the pin, and "suggested stop" is never derived from where you stopped the trip, acked or got off. Remove the suggestion UI if nothing trustworthy is left to suggest.
 
 ### U5 After "I'm awake"
-- [ ] "You're awake" always appears after a hold on the alarm screen (with "Nothing new" or "Briefing unavailable: turn on While you slept" and a one-tap fix), then Done.
-- [ ] If you acked from the notification or volume key, a silent "What you missed (N chats)" notification (counts only, W3) reopens it until the messages are cleared.
+- [x] "You're awake" always appears after a hold on the alarm screen (with "Nothing new" or "Briefing unavailable: turn on While you slept" and a one-tap fix), then Done.
+- [x] If you acked from the notification or volume key, a silent "What you missed (N chats)" notification (counts only, W3) reopens it until the messages are cleared.
 
 ### U6 Visual and UX redesign
-- [ ] A small design system: colour tokens (light and dark), type scale, spacing, cards, primary/secondary buttons, status chips; applied everywhere.
-- [ ] Home: one big card per route with **Start**; a running-trip card on top (next stop, distance, ETA, Stop); the rating card as one tap.
-- [ ] Trip: glanceable at arm's length: stop name, distance and ETA large, progress bar, "I'm off this bus".
-- [ ] Map: rotate and tilt like Google Maps (two-finger), compass button to reset north, follow mode with heading-up option; stop sheet with the new zone slider.
-- [ ] Route editor and Readiness: grouped, plain-language, one primary action per section; Readiness collapses to "All set" when green.
-- [ ] Screenshot tests updated; PR shows before/after for every screen.
+- [x] A small design system: colour tokens (light and dark), type scale, spacing, cards, primary/secondary buttons, status chips; applied everywhere.
+- [x] Home: one big card per route with **Start**; a running-trip card on top (next stop, distance, ETA, Stop); the rating card as one tap.
+- [x] Trip: glanceable at arm's length: stop name, distance and ETA large, progress bar, "I'm off this bus".
+- [x] Map: rotate and tilt like Google Maps (two-finger), compass button to reset north, follow mode with heading-up option; stop sheet with the new zone slider.
+- [x] Route editor and Readiness: grouped, plain-language, one primary action per section; Readiness collapses to "All set" when green.
+- [x] Screenshot tests updated; PR shows before/after for every screen.
 
 **Test on phone (Run 5):** a week of rides: ETA closer on the slow city end, no stop suggestions from
 trips you ended early; every screen readable at arm's length; map rotation.
@@ -295,8 +295,11 @@ trips you ended early; every screen readable at arm's length; map rotation.
 Start them like the earlier runs:
 
 ```
-/goal Finish Run 4 in docs/PLAN.md and merge its PR
+/goal Finish Run 5 in docs/PLAN.md and merge its PR
 ```
+
+Before/after screenshots of Run 5: `docs/screens/before/` and `docs/screens/after/` (the map's shot is its
+stop sheet: MapLibre can't render on the JVM).
 
 ## Later (not for automated runs yet)
 These come after Gate C:
