@@ -406,10 +406,13 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
   - On push to any branch, plus `workflow_dispatch`.
   - `build` job: per-branch concurrency (a new push cancels only that branch's older run).
     `actions/setup-java` (Temurin 21) and `gradle/actions/setup-gradle`;
-    `./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug`.
+    `./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug`; then screenshots
+    (`./gradlew :app:recordRoborazziDebug -Pscreenshots`, Robolectric; never blocks the APK), uploaded as an
+    artifact and to the release.
   - `publish` job: `concurrency: debug-release`, cancel in progress; `permissions: contents: write`;
     publishes with the `gh` CLI to the rolling prerelease `debug-latest`: create it if missing,
-    `gh release upload ... app-debug.apk --clobber`, and set the notes to branch, SHA and build number.
+    `gh release upload ... app-debug.apk --clobber` (plus the screenshot PNGs), and set the notes to
+    branch, SHA and build number.
 - Phone install URL: `https://github.com/tyforlife/wake-up-call/releases/download/debug-latest/app-debug.apk`
   (signed in to GitHub in the phone browser; allow "Install unknown apps" for that browser once).
   The newest push on any branch wins: check the build number on Home.

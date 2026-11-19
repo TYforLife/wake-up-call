@@ -3,9 +3,12 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    // Screenshots of the screens on the JVM, reviewable from a phone (PLAN U0).
-    alias(libs.plugins.paparazzi)
+    // Screenshots of the screens on the JVM (Robolectric), reviewable from a phone (PLAN U0).
+    alias(libs.plugins.roborazzi)
 }
+
+/** `-Pscreenshots`: also build and run the screenshot tests in src/screenshotTest (CI does). */
+val screenshots = providers.gradleProperty("screenshots").isPresent
 
 val runNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.getOrElse(1)
 val gitSha: String = providers.environmentVariable("GIT_SHA").map { it.take(7) }.orElse(
@@ -57,6 +60,11 @@ android {
 
     testOptions {
         unitTests.all { it.useJUnitPlatform() }
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    sourceSets {
+        getByName("test") { if (screenshots) java.srcDir("src/screenshotTest/kotlin") }
     }
 }
 
@@ -81,8 +89,17 @@ dependencies {
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
-    // Paparazzi is a JUnit 4 rule: run it on the JUnit 5 platform through the vintage engine.
-    testImplementation(libs.junit4)
-    testRuntimeOnly(libs.junit.vintage)
+    // Screenshot tests (PLAN U0), only with -Pscreenshots (CI): Robolectric's native renderer comes from a
+    // host cloud sessions can't reach. Robolectric + Roborazzi are JUnit 4, run through the vintage engine.
+    if (screenshots) {
+        testImplementation(libs.junit4)
+        testRuntimeOnly(libs.junit.vintage)
+        testImplementation(libs.robolectric)
+        testImplementation(libs.roborazzi)
+        testImplementation(libs.roborazzi.compose)
+        testImplementation(platform(libs.compose.bom))
+        testImplementation(libs.compose.ui.test.junit4)
+        debugImplementation(libs.compose.ui.test.manifest)
+    }
     testRuntimeOnly(libs.junit.launcher)
 }

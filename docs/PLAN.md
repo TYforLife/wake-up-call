@@ -82,7 +82,7 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
 | Everything already in DESIGN §5 | Already approved |
 | `kotlinx-coroutines-core` (`:brief` tests) and `kotlinx-serialization-json` (`:brief`, already in DESIGN §5) | Testing the suspend `Llm` call; parsing the model's JSON lines |
 | `com.google.ai.edge.litertlm:litertlm-android` 0.16.1 (Run 2; the newest built with Kotlin 2.2.21, 0.17+ needs Kotlin 2.4) | Runs Gemma on the phone (DESIGN §10) |
-| `app.cash.paparazzi` Gradle plugin (Run 4, U0; test-only, pin an exact version that works with AGP 8.13) | Renders every screen to PNG on the JVM, so UI changes can be reviewed from a phone without an emulator |
+| Roborazzi 1.79.0 (plugin + `roborazzi`, `roborazzi-compose`), Robolectric 4.18.1, JUnit 4 + vintage engine, Compose `ui-test-junit4` / `ui-test-manifest` (Run 4, U0; test-only, only with `-Pscreenshots`) | Renders screens to PNG on the JVM, so UI changes can be reviewed from a phone. Paparazzi was tried first: 2.0 alpha breaks AGP 8.13's resource merge, 1.3.5 can't render API 36. Robolectric's renderer comes from a host cloud sessions can't reach, so screenshots are recorded in CI only. |
 
 ## Where things go
 
@@ -239,7 +239,7 @@ Prerequisite: none beyond a green `main`.
 
 ### U0 See what happened, and see the screens
 - [x] Ring-delivery diagnostics in the trip log (`note`-free, kept in hidden exports): receiver fired, ring service started, full-screen permission state, alarm screen shown (y/n, time), screen was on/off, earbuds or vibration, "I'm awake" source (hold, volume, notification).
-- [ ] Screenshot tests for every screen (Paparazzi, JVM, no emulator; reason: the only way to review UI from a phone-only workflow). CI uploads the PNGs; PRs show before/after.
+- [x] Screenshot tests (Roborazzi on Robolectric, JVM, no emulator), starting with the alarm screens; the other screens get theirs in U6 when they're made stateless. CI records them (`-Pscreenshots`) and attaches the PNGs to the `debug-latest` release, viewable on the phone.
 - [x] Readiness shows the result of the last ring ("Last ring: screen turned on ✓ / shown as a banner ✗, why").
 
 ### U1 Never lose data on an update

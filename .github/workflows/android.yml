@@ -25,6 +25,16 @@ jobs:
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GIT_SHA: ${{ github.sha }}
+      - name: Screenshots (PLAN U0; never blocks the APK)
+        id: shots
+        continue-on-error: true
+        run: ./gradlew :app:recordRoborazziDebug -Pscreenshots --tests '*ScreenshotTest' --console=plain
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: app/src/test/snapshots/*.png
+          if-no-files-found: ignore
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -49,6 +59,11 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: app-debug
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: screenshots
+          path: screenshots
       - name: Publish to the debug-latest prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -66,4 +81,8 @@ jobs:
               --title "Debug build (latest push)" --notes "$NOTES" --target "$GITHUB_SHA"
           fi
           gh release upload debug-latest app-debug.apk --repo "$REPO" --clobber
+          # Screenshots of the screens (PLAN U0), viewable on a phone from the release page.
+          if ls screenshots/*.png > /dev/null 2>&1; then
+            gh release upload debug-latest screenshots/*.png --repo "$REPO" --clobber
+          fi
           gh release edit debug-latest --repo "$REPO" --prerelease --notes "$NOTES"
