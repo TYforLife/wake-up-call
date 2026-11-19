@@ -282,12 +282,12 @@ Prerequisite: Run 4 merged.
 - [x] If you acked from the notification or volume key, a silent "What you missed (N chats)" notification (counts only, W3) reopens it until the messages are cleared.
 
 ### U6 Visual and UX redesign
-- [ ] A small design system: colour tokens (light and dark), type scale, spacing, cards, primary/secondary buttons, status chips; applied everywhere.
-- [ ] Home: one big card per route with **Start**; a running-trip card on top (next stop, distance, ETA, Stop); the rating card as one tap.
-- [ ] Trip: glanceable at arm's length: stop name, distance and ETA large, progress bar, "I'm off this bus".
-- [ ] Map: rotate and tilt like Google Maps (two-finger), compass button to reset north, follow mode with heading-up option; stop sheet with the new zone slider.
-- [ ] Route editor and Readiness: grouped, plain-language, one primary action per section; Readiness collapses to "All set" when green.
-- [ ] Screenshot tests updated; PR shows before/after for every screen.
+- [x] A small design system: colour tokens (light and dark), type scale, spacing, cards, primary/secondary buttons, status chips; applied everywhere.
+- [x] Home: one big card per route with **Start**; a running-trip card on top (next stop, distance, ETA, Stop); the rating card as one tap.
+- [x] Trip: glanceable at arm's length: stop name, distance and ETA large, progress bar, "I'm off this bus".
+- [x] Map: rotate and tilt like Google Maps (two-finger), compass button to reset north, follow mode with heading-up option; stop sheet with the new zone slider.
+- [x] Route editor and Readiness: grouped, plain-language, one primary action per section; Readiness collapses to "All set" when green.
+- [x] Screenshot tests updated; PR shows before/after for every screen.
 
 **Test on phone (Run 5):** a week of rides: ETA closer on the slow city end, no stop suggestions from
 trips you ended early; every screen readable at arm's length; map rotation.
@@ -295,8 +295,11 @@ trips you ended early; every screen readable at arm's length; map rotation.
 Start them like the earlier runs:
 
 ```
-/goal Finish Run 4 in docs/PLAN.md and merge its PR
+/goal Finish Run 5 in docs/PLAN.md and merge its PR
 ```
+
+Before/after screenshots of Run 5: `docs/screens/before/` and `docs/screens/after/` (the map's shot is its
+stop sheet: MapLibre can't render on the JVM).
 
 ## Later (not for automated runs yet)
 These come after Gate C:
