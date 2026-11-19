@@ -292,14 +292,68 @@ Prerequisite: Run 4 merged.
 **Test on phone (Run 5):** a week of rides: ETA closer on the slow city end, no stop suggestions from
 trips you ended early; every screen readable at arm's length; map rotation.
 
+Before/after screenshots of Run 5: `docs/screens/before/` and `docs/screens/after/` (the map's shot is its
+stop sheet: MapLibre can't render on the JVM).
+
+## Feedback round 2 (owner, 2026-11-19, after Run 5)
+
+| # | Owner said | What the code says | Milestone |
+| --- | --- | --- | --- |
+| 1 | "The buzz isn't ringing. My phone is on Mute. Can't you make it ignore that?" | Without earbuds the ring is vibration only (`VibrationAttributes.USAGE_ALARM`). Android normally lets alarm-usage vibration through Mute, but nothing records whether it did on this Samsung, and the app never touches the ringer mode. | R1 |
+| 2 | "I thought you silenced other notifications and only raised the important ones?" | That exists but is **off by default** and buried: Readiness → While you slept → "Do Not Disturb during trips" (experimental), and urgent wake needs notification access, important contacts and the model. | R2 |
+| 3 | "The alarm didn't go off. I thought it rings when the bus enters my circle? Check more often near it?" | GPS already runs at 1–2 s for the whole trip, so checking more often near the circle won't help. The circle only rings **after the engine thinks you've boarded** (15 km/h over 20 s), and only from fixes that actually arrive. The failsafe aims at the stop, not the circle's edge, so after a GPS gap it can ring after you're already inside. Without the ride's log we can't tell which of these happened, or whether it rang silently (#1). | R0, R3 |
+| 4 | "Don't show bus stops unrelated to this trip" | The map shows every pin of every route. | R4 |
+| 5 | "Revamp the UI and UX properly, like a professional. All you did was change colours and move words. Use Claude's design tools." | True: Run 5 restyled the same screens and flows. No user research, no flows, no design review. | Run 7 (Gate D) |
+
+## Run 6: The ring always gets through
+
+Prerequisite: Run 5 merged. **Before coding, ask for the failed ride's log** if it isn't attached to the
+prompt: Debug → Share (location hidden), plus Readiness's "Last ring" line. Use it to confirm which of #1/#3
+happened, and say so in the PR. Add it to `engine/src/test/resources/traces/` as a replay test.
+
+### R0 Know what happened
+- [ ] The ring diagnostic (`ringd`) also records: the ringer mode (normal / vibrate / mute), the Do Not Disturb filter, whether the vibrator reported vibrating, and whether earbuds were connected. "Last ring" says it in words: "buzzed ✓ (phone on Mute)" or "couldn't buzz ✗: Mute blocked vibration".
+- [ ] The trip log notes GPS gaps over 10 s (count and longest, `note`-free so it survives hidden exports) and whether the engine thought you'd boarded when you entered the circle.
+
+### R1 Buzz on Mute
+- [ ] If the phone is on Mute or Do Not Disturb when a ring starts and Nodstop has Do Not Disturb access, switch to vibrate (and let alarms through) for the ring only, and put the setting back after "I'm awake". Still the one ring path: `RingService` does it, and the restore also runs on a cold start, like `DndController`'s.
+- [ ] Readiness: "Let the alarm buzz on Mute" becomes a **required** check (Do Not Disturb access), with one Fix button. Home's setup chip counts it.
+- [ ] If vibration still can't be confirmed (no access, or the vibrator refused) and no earbuds are connected, the speaker last resort turns on for that ring, whatever the setting, after 30 s. The PR must say this, because it's a behaviour change the owner asked for ("ignore Mute").
+- [ ] JVM tests for the decision (mode in → actions out, restore always), and the cold-start restore.
+
+### R2 Quiet trip, clearly
+- [ ] "Quiet other notifications during trips" moves to the top of Readiness and to the first trip's start: one switch, plain words ("Alarms and your important contacts still get through"), asking for access in the same tap. Still off until the owner turns it on.
+- [ ] The trip notification says when it's on ("Quiet trip: 6 held").
+
+### R3 The circle rings when the bus enters it
+- [ ] Inside your circle at bus speed rings, even if boarding was never detected (e.g. trip started already on the bus at a crawl). Walking speed inside it still doesn't, before boarding.
+- [ ] With a circle set, `wakeAt` and the failsafe aim at the circle's edge (`straight − radius`), not the stop, so a GPS gap can't carry you deep inside before it rings. Earlier only: invariant suite plus a test with a 60-s gap just before the circle.
+- [ ] A ride where fixes stop near the circle (Samsung batching with the screen off) still rings by the failsafe before the edge: scenario test.
+
+### R4 Map shows this trip
+- [ ] While a trip runs, the map shows only that trip's stops, circles and learned route; with no trip, only the stops of the route you last used (a chip switches routes). Test in `MapModelTest`.
+
+**Test on phone (Run 6):** phone on Mute, no earbuds: couch test rings and buzzes, and the mode is back to
+Mute after "I'm awake"; a ride with a circle: rings on entry; the map during a trip shows only its stops.
+
+## Run 7: UX revamp, designed first (Gate D)
+
+Prerequisite: Run 6 merged. This run produces **designs, not code**. Its PR is docs-only.
+
+- [ ] **Research and audit.** The rider's real journeys, half-asleep and one-handed: set up a route; start at the stop; ride and doze; wake; get off; transfer; end; give feedback. For each, today's steps, taps and failure points, from the code and the owner's feedback. Written up in `docs/UX.md`.
+- [ ] **Information architecture.** What the app is for on each screen, in one sentence. Which screens go: e.g. Trip and Home merge into one "now" screen while riding; Readiness becomes a first-run setup plus a status chip; Debug hides. Navigation map.
+- [ ] **Design system** in Claude's **Design System** artifact type: tokens (light and dark, including the alarm screen's night palette), type, spacing, components with states (start, riding, ringing, awake, GPS lost, not ready). The owner can browse it on the phone.
+- [ ] **Screens and flows** in Claude's **Design** artifact type: hi-fi mockups of every screen and state at phone size, plus the key flows as sequences (first run, start a trip, the ring and after, a transfer, set a circle on the map). Real copy, not lorem.
+- [ ] Links to both artifacts in the PR. The owner reviews and comments **in the artifacts**; the session answers there and revises.
+- [ ] **Gate D** (owner): approves the designs. Then Run 8 builds them screen by screen, each PR with the mockup next to its screenshot.
+
+**Test on phone (Run 7):** none: review the artifacts on the phone instead.
+
 Start them like the earlier runs:
 
 ```
-/goal Finish Run 5 in docs/PLAN.md and merge its PR
+/goal Finish Run 6 in docs/PLAN.md and merge its PR
 ```
-
-Before/after screenshots of Run 5: `docs/screens/before/` and `docs/screens/after/` (the map's shot is its
-stop sheet: MapLibre can't render on the JVM).
 
 ## Later (not for automated runs yet)
 These come after Gate C:
