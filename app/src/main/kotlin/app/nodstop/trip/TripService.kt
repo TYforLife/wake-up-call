@@ -13,10 +13,16 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.util.Log
+import app.nodstop.data.Route
+import app.nodstop.engine.LatLng
+import app.nodstop.engine.CoordParser
 import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
 import app.nodstop.brief.BriefingCoordinator
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
 import app.nodstop.brief.Digests
 import app.nodstop.brief.PanelLines
 import app.nodstop.brief.RingStats
@@ -30,7 +36,6 @@ import app.nodstop.engine.Engine
 import app.nodstop.engine.EngineState
 import app.nodstop.engine.Fix
 import app.nodstop.engine.Input
-import app.nodstop.engine.LatLng
 import app.nodstop.engine.Leg
 import app.nodstop.engine.Output
 import app.nodstop.engine.Phase
@@ -73,6 +78,8 @@ class TripService : Service() {
     private var lastReason: AlarmReason? = null
     private val handler = Handler(Looper.getMainLooper())
     private var briefing: BriefingCoordinator? = null
+    private val routesScope = MainScope()
+    private var routesJob: Job? = null
 
     private val tick = object : Runnable {
         override fun run() {
@@ -89,6 +96,8 @@ class TripService : Service() {
         super.onCreate()
         instance = this
         lastScheduled = app.scheduler.scheduledAtMs
+        // A wake circle changed on the map applies to this trip at once (PLAN U3).
+        routesJob = routesScope.launch { app.routes.routes.collect { onRoutesChanged(it) } }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -302,7 +311,35 @@ class TripService : Service() {
         if (trip != null) input(Input.Stop(System.currentTimeMillis())) else shutdown()
     }
 
+    /** Any saved leg with this trip's stop: take its wake circle (works for a simulated trip's stops too). */
+    private fun onRoutesChanged(routes: List<Route>) {
+        val t = trip ?: return
+        val own = routes.firstOrNull { it.id == t.routeId }
+        val byStop = HashMap<LatLng, Double?>()
+        for (r in routes.filter { it !== own } + listOfNotNull(own)) {
+            r.legs.forEach { d -> CoordParser.parse(d.coords)?.let { p -> byStop[p] = d.wakeRadiusM } }
+        }
+        val merged = t.legs.map { l -> if (byStop.containsKey(l.dest)) l.copy(wakeRadiusM = byStop[l.dest]) else l }
+        applyLegs(merged)
+    }
+
+    /** A simulated trip's stop isn't in any saved route: the map sets its circle here (not saved). */
+    fun setWakeRadius(stop: LatLng, radiusM: Double?) {
+        val t = trip ?: return
+        applyLegs(t.legs.map { if (it.dest == stop) it.copy(wakeRadiusM = radiusM) else it })
+    }
+
+    private fun applyLegs(merged: List<Leg>) {
+        val t = trip ?: return
+        if (merged == t.legs) return
+        val updated = t.copy(legs = merged)
+        trip = updated
+        app.trips.save(updated)
+        input(Input.UpdateLegs(System.currentTimeMillis(), merged.drop(t.legOffset)))
+    }
+
     override fun onDestroy() {
+        routesJob?.cancel()
         // Do NOT cancel the alarm here: if the system destroys us, the scheduled alarm is the dead-man's switch.
         briefing?.stop(); briefing = null
         MessageStore.instance.stop()

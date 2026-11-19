@@ -50,6 +50,14 @@ data class EngineState(
     val ackMs: Long? = null,
     /** Waiting for the first fix to pick which leg you're on (Start with autoLeg). */
     val pickLeg: Boolean = false,
+    /** Since when you've been in the stop's circle at walking pace, after "I'm awake" (quick get-off). */
+    val quickSinceMs: Long? = null,
+    /** The stop you just left by a quick get-off, watched in case you were still on the bus. */
+    val watchStop: LatLng? = null,
+    val watchUntilMs: Long? = null,
+    val watchMinD: Double = Double.MAX_VALUE,
+    /** The OVERSHOOT ring now ringing is for [watchStop] (the previous leg), not this one. */
+    val prevStopRing: Boolean = false,
     /** Urgent rings so far this trip (at most MAX_URGENT_RINGS). */
     val urgentRings: Int = 0,
     /** While an URGENT alarm is pending or ringing: the alarm it would otherwise have, restored after the ack. */
@@ -91,6 +99,7 @@ class Engine(val cfg: Config = Config()) {
             is Input.FixIn -> keepUrgent(s, onFix(s, input, e))
             is Input.Tick -> s
             is Input.Urgent -> onUrgent(s, input.tMs)
+            is Input.UpdateLegs -> updateLegs(s, input)
             is Input.Rang -> when (s.phase) {
                 Phase.WAITING, Phase.RIDING, Phase.AWAKE ->
                     s.copy(phase = Phase.RINGING, resumePhase = s.phase, ringReason = s.alarmReason, alarmAtMs = null, alarmReason = null)
@@ -176,8 +185,10 @@ class Engine(val cfg: Config = Config()) {
     private fun onAck(s: EngineState, nowMs: Long): EngineState {
         val back = s.resumePhase ?: Phase.RIDING
         return when (s.ringReason) {
+            // Rode past the stop you'd just left (quick get-off was wrong): you're on this leg still, get off now.
+            AlarmReason.OVERSHOOT -> if (s.prevStopRing) rearm(s.copy(phase = back, ackMs = nowMs, prevStopRing = false), nowMs)
             // You know you passed it: this leg is over.
-            AlarmReason.OVERSHOOT -> advance(s, nowMs)
+            else advance(s, nowMs)
             // A safety ring for something further on: carry on as you were.
             AlarmReason.NO_GPS, AlarmReason.NEXT_LEG -> rearm(s.copy(phase = back, ackMs = nowMs), nowMs)
             // An urgent message: never "awake for this stop" (you may doze off again). Carry on exactly as before.
@@ -226,6 +237,31 @@ class Engine(val cfg: Config = Config()) {
         val r = remainingS(s, nowMs) ?: return null
         return if (r > 0) nowMs + (r * 1000).roundToLong() else null
     }
+
+    // ---- route edits during a trip (PLAN U3) ----
+
+    private fun updateLegs(s: EngineState, input: Input.UpdateLegs): EngineState {
+        if (s.phase !in ACTIVE) return s
+        val merged = s.legs.mapIndexed { i, old ->
+            input.legs.getOrNull(i)?.takeIf { it.dest == old.dest }?.let { old.copy(wakeRadiusM = it.wakeRadiusM) } ?: old
+        }
+        val st = s.copy(legs = merged)
+        val leg = st.leg ?: return st
+        val pos = st.lastPos
+        val zone = leg.wakeRadiusM
+        val inside = zone != null && pos != null && Geo.distanceM(pos, leg.stop) <= zone
+        val due = st.alarmAtMs?.let { it <= input.tMs } == true
+        return if (st.phase in setOf(Phase.WAITING, Phase.RIDING) && leg.alarmEnabled && st.boarded && inside && !due) {
+            st.copy(alarmAtMs = input.tMs, alarmReason = AlarmReason.WAKE)
+        } else st
+    }
+
+    /** Ends this leg after a quick get-off and starts watching the stop just left. */
+    private fun quickAdvance(st: EngineState, nowMs: Long, ft: Long, stop: LatLng): EngineState =
+        advance(st, nowMs).let { n ->
+            if (n.phase == Phase.DONE) n
+            else n.copy(watchStop = stop, watchUntilMs = ft + (cfg.prevStopWatchS * 1000).roundToLong(), watchMinD = Double.MAX_VALUE)
+        }
 
     // ---- urgent (While You Slept, DESIGN §10) ----
 
@@ -372,6 +408,26 @@ class Engine(val cfg: Config = Config()) {
         // The alarm's ETA only means something for the leg you might sleep on.
         if (leg.alarmEnabled) st = st.copy(lastEtaS = etaS, lastEtaBaseMs = ft)
 
+        // Watching the stop you just left by a quick get-off: carried on past it at bus speed? Ring now.
+        val ws = s.watchStop
+        val wu = s.watchUntilMs
+        if (ws != null && wu != null) {
+            if (ft > wu) {
+                st = st.copy(watchStop = null, watchUntilMs = null, watchMinD = Double.MAX_VALUE)
+            } else {
+                val dw = Geo.distanceM(pos, ws)
+                val wMin = min(s.watchMinD, dw)
+                val rodePast = wMin < cfg.overshootNearM && dw > wMin + cfg.overshootGrowM && (short ?: 0.0) >= cfg.boardKmh / 3.6
+                if (rodePast && phase in setOf(Phase.WAITING, Phase.RIDING, Phase.AWAKE)) {
+                    return st.copy(
+                        watchStop = null, watchUntilMs = null, watchMinD = Double.MAX_VALUE,
+                        alarmAtMs = now, alarmReason = AlarmReason.OVERSHOOT, prevStopRing = true,
+                    )
+                }
+                st = st.copy(watchMinD = wMin)
+            }
+        }
+
         val passed = minD < cfg.overshootNearM && straight > minD + cfg.overshootGrowM && (short ?: 0.0) >= cfg.boardKmh / 3.6
 
         if (phase == Phase.RINGING) {
@@ -403,6 +459,17 @@ class Engine(val cfg: Config = Config()) {
                 // The track ends at your pin (what the alarm aims for); where you got off is only a suggestion.
                 if (boarded) e.learned = LearnedUpdate(leg.dest, stop, Learning.buildTrack(trail, leg.dest))
                 return advance(st, now)
+            }
+            // Quick get-off (PLAN U3): awake, in the stop's circle, at walking pace for a few seconds.
+            if (phase == Phase.AWAKE) {
+                val radius = min(leg.wakeRadiusM ?: cfg.quickAlightM, cfg.quickAlightMaxM)
+                val walking = nearStop <= radius && slow10 != null && slow10 < cfg.alightSlowKmh / 3.6
+                val since = if (walking) s.quickSinceMs ?: ft else null
+                if (since != null && ft - since >= cfg.quickAlightS * 1000) {
+                    if (boarded) e.learned = LearnedUpdate(leg.dest, pos, Learning.buildTrack(trail, leg.dest))
+                    return quickAdvance(st.copy(quickSinceMs = null), now, ft, leg.stop)
+                }
+                st = st.copy(quickSinceMs = since)
             }
             return scheduleNextLeg(st, now, ft, pos)
         }

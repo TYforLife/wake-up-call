@@ -254,9 +254,9 @@ Prerequisite: none beyond a green `main`.
 - [ ] Tests for the notification builders' actions and texts (JVM, pure parts).
 
 ### U3 Wake zone that works the way you use it
-- [ ] Saving a zone (or any route change) **applies to the running trip** at once, through a new engine input (`UpdateLegs`) that can only make the alarm earlier or leave it; tested with the invariant suite.
-- [ ] Slider is non-linear: 50 m–2 km, most of the track under 1 km (e.g. square-root scale), with quick presets (Auto, 150, 250, 400, 700 m) and the value in big type; the circle follows live.
-- [ ] After "I'm awake", entering this stop's circle (or 150 m if none) at walking speed for 10 s ends the leg and moves to the next one; "rode past" protection keeps watching the previous stop for 2 minutes. Engine tests: two-leg and three-leg routes, early ack, ack inside the circle, still on the bus inside the circle.
+- [x] Saving a zone (or any route change) **applies to the running trip** at once, through a new engine input (`UpdateLegs`) that can only make the alarm earlier or leave it; tested with the invariant suite.
+- [x] Slider is non-linear: 50 m–2 km, most of the track under 1 km (e.g. square-root scale), with quick presets (Auto, 150, 250, 400, 700 m) and the value in big type; the circle follows live.
+- [x] After "I'm awake", entering this stop's circle (or 150 m if none) at walking speed for 10 s ends the leg and moves to the next one; "rode past" protection keeps watching the previous stop for 2 minutes. Engine tests: two-leg and three-leg routes, early ack, ack inside the circle, still on the bus inside the circle.
 
 **Test on phone (Run 4):** couch test of the lock-screen ring (screen must turn on), a ring while using
 another app (banner with I'm awake), the island with Stop trip, changing the circle during a simulated

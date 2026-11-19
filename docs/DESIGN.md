@@ -81,6 +81,10 @@ all, a **No GPS** alarm rings 3 min in: you're unprotected, stay awake.
 | AWAKE | You held "I'm awake" for this stop | the **next** alarm-on leg's failsafe; plus "rode past" watch |
 | (leg done) | You got off: within 300 m of the stop, under 8 km/h, for 45 s in a row | next leg starts WAITING |
 
+- **Quick get-off** (after "I'm awake"): in this stop's circle (150 m without one, 500 m at most) at
+  walking pace for 10 s, the leg ends at once instead of after 45 s. Then the old stop is watched for 2 min:
+  if you were really still on the bus (a red light in the circle) and it rides on past, it rings
+  "You passed your stop"; acking that keeps you on the current leg.
 - **Getting off ends the leg**, not an ack and not a timer. That 45 s is you standing at the transfer
   or walking away; a bus dwell is shorter. The spot where that slow spell began is where you got off.
 - **An ack only counts as "awake for this stop" when the stop was ≤ 3 min away.** An early safety ring
@@ -161,8 +165,12 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
 - **Automatic** (dashed): how far out, in a straight line, the bus usually is when the stop's lead is
   left on past rides (median); before any ride, lead × 25 km/h (about 310 m at 45 s). Display only: the
   alarm itself follows §2's timing.
-- **Yours** (solid): tap a stop pin on the map and drag the slider (Auto, or 100–2000 m); the circle
-  follows live; Save stores it on that leg (`LegDraft.wakeRadiusM`). Once you're on the bus and inside
+- **Yours** (solid): tap a stop pin on the map, then a preset (Auto, 150, 250, 400, 700 m) or the slider
+  (50 m–2 km on a square-root scale, so most of it is under 1 km; `ZoneScale`); the circle follows live;
+  Save stores it on that leg (`LegDraft.wakeRadiusM`). **A saved circle applies to a running trip at once**
+  (`Input.UpdateLegs`: only circles, only for legs whose stop is unchanged; a circle you're already inside
+  rings now; property-tested never to make an alarm later). A simulated trip's stops can be set too (for
+  that trip only). Once you're on the bus and inside
   it, it rings, unless the timing rang first: **whichever comes first**, so it can only ring earlier.
   Waiting at a stop inside the zone doesn't ring until you're on the bus.
 
@@ -205,6 +213,7 @@ trips break the bound without the failsafe, or without `V_FLOOR`.
 | `OVERSHOOT_NEAR` / `GROW` | 300 m / 300 m | At bus speed (≥ 15 km/h). |
 | Nudge | 60 m, or stopped within 200 m | Once per leg. |
 | `ACK_COUNTS_WITHIN` | 180 s | Earlier acks keep tracking the stop. |
+| Quick get-off | circle or 150 m (≤ 500 m), < 8 km/h, 10 s | After "I'm awake"; then the old stop is watched 120 s. |
 | `REARM` | 120 s | After an ack, stale fixes can't ring sooner. |
 | Learning | 60 m match, × 0.95, 25 m trail, 5 tracks, 300 m max stop shift | §2.3 |
 
