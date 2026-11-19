@@ -22,6 +22,31 @@ object PanelText {
         }
     }
 
+    /** What "You're awake" says under its title (PLAN U5): it always appears after a hold, never empty. */
+    enum class AfterWake { CONTENT, NOTHING_NEW, NEEDS_ACCESS, UNAVAILABLE }
+
+    fun afterWake(active: Boolean, accessOk: Boolean, d: Digest): AfterWake = when {
+        !accessOk -> AfterWake.NEEDS_ACCESS
+        !active -> AfterWake.UNAVAILABLE
+        d.isEmpty -> AfterWake.NOTHING_NEW
+        else -> AfterWake.CONTENT
+    }
+
+    fun afterWakeText(k: AfterWake): String = when (k) {
+        AfterWake.CONTENT -> "Messages are cleared when you tap Done."
+        AfterWake.NOTHING_NEW -> "Nothing new while you slept."
+        AfterWake.NEEDS_ACCESS -> "Briefing unavailable: turn on While you slept to see what you missed next time."
+        AfterWake.UNAVAILABLE -> "Briefing unavailable for this ring."
+    }
+
+    /** The silent "What you missed" notification after acking elsewhere: counts only (W3), null if nothing. */
+    fun missedTitle(d: Digest): String? {
+        if (d.isEmpty) return null
+        val chats = d.lines.size
+        return if (chats > 0) "What you missed ($chats chat${if (chats == 1) "" else "s"})"
+        else "What you missed (${d.otherNotifications} notification${if (d.otherNotifications == 1) "" else "s"})"
+    }
+
     fun title(l: PanelLine): String = if (l.count > 1) "${l.title} (${l.count})" else l.title
 
     /** "needs a reply · affects your plans", or null. */

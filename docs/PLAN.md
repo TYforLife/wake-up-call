@@ -278,8 +278,8 @@ Prerequisite: Run 4 merged.
 - [x] Learning ignores how a trip ended: a ride counts only if GPS passed within 60 m of the pin, and "suggested stop" is never derived from where you stopped the trip, acked or got off. Remove the suggestion UI if nothing trustworthy is left to suggest.
 
 ### U5 After "I'm awake"
-- [ ] "You're awake" always appears after a hold on the alarm screen (with "Nothing new" or "Briefing unavailable: turn on While you slept" and a one-tap fix), then Done.
-- [ ] If you acked from the notification or volume key, a silent "What you missed (N chats)" notification (counts only, W3) reopens it until the messages are cleared.
+- [x] "You're awake" always appears after a hold on the alarm screen (with "Nothing new" or "Briefing unavailable: turn on While you slept" and a one-tap fix), then Done.
+- [x] If you acked from the notification or volume key, a silent "What you missed (N chats)" notification (counts only, W3) reopens it until the messages are cleared.
 
 ### U6 Visual and UX redesign
 - [ ] A small design system: colour tokens (light and dark), type scale, spacing, cards, primary/secondary buttons, status chips; applied everywhere.

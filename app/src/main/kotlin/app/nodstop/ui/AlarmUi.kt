@@ -118,6 +118,8 @@ fun AlarmScreen(
 fun AfterWakeScreen(
     onShare: (PanelLine) -> Unit,
     onDone: () -> Unit,
+    kind: PanelText.AfterWake = PanelText.AfterWake.CONTENT,
+    onFix: (() -> Unit)? = null,
     panel: @Composable (Modifier) -> Unit = { WhileYouSleptPanel(it, onShare) },
 ) {
     Column(
@@ -125,8 +127,18 @@ fun AfterWakeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("You're awake", color = Color(0xFFFFC94A), fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
-        Text("Messages are cleared when you tap Done.", color = Color(0xFF9AA7C7), fontSize = 14.sp)
-        panel(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp))
+        Text(
+            PanelText.afterWakeText(kind), color = Color(0xFFB8C3DD), fontSize = if (kind == PanelText.AfterWake.CONTENT) 14.sp else 18.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
+        )
+        if (kind == PanelText.AfterWake.CONTENT) panel(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp))
+        else {
+            Spacer(Modifier.weight(1f))
+            if (onFix != null) OutlinedButton(onClick = onFix, modifier = Modifier.fillMaxWidth().height(52.dp).padding(bottom = 4.dp)) {
+                Text("Turn on While you slept", fontSize = 16.sp)
+            }
+            Spacer(Modifier.height(12.dp))
+        }
         Button(onClick = onDone, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Done", fontSize = 18.sp) }
     }
 }

@@ -26,6 +26,7 @@ object Notifications {
     const val ID_RING = 2
     const val ID_AT_STOP = 3
     const val ID_RATE = 4
+    const val ID_MISSED = 5
 
     /** Android 16 Live Updates: promoted to the lock screen and status bar. */
     private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
@@ -152,6 +153,34 @@ object Notifications {
             .addAction(action("Too late", "too_late", 2))
             .build()
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_RATE, n) }
+    }
+
+    /** "What you missed (N chats)": counts only (W3). Tap: "You're awake" after unlocking. Swipe: forget them. */
+    fun missed(ctx: Context, title: String, counts: String) {
+        val open = PendingIntent.getActivity(
+            ctx, 4300, Intent(ctx, AlarmActivity::class.java).putExtra(AlarmActivity.EXTRA_MISSED, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val forget = PendingIntent.getBroadcast(
+            ctx, 4301, Intent(ctx, app.nodstop.alarm.MissedReceiver::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = Notification.Builder(ctx, CH_TRIP)
+            .setSmallIcon(R.drawable.ic_tile)
+            .setContentTitle(title)
+            .setContentText(counts)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(false)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setContentIntent(open)
+            .setDeleteIntent(forget)
+            .build()
+        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_MISSED, n) }
+    }
+
+    fun cancelMissed(ctx: Context) {
+        runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(ID_MISSED) }
     }
 
     const val RATE_TITLE = "How was that ring's timing?"

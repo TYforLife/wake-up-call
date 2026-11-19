@@ -60,4 +60,26 @@ class PanelTextTest {
         assertEquals("+1 more chat", PanelText.more(PanelText.MAX_LINES + 1))
         assertEquals("+3 more chats", PanelText.more(PanelText.MAX_LINES + 3))
     }
+
+    @Test
+    fun `after a hold, You're awake always says something, and says how to fix a missing briefing`() {
+        val none = Digests.build(emptyList(), 0)
+        val some = Digests.build(listOf(m("Mum", "Mum", "dinner?", 1)), 0)
+        assertEquals(PanelText.AfterWake.NEEDS_ACCESS, PanelText.afterWake(active = false, accessOk = false, d = none))
+        assertEquals(PanelText.AfterWake.UNAVAILABLE, PanelText.afterWake(active = false, accessOk = true, d = none))
+        assertEquals(PanelText.AfterWake.NOTHING_NEW, PanelText.afterWake(active = true, accessOk = true, d = none))
+        assertEquals(PanelText.AfterWake.CONTENT, PanelText.afterWake(active = true, accessOk = true, d = some))
+        for (k in PanelText.AfterWake.entries) assert(PanelText.afterWakeText(k).isNotBlank())
+        assert("turn on While you slept" in PanelText.afterWakeText(PanelText.AfterWake.NEEDS_ACCESS))
+    }
+
+    @Test
+    fun `the missed notification has counts only, never names or text (W3)`() {
+        assertNull(PanelText.missedTitle(Digests.build(emptyList(), 0)))
+        val d = Digests.build(listOf(m("Mum", "Mum", "secret plan", 1), m("Flat", "Jess", "b", 2)), 3)
+        val t = PanelText.missedTitle(d)!!
+        assertEquals("What you missed (2 chats)", t)
+        assert("Mum" !in t && "secret" !in t)
+        assertEquals("What you missed (1 notification)", PanelText.missedTitle(Digests.build(emptyList(), 1)))
+    }
 }

@@ -596,8 +596,14 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   marks that chat, which the alarm screen shows first ("urgent: this woke you").
 - Tones: plain (default) or "tea" (Readiness switch). Tea is a second model call over the checked lines;
   W5 is checked again on each rewrite, and a failing or missing rewrite keeps the plain line.
-- Share-back: after "I'm awake" on the alarm screen, if there is anything to read, the screen stays
-  open ("You're awake") with a **Share this line** button per line and **Done**. Share unlocks the
+- After "I'm awake" (PLAN U5): a hold on the alarm screen **always** opens "You're awake", then
+  **Done**. With nothing to read it says "Nothing new while you slept"; with notification access off,
+  "Briefing unavailable: turn on While you slept…" and a one-tap **Turn on While you slept** button.
+  Acked from the notification button or the volume key, the messages are kept and a silent
+  **"What you missed (N chats)"** notification is posted: counts only (W3), private on the lock
+  screen. Tapping it opens "You're awake" after unlocking; swiping it away, Done, or the trip ending
+  forgets the messages.
+- Share-back: "You're awake" has a **Share this line** button per line. Share unlocks the
   phone and opens the share sheet with that line only, plus "recapped while I napped · Nodstop"
   (`ShareText`, `ShareLine`: the only place a line leaves the app). Nothing is ever sent
   automatically. The messages are cleared on Done (or when that screen goes away), still W3.
