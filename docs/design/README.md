@@ -5,7 +5,10 @@
   Rendered from `mockups.html` with the tokens in `system/tokens.json` (`tokens.gen.css` is generated from them).
 - `system/`: the design system as the files of a Claude **Design System** artifact (`project/` layout:
   `design-system.json`, `tokens.json`, `README.md` brand book, `components/*/README.md` + `preview.html`,
-  `components/bundle.css`). Published as the artifact once publishing is allowed in the session.
+  `components/bundle.css`). Published: https://claude.ai/artifact/CEjr1LwtbBKZzcXQeZEKdS
+
+The screens are also on a Claude **Design** canvas, four rows by flow, where you can comment on any one:
+https://claude.ai/artifact/VoVev4CB3YYocztGCXF8Cb
 
 Made-up stops and messages only; no personal locations.
 
