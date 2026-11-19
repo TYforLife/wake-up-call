@@ -1,0 +1,94 @@
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500;700&display=swap");
+
+body { margin: 0; padding: var(--space-4); background: var(--ground); color: var(--ink); font-family: var(--font-sans); font-size: 16px; line-height: 24px; }
+.ns-col { display: flex; flex-direction: column; gap: var(--space-3); }
+.ns-row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.ns-phone { width: 360px; max-width: 100%; display: flex; flex-direction: column; gap: var(--space-4); }
+.ns-muted { color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+.ns-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* Button */
+.ns-btn { font: inherit; font-weight: 700; font-size: 17px; min-height: var(--tap-min); padding: 0 var(--space-6); border-radius: var(--radius-md); border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
+.ns-btn-primary { background: var(--action); color: var(--on-action); min-height: var(--action-height); width: 100%; }
+.ns-btn-secondary { background: transparent; color: var(--ink); border: 2px solid var(--line-strong); }
+.ns-btn-quiet { background: transparent; color: var(--action); padding: 0 var(--space-3); }
+.ns-btn-danger { background: transparent; color: var(--ring); padding: 0 var(--space-3); }
+.ns-btn[disabled] { background: var(--surface-sunk); color: var(--ink-muted); border-color: var(--surface-sunk); cursor: default; }
+.ns-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+/* Status line + chip */
+.ns-status { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 13px; line-height: 16px; font-weight: 700; letter-spacing: .02em; padding: 6px var(--space-3); border-radius: var(--radius-pill); }
+.ns-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.ns-armed { color: var(--armed); background: var(--armed-soft); }
+.ns-backup { color: var(--backup); background: var(--backup-soft); }
+.ns-ring { color: var(--ring); background: var(--ring-soft); }
+.ns-idle { color: var(--ink-muted); background: var(--surface-sunk); }
+.ns-chip { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--space-3); border-radius: var(--radius-sm); background: var(--surface-sunk); color: var(--ink); font-size: 15px; font-weight: 700; }
+.ns-chip.is-on { background: var(--action); color: var(--on-action); }
+
+/* Card */
+.ns-card { background: var(--surface); border-radius: var(--radius-lg); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.ns-card.is-live { background: var(--action-soft); }
+.ns-heading { font-size: 18px; line-height: 24px; font-weight: 700; margin: 0; }
+.ns-stop { font-size: 34px; line-height: 40px; font-weight: 700; margin: 0; }
+.ns-big { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 48px; line-height: 52px; font-weight: 700; }
+.ns-stat { display: flex; flex-direction: column; }
+.ns-stat small { color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+.ns-stats { display: flex; gap: var(--space-6); }
+.ns-track { height: 10px; border-radius: var(--radius-pill); background: var(--surface-sunk); overflow: hidden; }
+.ns-track > i { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--action); }
+.ns-card.is-live .ns-track { background: var(--surface); }
+
+/* Stop rail: the buses of a route, in order */
+.ns-rail { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ns-rail li { display: grid; grid-template-columns: 24px 1fr auto; gap: var(--space-3); align-items: start; padding-bottom: var(--space-4); position: relative; }
+.ns-rail li::after { content: ""; position: absolute; left: 11px; top: 22px; bottom: 0; width: 2px; background: var(--line); }
+.ns-rail li:last-child::after { display: none; }
+.ns-rail .dot { width: 24px; height: 24px; border-radius: 50%; border: 3px solid var(--line-strong); background: var(--surface); box-sizing: border-box; }
+.ns-rail li.is-done .dot { background: var(--ink-muted); border-color: var(--ink-muted); }
+.ns-rail li.is-now .dot { border-color: var(--action); background: var(--action); }
+.ns-rail li.is-done::after { background: var(--ink-muted); }
+.ns-rail b { display: block; }
+
+/* Setting row, setup step */
+.ns-setting { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3) 0; }
+.ns-setting > div { flex: 1; min-width: 0; }
+.ns-switch { width: 52px; height: 32px; border-radius: var(--radius-pill); background: var(--surface-sunk); border: 2px solid var(--line-strong); position: relative; flex: none; box-sizing: border-box; }
+.ns-switch::after { content: ""; position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink-muted); }
+.ns-switch.is-on { background: var(--action); border-color: var(--action); }
+.ns-switch.is-on::after { left: 24px; background: var(--on-action); }
+.ns-step { display: grid; grid-template-columns: 32px 1fr auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-top: 1px solid var(--line); }
+.ns-step:first-child { border-top: 0; }
+.ns-step .mark { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 15px; }
+.ns-step.is-done .mark { background: var(--armed-soft); color: var(--armed); }
+.ns-step.is-todo .mark { background: var(--ring-soft); color: var(--ring); }
+.ns-step.is-optional .mark { background: var(--surface-sunk); color: var(--ink-muted); }
+
+/* Tab bar */
+.ns-tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface-sunk); border-radius: var(--radius-lg); padding: var(--space-2); gap: var(--space-2); }
+.ns-tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--space-2) 0; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; color: var(--ink-muted); }
+.ns-tab .glyph { width: 24px; height: 24px; border-radius: 6px; border: 2px solid currentColor; box-sizing: border-box; }
+.ns-tab.is-on { background: var(--surface); color: var(--ink); }
+.ns-tab .live { font-family: var(--font-mono); font-size: 12px; color: var(--armed); }
+
+/* Alarm (night palette in both themes) */
+.ns-alarm { background: var(--alarm-ground); color: var(--alarm-ink); border-radius: var(--radius-lg); padding: var(--space-6) var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); align-items: center; text-align: center; }
+.ns-alarm h1 { color: var(--alarm-amber); font-size: 56px; line-height: 60px; margin: 0; }
+.ns-alarm .sub { color: var(--alarm-muted); }
+.ns-hold { width: 100%; height: var(--hold-target); border-radius: var(--radius-xl); background: var(--alarm-raised); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); position: relative; overflow: hidden; }
+.ns-hold b { font-size: 36px; line-height: 40px; }
+.ns-hold .fill { position: absolute; left: 0; bottom: 0; right: 0; background: var(--alarm-amber); opacity: .22; }
+.ns-hold > *:not(.fill) { position: relative; }
+.ns-next { background: var(--alarm-surface); border-radius: var(--radius-lg); padding: var(--space-4); text-align: left; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--space-2); }
+.ns-next .eyebrow { color: var(--alarm-amber); font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.ns-next .what { font-size: 28px; line-height: 34px; font-weight: 700; }
+.ns-next .then { color: var(--alarm-muted); }
+.ns-alarm .ns-btn-primary { background: var(--alarm-amber); color: var(--alarm-ground); }
+
+/* Zone sheet */
+.ns-sheet { background: var(--surface); border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-sheet); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.ns-slider { height: 8px; border-radius: var(--radius-pill); background: var(--surface-sunk); position: relative; margin: var(--space-3) 0; }
+.ns-slider i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--radius-pill); background: var(--action); }
+.ns-slider b { position: absolute; top: -10px; width: 28px; height: 28px; border-radius: 50%; background: var(--action); border: 4px solid var(--surface); box-sizing: border-box; }
+.ns-scale { display: flex; justify-content: space-between; color: var(--ink-muted); font-size: 13px; }
