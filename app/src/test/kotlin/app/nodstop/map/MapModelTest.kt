@@ -31,14 +31,12 @@ class MapModelTest {
         Route(name = "From work", legs = listOf(LegDraft("Smales Farm", "-36.7843, 174.7510"), LegDraft("Bond Cres", "-36.7719, 174.7501"))),
     )
 
-    @Test fun `pins for every set stop, the current one highlighted, suggestions only when they differ`() {
-        val near = Learned(LatLng(-36.78431, 174.75101), emptyList(), 2) // ~1 m: no suggestion
+    @Test fun `pins for every set stop, the current one highlighted, and learned routes`() {
+        val near = Learned(LatLng(-36.78431, 174.75101), emptyList(), 2)
         val far = Learned(LatLng(-36.7728, 174.7501), listOf(Track(listOf(TrackPoint(-36.78, 174.75, 900.0, 90.0), TrackPoint(-36.775, 174.75, 300.0, 30.0)))), 3)
         val l = MapModel.layers(routes, { if (it == smales) near else if (it == bond) far else null }, "From work", 1)
         assertEquals(3, l.pins.size, "blank stops are skipped")
         assertEquals(listOf(false, false, true), l.pins.map { it.current })
-        assertEquals(1, l.suggestions.size)
-        assertTrue(l.suggestions[0].meters in 90..110, "${l.suggestions[0].meters} m")
         assertEquals(1, l.tracks.size)
         assertEquals(listOf(LatLng(-36.7719, 174.7501), smales.let { LatLng(-36.7719, 174.7501) }).first(), MapModel.frame(null, l).last())
     }

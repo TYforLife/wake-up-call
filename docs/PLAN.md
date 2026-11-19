@@ -274,8 +274,8 @@ export then import.
 Prerequisite: Run 4 merged.
 
 ### U4 Estimate and learning
-- [ ] Whole-trip speed: an exponentially weighted average over the trip (recent minutes count most) joins `v_est` as one more term in the max (it can only ring earlier), plus today's pace vs past rides for the display ETA. Invariant and scenario tests stay green; real traces regenerated with the reason in the PR.
-- [ ] Learning ignores how a trip ended: a ride counts only if GPS passed within 60 m of the pin, and "suggested stop" is never derived from where you stopped the trip, acked or got off. Remove the suggestion UI if nothing trustworthy is left to suggest.
+- [x] Whole-trip speed: an exponentially weighted average over the trip (recent minutes count most) joins `v_est` as one more term in the max (it can only ring earlier), plus today's pace vs past rides for the display ETA. Invariant and scenario tests stay green; real traces regenerated with the reason in the PR.
+- [x] Learning ignores how a trip ended: a ride counts only if GPS passed within 60 m of the pin, and "suggested stop" is never derived from where you stopped the trip, acked or got off. Remove the suggestion UI if nothing trustworthy is left to suggest.
 
 ### U5 After "I'm awake"
 - [ ] "You're awake" always appears after a hold on the alarm screen (with "Nothing new" or "Briefing unavailable: turn on While you slept" and a one-tap fix), then Done.

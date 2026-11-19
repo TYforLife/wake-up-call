@@ -85,7 +85,7 @@ class EngineExtrasTest {
     }
 
     @Test
-    fun `your pin stays the stop - where you got off is only a suggestion`() {
+    fun `a ride is learned only if it reached your pin, never from where you got off`() {
         // You paste a point 150 m past the real stop; the bus stops at the real one and you get off there.
         val route = TestRoute(listOf(0.0 to -6_000.0, 0.0 to 0.0, 0.0 to 150.0, 0.0 to 1_000.0))
         val realStop = route.waypointAlong[1]
@@ -95,19 +95,28 @@ class EngineExtrasTest {
         val first = Harness(cfg).run(plan.inputs(sim, T0, legs, Random(14)), ackAfterMs = 5_000)
         val lead1 = Trips.leadS(sim, first)
         assertTrue(lead1 >= 25.0, "first ride lead $lead1")
-        val learned = Trips.learnInto(legs, first)
-        val suggested = learned[0].learned!!.stop
-        assertTrue(Geo.distanceM(suggested, route.point(1)) < 30.0, "suggestion ${Geo.distanceM(suggested, route.point(1))} m from the real stop")
-        assertEquals(route.point(2), learned[0].stop, "the alarm still aims at your pin")
-        // Second ride: same pin (150 m past the real stop), now on the learned route: still at least 25 s early.
-        val second = Harness(cfg).run(plan.inputs(sim, T0, learned, Random(15)))
+        assertTrue(first.learned.isEmpty(), "GPS never came within 60 m of the pin: nothing learned")
+        assertEquals(Phase.DONE, first.final.phase, "the leg still ended when you got off")
+
+        // Pin where the bus really stops: learned, and the learned stop is your pin, not where you stood.
+        val atStop = listOf(Trips.leg(route.point(1), "Real"))
+        val ride = Harness(cfg).run(plan.inputs(sim, T0, atStop, Random(16)), ackAfterMs = 5_000)
+        val learned = Trips.learnInto(atStop, ride)
+        assertEquals(route.point(1), learned[0].learned!!.stop)
+        assertEquals(1, learned[0].learned!!.rides)
+        val second = Harness(cfg).run(plan.inputs(sim, T0, learned, Random(17)))
         val lead2 = Trips.leadS(sim, second)
-        assertTrue(lead2 >= 25.0, "second ride lead $lead2")
-        // Moving the pin to the suggestion (and re-learning) gives 30-60 s.
-        val moved = listOf(Trips.leg(suggested, "Moved"))
-        val third = Harness(cfg).run(plan.inputs(sim, T0, moved, Random(16)))
-        val lead3 = Trips.leadS(sim, third)
-        assertTrue(lead3 in 30.0..60.0, "moved-pin lead $lead3")
+        assertTrue(lead2 in 25.0..90.0, "learned-route lead $lead2")
+    }
+
+    @Test
+    fun `stopping the trip early teaches nothing`() {
+        val (path, destAlong) = Path.straight(6_000.0)
+        val sim = Sim(path, destAlong) { kmh(40.0) }.run()
+        val inputs = FixPlan().inputs(sim, T0, listOf(Trips.leg(Plane.origin)), Random(18))
+        val stopAt = sim.timeWhen(destAlong - 1_000).let { T0 + (it * 1000).toLong() }
+        val r = Harness(cfg).run(inputs.filter { it.tMs < stopAt } + Input.Stop(stopAt), ackAfterMs = 5_000)
+        assertTrue(r.learned.isEmpty())
     }
 
     @Test
@@ -177,10 +186,10 @@ class EngineExtrasTest {
         val m = Learning.match(learned, Plane.toLatLng(20.0, -1_000.0), 60.0)!!
         assertEquals(1_000.0, m.toEndM, 5.0)
         assertNull(Learning.match(learned, Plane.toLatLng(200.0, -1_000.0), 60.0), "too far off the route")
-        val far = LearnedUpdate(Plane.origin, Plane.toLatLng(0.0, 500.0), track)
-        assertNull(Learning.merge(null, far), "a 'stop' 500 m from the pasted one is not learned")
-        val merged = Learning.merge(learned, LearnedUpdate(Plane.origin, Plane.toLatLng(0.0, 10.0), track))!!
+        val merged = Learning.merge(learned.copy(leadS = 40.0), LearnedUpdate(Plane.origin, track))
         assertEquals(2, merged.rides)
         assertEquals(2, merged.tracks.size)
+        assertEquals(Plane.origin, merged.stop, "the stop is always your pin")
+        assertEquals(40.0, merged.leadS, "ratings survive a new ride")
     }
 }

@@ -31,7 +31,6 @@ import app.nodstop.App
 import app.nodstop.data.LegDraft
 import app.nodstop.data.Route
 import app.nodstop.engine.CoordParser
-import app.nodstop.engine.Geo
 import app.nodstop.trip.FusedLocationSource
 import kotlin.math.roundToInt
 import java.util.Locale
@@ -98,20 +97,14 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
                     val learned = learnedAll[Route.stopKey(p)]
                     learned?.leadS?.let { Text("Rings about ${it.roundToInt()} s before this stop (tuned by your ratings).", style = MaterialTheme.typography.bodySmall) }
                     if (learned != null && learned.rides > 0) {
-                        val shift = Geo.distanceM(learned.stop, p).roundToInt()
-                        Text(
-                            "Learned the route from ${learned.rides} ride${if (learned.rides == 1) "" else "s"}. " +
-                                "Suggestion: you got off about $shift m from your pin. Your pin stays the stop unless you move it.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (shift >= 20) TextButton(onClick = {
-                                // A new pin starts learning afresh (past routes were measured to the old pin).
-                                App.instance.learned.forget(p)
-                                legs[i] = legs[i].copy(coords = String.format(Locale.US, "%.6f, %.6f", learned.stop.lat, learned.stop.lng))
-                            }) { Text("Use suggestion") }
-                            TextButton(onClick = { App.instance.learned.forget(p) }) { Text("Forget learned") }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Learned the route from ${learned.rides} ride${if (learned.rides == 1) "" else "s"} that reached this pin.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = { App.instance.learned.forget(p) }) { Text("Forget") }
                         }
                     }
                 }

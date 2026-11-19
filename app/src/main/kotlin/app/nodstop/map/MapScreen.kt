@@ -76,8 +76,7 @@ import org.maplibre.android.geometry.LatLng as MLatLng
 
 /**
  * Where you are and where your stops are pinned, to check the pins sit on the right spots.
- * You're a blue dot while waiting (or off the bus) and a bus once you're on it. Faint markers are
- * suggestions (where you got off on past rides); faint lines are learned routes.
+ * You're a blue dot while waiting (or off the bus) and a bus once you're on it. Faint lines are learned routes.
  */
 @Composable
 fun MapScreen(go: (Screen) -> Unit) {
@@ -188,7 +187,7 @@ fun MapScreen(go: (Screen) -> Unit) {
                 me == null -> "Waiting for your location…"
                 kind == MapModel.Me.BUS -> "🚌 You're on the bus."
                 else -> "🔵 That's you."
-            } + "  📍 your pins (tap one to set its wake zone) · circles: where it rings · faint dots: suggested stops",
+            } + "  📍 your pins (tap one to set its wake zone) · circles: where it rings",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(12.dp),
         )
@@ -260,8 +259,6 @@ private fun MapLibreView(
     LaunchedEffect(style, layers) {
         val s = style ?: return@LaunchedEffect
         s.getSourceAs<GeoJsonSource>("tracks")?.setGeoJson(MapModel.tracksJson(layers))
-        s.getSourceAs<GeoJsonSource>("sugg-lines")?.setGeoJson(MapModel.suggestionLinesJson(layers))
-        s.getSourceAs<GeoJsonSource>("sugg")?.setGeoJson(MapModel.suggestionsJson(layers))
         s.getSourceAs<GeoJsonSource>("pins")?.setGeoJson(MapModel.pinsJson(layers))
         s.getSourceAs<GeoJsonSource>("zones")?.setGeoJson(MapModel.zonesJson(layers))
     }
@@ -290,7 +287,7 @@ private fun MapLibreView(
 
 private fun addLayers(s: Style) {
     val empty = """{"type":"FeatureCollection","features":[]}"""
-    for (id in listOf("zones", "tracks", "sugg-lines", "sugg", "pins", "me")) s.addSource(GeoJsonSource(id, empty))
+    for (id in listOf("zones", "tracks", "pins", "me")) s.addSource(GeoJsonSource(id, empty))
     // Wake zones: where it will ring. Solid = yours, dashed = automatic.
     s.addLayer(org.maplibre.android.style.layers.FillLayer("zones-f", "zones").withProperties(
         org.maplibre.android.style.layers.PropertyFactory.fillColor(CURRENT),
@@ -300,13 +297,6 @@ private fun addLayers(s: Style) {
     s.addLayer(LineLayer("zones-auto", "zones").withProperties(lineColor(CURRENT), lineWidth(2f), lineOpacity(0.7f), lineDasharray(arrayOf(3f, 2f)))
         .withFilter(org.maplibre.android.style.expressions.Expression.eq(get("yours"), false)))
     s.addLayer(LineLayer("tracks-l", "tracks").withProperties(lineColor(FAINT), lineWidth(3f), lineOpacity(0.35f)))
-    s.addLayer(LineLayer("sugg-lines-l", "sugg-lines").withProperties(
-        lineColor(FAINT), lineWidth(2f), lineOpacity(0.6f), lineDasharray(arrayOf(2f, 2f))))
-    s.addLayer(CircleLayer("sugg-l", "sugg").withProperties(
-        circleRadius(6f), circleColor(FAINT), circleOpacity(0.45f), circleStrokeWidth(1f), circleStrokeColor("#FFFFFF")))
-    s.addLayer(SymbolLayer("sugg-t", "sugg").withProperties(
-        textField(get("label")), textFont(arrayOf("Noto Sans Regular")), textSize(11f), textColor(FAINT),
-        textOffset(arrayOf(0f, 1.3f)), textAnchor("top"), textHaloColor("#FFFFFF"), textHaloWidth(1.5f)))
     s.addLayer(CircleLayer("pins-l", "pins").withProperties(
         circleRadius(8f), circleColor(PIN), circleStrokeWidth(2f), circleStrokeColor("#FFFFFF")))
     s.addLayer(CircleLayer("pins-current", "pins").withProperties(

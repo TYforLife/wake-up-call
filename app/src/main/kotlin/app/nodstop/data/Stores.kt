@@ -132,7 +132,7 @@ class LearnedStore(context: Context) {
 
     fun merge(update: LearnedUpdate) {
         val key = Route.stopKey(update.dest)
-        val merged = Learning.merge(cache[key], update) ?: return
+        val merged = Learning.merge(cache[key], update)
         set(cache + (key to merged))
     }
 

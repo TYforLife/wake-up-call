@@ -81,8 +81,10 @@ data class Config(
     val tooEarlyStepS: Double = 10.0,
     val tooLateStepS: Double = 15.0,
     val maxTracks: Int = 5,
-    /** A learned stop must be within this of the pasted one. */
-    val learnMaxShiftM: Double = 300.0,
+    /** A ride is learned only if GPS passed this close to your pin (not from where a trip ended). */
+    val learnPassM: Double = 60.0,
+    /** Whole-ride speed: time constant of its exponential weighting (DESIGN §2); 0 turns it off. */
+    val tripTauS: Double = 60.0,
 ) {
     val vFloor: Double get() = vFloorKmh / 3.6
     val vMax: Double get() = vMaxKmh / 3.6

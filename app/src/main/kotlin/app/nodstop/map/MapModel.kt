@@ -37,28 +37,21 @@ object MapModel {
         val zoneIsYours: Boolean = false,
     )
 
-    /** A faint suggestion: where you got off on past rides, and how far that is from your pin. */
-    data class Suggestion(val pin: LatLng, val pos: LatLng, val meters: Int)
-
     data class Layers(
         val pins: List<Pin>,
-        val suggestions: List<Suggestion>,
         val tracks: List<List<LatLng>>,
     )
 
     /**
-     * Every pinned stop of every route (the running trip's current stop highlighted), the suggestions
-     * that differ from their pin by at least [minSuggestM], and the learned routes.
+     * Every pinned stop of every route (the running trip's current stop highlighted) and the learned routes.
      */
     fun layers(
         routes: List<Route>,
         learned: (LatLng) -> Learned?,
         currentRouteName: String? = null,
         currentLeg: Int? = null,
-        minSuggestM: Double = 15.0,
     ): Layers {
         val pins = ArrayList<Pin>()
-        val suggestions = ArrayList<Suggestion>()
         val tracks = ArrayList<List<LatLng>>()
         val seen = HashSet<String>()
         for (r in routes) r.legs.forEachIndexed { i, leg ->
@@ -69,11 +62,9 @@ object MapModel {
             pins += Pin(p, leg.name.ifBlank { "${r.name} ${i + 1}" }, current, leg.alarmEnabled, r.id, i, zone, leg.wakeRadiusM != null)
             if (!seen.add(Route.stopKey(p))) return@forEachIndexed // a stop shared by two routes: once is enough
             l ?: return@forEachIndexed
-            val d = Geo.distanceM(p, l.stop)
-            if (d >= minSuggestM) suggestions += Suggestion(p, l.stop, d.toInt())
             l.tracks.forEach { t -> if (t.points.size >= 2) tracks += t.points.map { it.pos } }
         }
-        return Layers(pins, suggestions, tracks)
+        return Layers(pins, tracks)
     }
 
     /**
@@ -144,12 +135,6 @@ object MapModel {
             "route" to JsonPrimitive(it.routeId), "leg" to JsonPrimitive(it.legIndex),
         ))
     })
-
-    fun suggestionsJson(l: Layers): String = collection(l.suggestions.map {
-        feature(point(it.pos), mapOf("label" to JsonPrimitive("suggested · ${it.meters} m")))
-    })
-
-    fun suggestionLinesJson(l: Layers): String = collection(l.suggestions.map { feature(line(listOf(it.pin, it.pos))) })
 
     fun tracksJson(l: Layers): String = collection(l.tracks.map { feature(line(it)) })
 
