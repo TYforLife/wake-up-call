@@ -41,7 +41,8 @@ class NotifyIsolationTest {
     /** C4: nothing is ever sent automatically. Sharing a line happens only in the share UI, on a tap. */
     @Test
     fun `only the share UI and the trip-log share use ACTION_SEND`() {
-        val allowed = setOf("ShareLine.kt", "TraceLogger.kt")
+        // ShareLine: one briefing line; TraceLogger: the trip log; DataExport: your backup file. All on a tap.
+        val allowed = setOf("ShareLine.kt", "TraceLogger.kt", "DataExport.kt")
         val all = root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
         val users = all.filter { f -> code(f).any { (_, l) -> l.contains("ACTION_SEND") } }.map { it.name }.toSet()
         assertTrue("ShareLine.kt" in users, "share UI not found")

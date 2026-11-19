@@ -32,6 +32,16 @@ import app.nodstop.App
 import app.nodstop.brief.SampleChats
 import app.nodstop.notify.MessageStore
 import app.nodstop.trip.TripService
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import app.nodstop.data.DataExport
+import app.nodstop.data.ExportBundle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun DebugScreen(go: (Screen) -> Unit) {
@@ -44,6 +54,26 @@ fun DebugScreen(go: (Screen) -> Unit) {
     var testAt by remember { mutableStateOf<Long?>(null) }
     var confirmKill by remember { mutableStateOf(false) }
     val tripActive = trip != null || app.trips.load() != null
+    val importScope = rememberCoroutineScope()
+    var importMessage by remember { mutableStateOf<String?>(null) }
+    var pendingImport by remember { mutableStateOf<ExportBundle?>(null) }
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        importScope.launch {
+            val text = withContext(Dispatchers.IO) { runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull() }
+            val b = text?.let { DataExport.decode(it) }
+            if (b == null) importMessage = "That isn't a Nodstop backup." else pendingImport = b
+        }
+    }
+    pendingImport?.let { b ->
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text("Restore this backup?") },
+            text = { Text("${b.routes.size} routes and ${b.learned.size} learned stops will replace what's on this phone now.") },
+            confirmButton = { TextButton(onClick = { DataExport.restore(b); importMessage = "Restored ${b.routes.size} routes."; pendingImport = null }) { Text("Restore") } },
+            dismissButton = { TextButton(onClick = { pendingImport = null }) { Text("Cancel") } },
+        )
+    }
     LaunchedEffect(Unit) { app.traces.loadRecentFromDisk() }
 
     Column(
@@ -93,6 +123,16 @@ fun DebugScreen(go: (Screen) -> Unit) {
                 val now = System.currentTimeMillis()
                 (SampleChats.messages + SampleChats.urgent).forEachIndexed { i, m -> MessageStore.instance.add(m.copy(app = "debug.sample", tMs = now + i)) }
             }) { Text("Add sample chats to this trip") }
+        }
+        Section("Your data") {
+            Text(
+                "Back up routes, stops, learned rides and settings to one file, or restore them. Updates keep your data " +
+                    "anyway; this is for a new phone or a reinstall. The file has your stops: keep it private.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Button(onClick = { runCatching { ctx.startActivity(DataExport.shareIntent(ctx, System.currentTimeMillis())) } }) { Text("Back up to a file") }
+            OutlinedButton(enabled = !tripActive, onClick = { importPicker.launch(arrayOf("application/json", "*/*")) }) { Text("Restore from a file") }
+            importMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }
         Section("Kill test") {
             Text("Kills the app process now, like One UI would. The scheduled alarm must still ring.")
