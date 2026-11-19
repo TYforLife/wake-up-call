@@ -51,7 +51,12 @@ object Readiness {
         data class Open(val intent: Intent) : Fix
     }
 
-    data class Check(val title: String, val ok: Boolean, val detail: String, val fix: Fix?)
+    data class Check(val title: String, val ok: Boolean, val detail: String, val fix: Fix?) {
+        val optional: Boolean get() = title.endsWith("(optional)")
+    }
+
+    /** Required checks that aren't green: what Home counts and Readiness lists first. */
+    fun needsAttention(checks: List<Check>): List<Check> = checks.filter { !it.ok && !it.optional }
 
     private fun granted(ctx: Context, p: String) = ctx.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
 
@@ -197,106 +202,86 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
 
 @Composable
 fun ReadinessContent(ui: ReadinessUi, a: ReadinessActions) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        TopBar("Readiness", onBack = a.back)
-        ui.lastRing?.let { Section { Text(it, style = MaterialTheme.typography.bodyMedium) } }
-        Section {
-            for (c in ui.checks) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("●", color = if (c.ok) Color(0xFF2E7D32) else Color(0xFFD32F2F))
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text(c.title, style = MaterialTheme.typography.titleSmall)
-                        Text(c.detail, style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (!c.ok && c.fix != null) Button(onClick = { a.fix(c) }) { Text("Fix") }
-                }
-            }
+    var showAll by remember { mutableStateOf(false) }
+    val attention = Readiness.needsAttention(ui.checks)
+    val optionalOff = ui.checks.filter { !it.ok && it.optional }
+    ScreenColumn("Readiness", a.back) {
+        if (attention.isEmpty()) Section(tone = Tone.OK) {
+            Text("All set", style = MaterialTheme.typography.headlineSmall, color = LocalNodstopColors.current.tone(Tone.OK).fg)
+            Text("Every check the alarm needs is green.", style = MaterialTheme.typography.bodyMedium)
+            QuietButton(if (showAll) "Hide checks" else "Show all ${ui.checks.size} checks", { showAll = !showAll })
+        } else Section("${attention.size} to fix before you rely on the alarm", tone = Tone.BAD) {
+            for (c in attention) CheckRow(c, a)
         }
-        Section("Alarm") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Phone speaker as last resort", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "If you haven't held \"I'm awake\" after 60 s, ring out loud through the speaker. " +
-                            "Off: earbuds (if connected) and vibration only.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(checked = ui.speaker, onCheckedChange = a.speaker)
-            }
-            Text(
+        ui.lastRing?.let { Section("Last ring") { Text(it.removePrefix("Last ring: "), style = MaterialTheme.typography.bodyMedium) } }
+        if (optionalOff.isNotEmpty()) Section("Optional") { for (c in optionalOff) CheckRow(c, a) }
+        if (showAll || attention.isNotEmpty()) {
+            val ok = ui.checks.filter { it.ok }
+            if (ok.isNotEmpty()) Section("Working") { for (c in ok) CheckRow(c, a) }
+        }
+
+        GroupLabel("Alarm")
+        Section {
+            SettingRow(
+                "Phone speaker as last resort",
+                "If you haven't held \"I'm awake\" after 60 s, ring out loud. Off: earbuds (if in) and vibration only.",
+                ui.speaker, a.speaker,
+            )
+            SettingRow(
+                "Ask about ring timing",
+                "After \"I'm awake\", a silent notification asks: too early, good or too late? Optional; each answer moves that stop's ring 10–15 s.",
+                ui.askTiming, a.askTiming,
+            )
+            Hint(
                 "Without the speaker, vibration has to wake you: keep the phone in a pocket or your hand, not a bag. " +
                     "Check Settings → Sounds and vibration → Vibration intensity isn't at zero.",
-                style = MaterialTheme.typography.bodySmall,
             )
         }
-        Section("Ring timing") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Ask after each ring", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "After \"I'm awake\", a silent notification asks: too early, good or too late? Answering is " +
-                            "optional; each answer moves that stop's ring 10–15 s next time.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(checked = ui.askTiming, onCheckedChange = a.askTiming)
-            }
-        }
-        Section("While you slept (experimental)") {
+
+        GroupLabel("While you slept (experimental)")
+        Section {
             var vipText by remember(ui.vips) { mutableStateOf(ui.vips.joinToString(", ")) }
             Text("Important contacts", style = MaterialTheme.typography.titleSmall)
-            Text(
+            Hint(
                 "Names as they appear in your chats, separated by commas (e.g. Mum, Daycare). Only their messages can " +
-                    "wake you, and only if the on-phone model judges them urgent. Shown first on the alarm screen.",
-                style = MaterialTheme.typography.bodySmall,
+                    "wake you, and only if the on-phone model judges them urgent.",
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(value = vipText, onValueChange = { vipText = it }, modifier = Modifier.weight(1f), singleLine = true)
-                TextButton(enabled = vipText != ui.vips.joinToString(", "), onClick = { a.vips(vipText.split(',')) }) { Text("Save") }
+                QuietButton("Save", { a.vips(vipText.split(',')) }, enabled = vipText != ui.vips.joinToString(", "))
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Tea tone", style = MaterialTheme.typography.titleSmall)
-                    Text("Briefing lines in group-chat voice. Same facts, checked again; plain if a rewrite changes one.", style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = ui.tea, onCheckedChange = a.tea)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Use the GPU (experimental)", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Runs the model on the graphics chip: often faster and lighter on the battery. Falls back to the CPU " +
-                            "if the phone or model can't. Trips use it only after Debug → Briefing lab → Run has worked on " +
-                            "the GPU once on this phone.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(checked = ui.gpu, onCheckedChange = a.gpu)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Do Not Disturb during trips", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Holds other notifications while you sleep (alarms still get through), and puts your " +
-                            "setting back when the trip ends. Untested on Samsung: check the earbud ring still plays.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(checked = ui.dnd, onCheckedChange = a.dnd)
-            }
-            if (ui.dnd && !ui.dndGranted) {
-                Text("Needs Do Not Disturb access for Nodstop: tap the switch again after allowing it.", style = MaterialTheme.typography.bodySmall, color = Color(0xFFD32F2F))
-            }
+            SettingRow("Tea tone", "Briefing lines in group-chat voice. Same facts, checked again.", ui.tea, a.tea)
+            SettingRow(
+                "Use the GPU",
+                "Often faster and lighter on the battery; falls back to the CPU. Trips use it only after Debug → Briefing lab has run on the GPU once.",
+                ui.gpu, a.gpu,
+            )
+            SettingRow(
+                "Do Not Disturb during trips",
+                "Holds other notifications while you sleep (alarms still get through) and restores your setting after.",
+                ui.dnd, a.dnd,
+            )
+            if (ui.dnd && !ui.dndGranted) StatusChip("Needs Do Not Disturb access: tap the switch again after allowing it", Tone.WARN)
         }
-        Section("Samsung: do these once") {
-            Text("1. Settings → Apps → Nodstop → Battery → Unrestricted")
-            Text("2. Settings → Battery → Background usage limits: make sure Nodstop is not in Sleeping or Deep sleeping apps, and add it to Never sleeping apps")
-            Text("3. Never Force stop the app: Android cancels its alarms when you do.")
-            OutlinedButton(onClick = a.appSettings) { Text("Open Nodstop's app settings") }
+
+        GroupLabel("Samsung: do these once")
+        Section {
+            Text("1. Settings → Apps → Nodstop → Battery → Unrestricted", style = MaterialTheme.typography.bodyMedium)
+            Text("2. Settings → Battery → Background usage limits → add Nodstop to Never sleeping apps", style = MaterialTheme.typography.bodyMedium)
+            Text("3. Never Force stop the app: Android cancels its alarms when you do.", style = MaterialTheme.typography.bodyMedium)
+            SecondaryButton("Open Nodstop's app settings", a.appSettings)
         }
+    }
+}
+
+@Composable
+private fun CheckRow(c: Readiness.Check, a: ReadinessActions) {
+    Row(Modifier.fillMaxWidth().padding(vertical = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+        Dot(if (c.ok) Tone.OK else if (c.optional) Tone.NEUTRAL else Tone.BAD)
+        Column(Modifier.weight(1f).padding(horizontal = Space.m)) {
+            Text(c.title.removeSuffix(" (optional)"), style = MaterialTheme.typography.titleSmall)
+            Hint(c.detail)
+        }
+        if (!c.ok && c.fix != null) Button(onClick = { a.fix(c) }, shape = Radius.button) { Text("Fix") }
     }
 }

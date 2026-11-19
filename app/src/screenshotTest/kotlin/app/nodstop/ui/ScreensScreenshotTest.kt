@@ -1,10 +1,6 @@
 package app.nodstop.ui
 
 import android.app.Application
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.nodstop.data.LegDraft
@@ -49,9 +45,8 @@ class ScreensScreenshotTest {
     )
     private val trip = TripService.TripUi("To work", listOf("Central Station", "Harbour St"), listOf(a, b), 1, status, false, 0)
 
-    private fun shot(name: String, content: @Composable () -> Unit) = captureRoboImage("src/test/snapshots/$name.png") {
-        MaterialTheme(colorScheme = lightColorScheme()) { Surface(Modifier.fillMaxSize()) { content() } }
-    }
+    private fun shot(name: String, dark: Boolean = false, content: @Composable () -> Unit) =
+        captureRoboImage("src/test/snapshots/$name.png") { NodstopTheme(dark = dark) { content() } }
 
     @Test
     fun home_trip_running() = shot("screen_home_trip") {
@@ -71,6 +66,14 @@ class ScreensScreenshotTest {
 
     @Test
     fun trip() = shot("screen_trip") { TripContent(trip, {}, {}, {}, {}) }
+
+    @Test
+    fun home_trip_dark() = shot("screen_home_trip_dark", dark = true) {
+        HomeContent(HomeUi(routes, trip = trip, build = "Build 60 · abc1234"), HomeActions())
+    }
+
+    @Test
+    fun trip_dark() = shot("screen_trip_dark", dark = true) { TripContent(trip, {}, {}, {}, {}) }
 
     @Test
     fun route_editor() = shot("screen_route_editor") {
@@ -101,6 +104,9 @@ class ScreensScreenshotTest {
 
     @Test
     fun map_stop_sheet() = shot("screen_map_sheet") {
-        ZoneSheet("Harbour St", draft = 250.0, autoM = 310.0, onDraft = {}, onSave = {}, onCancel = {})
+        androidx.compose.foundation.layout.Column {
+            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            ZoneSheet("Harbour St", draft = 250.0, autoM = 310.0, onDraft = {}, onSave = {}, onCancel = {})
+        }
     }
 }

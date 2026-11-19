@@ -1,6 +1,9 @@
 package app.nodstop.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import app.nodstop.engine.Phase
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,7 +72,7 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
     var confirmStop by remember { mutableStateOf(false) }
     var stopTick by remember { mutableStateOf(0) }
     val persisted = remember(resumeTick, trip, stopTick) { if (trip == null) app.trips.load() else null }
-    val notReady = remember(resumeTick) { Readiness.checks(ctx).count { !it.ok && !it.title.endsWith("(optional)") } }
+    val notReady = remember(resumeTick) { Readiness.needsAttention(Readiness.checks(ctx)).size }
     val fullScreenOk = remember(resumeTick) { Readiness.fullScreenAllowed(ctx) }
     val ui = HomeUi(
         routes = routes, trip = trip,
@@ -104,104 +107,136 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
 
 @Composable
 fun HomeContent(ui: HomeUi, a: HomeActions) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("Nodstop", style = MaterialTheme.typography.headlineMedium)
-        Text("Sleep on the bus. Wakes you about 45 s before your stop, from GPS alone.", style = MaterialTheme.typography.bodyMedium)
+    ScreenColumn {
+        Row(Modifier.fillMaxWidth().padding(top = Space.s), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Nodstop", style = MaterialTheme.typography.headlineMedium)
+                Hint("Sleep on the bus. It wakes you before your stop.")
+            }
+            if (ui.notReady > 0 || !ui.fullScreenOk) StatusChip("Check setup", Tone.WARN, onClick = { a.go(Screen.Readiness) })
+            else StatusChip("Ready", Tone.OK, onClick = { a.go(Screen.Readiness) })
+        }
 
         // The one setting that decides whether the alarm can turn your screen on (PLAN U2): never hidden away.
-        if (!ui.fullScreenOk) Section {
-            Text("The alarm can't turn your screen on", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+        if (!ui.fullScreenOk) Section("The alarm can't turn your screen on", tone = Tone.BAD) {
             Text(
-                "Full-screen alarms are off for Nodstop, so a ring only shows as a banner. Allow them so \"I'm awake\" " +
-                    "is already on screen when it rings.",
+                "Full-screen alarms are off, so a ring only shows as a banner. Allow them so \"I'm awake\" is on screen when it rings.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Button(onClick = a.allowFullScreen) { Text("Allow full-screen alarms") }
+            PrimaryButton("Allow full-screen alarms", a.allowFullScreen)
         }
-
-        if (ui.notReady > 0) Section {
-            Text("${ui.notReady} setup check${if (ui.notReady > 1) "s" else ""} need attention before you rely on the alarm.")
-            Button(onClick = { a.go(Screen.Readiness) }) { Text("Open Readiness") }
-        }
-
-        ui.trip?.let { t ->
-            Section("Trip running: ${t.routeName}") {
-                Text(TripService.phaseLabel(t) + (t.legName?.let { " · Leg ${t.legIndex + 1}: $it" } ?: ""))
-                Text(TripService.summary(t), style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = a.openTrip) { Text("Open trip") }
-                    OutlinedButton(onClick = a.stopTrip) { Text("Stop trip") }
-                }
+        if (ui.notReady > 0) Section(tone = Tone.WARN) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${ui.notReady} setup check${if (ui.notReady > 1) "s" else ""} to fix before you rely on the alarm.",
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
+                )
+                QuietButton("Fix", { a.go(Screen.Readiness) })
             }
         }
 
+        ui.trip?.let { RunningTripCard(it, a) }
+
         if (ui.trip == null) ui.interrupted?.let { (name, at) ->
-            Section("Trip interrupted: $name") {
+            Section("Trip interrupted · $name", tone = Tone.WARN) {
                 Text(
                     "The app was closed during this trip. " +
                         (at?.let { "Your alarm is still set for ${TripService.clock(it)}. " } ?: "") +
                         "When it rings, hold \"I'm awake\" and tracking carries on.",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
-                OutlinedButton(onClick = a.stopTrip) { Text("Stop trip") }
+                QuietButton("Stop trip", a.stopTrip, danger = true)
             }
         }
 
         ui.rating?.let { RatingCard(it, a) }
 
-        Text("Routes", style = MaterialTheme.typography.titleMedium)
-        for (r in ui.routes) {
-            val problem = r.problem()
-            Section(r.name) {
-                Text(r.legs.joinToString(" → ") { it.name.ifBlank { "?" } }, style = MaterialTheme.typography.bodySmall)
-                if (problem != null) Text(problem, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(enabled = problem == null && ui.trip == null, onClick = { a.start(r.id, -1) }) { Text("Start") }
-                    if (r.legs.size > 1) Box {
-                        var open by remember { mutableStateOf(false) }
-                        OutlinedButton(enabled = problem == null && ui.trip == null, onClick = { open = true }) { Text("Start from…") }
-                        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                            r.legs.forEachIndexed { i, leg ->
-                                DropdownMenuItem(
-                                    text = { Text("Leg ${i + 1}: ${leg.name.ifBlank { "?" }}") },
-                                    onClick = { open = false; a.start(r.id, i) },
-                                )
-                            }
-                        }
-                    }
-                    OutlinedButton(onClick = { a.edit(r.id) }) { Text("Edit") }
-                }
+        GroupLabel("Your routes")
+        for (r in ui.routes) RouteCard(r, canStart = ui.trip == null, a = a)
+        SecondaryButton("+ Add a route", { a.edit(null) })
+
+        Row(Modifier.fillMaxWidth().padding(top = Space.s), horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+            for ((label, screen) in listOf("Map" to Screen.Map, "Readiness" to Screen.Readiness, "Debug" to Screen.Debug)) {
+                FilledTonalButton(onClick = { a.go(screen) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp), shape = Radius.button) { Text(label) }
             }
         }
-        OutlinedButton(onClick = { a.edit(null) }) { Text("+ Add route") }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = { a.go(Screen.Map) }) { Text("Map") }
-            FilledTonalButton(onClick = { a.go(Screen.Readiness) }) { Text("Readiness") }
-            FilledTonalButton(onClick = { a.go(Screen.Debug) }) { Text("Debug") }
-        }
+        Hint("Tip: add Nodstop's tile to Quick Settings, or long-press the app icon, to start a route in one tap.")
         Text(
-            "Tip: add Nodstop's tiles to Quick Settings, or long-press the app icon, to start a route in one tap.",
-            style = MaterialTheme.typography.bodySmall,
+            ui.build, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(ui.build, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall)
     }
 }
 
+/** The trip that's running, on top: where you get off, how far, how long, and Stop. */
+@Composable
+private fun RunningTripCard(t: TripService.TripUi, a: HomeActions) {
+    val s = t.status
+    Section(emphasis = true, modifier = Modifier.clickable(onClick = a.openTrip)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StatusChip(TripService.phaseLabel(t), if (s.phase == Phase.RINGING) Tone.BAD else Tone.INFO)
+            Hint("  ${t.routeName} · leg ${t.legIndex + 1} of ${t.legNames.size}")
+        }
+        Text(t.legName ?: "Your stop", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.xl)) {
+            BigStat(s.distanceM?.let { TripService.distance(it) } ?: "—", "to go")
+            BigStat(s.etaS?.let { TripService.minutes(it) } ?: "—", if (s.phase == Phase.WAITING) "once the bus moves" else "about")
+        }
+        val start = s.startDistanceM
+        val d = s.distanceM
+        if (start != null && d != null && start > 0) Progress((1 - d / start).toFloat())
+        if (!s.gpsOk) StatusChip(if (s.lastFixAgeS == null) "Waiting for GPS" else "GPS lost", Tone.WARN)
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+            PrimaryButton("Open trip", a.openTrip, Modifier.weight(1f))
+            SecondaryButton("Stop", a.stopTrip, Modifier.weight(1f))
+        }
+    }
+}
+
+/** One big card per route, with Start. */
+@Composable
+private fun RouteCard(r: Route, canStart: Boolean, a: HomeActions) {
+    val problem = r.problem()
+    Section {
+        Text(r.name, style = MaterialTheme.typography.titleLarge)
+        Text(
+            r.legs.joinToString("  →  ") { l -> l.name.ifBlank { "?" } + if (!l.alarmEnabled) " (no alarm)" else "" },
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (problem != null) StatusChip(problem, Tone.WARN, onClick = { a.edit(r.id) })
+        PrimaryButton("Start", { a.start(r.id, -1) }, enabled = problem == null && canStart)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (r.legs.size > 1) Box {
+                var open by remember { mutableStateOf(false) }
+                QuietButton("Start from a later leg…", { open = true }, enabled = problem == null && canStart)
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    r.legs.forEachIndexed { i, leg ->
+                        DropdownMenuItem(
+                            text = { Text("Leg ${i + 1}: ${leg.name.ifBlank { "?" }}") },
+                            onClick = { open = false; a.start(r.id, i) },
+                        )
+                    }
+                }
+            }
+            Box(Modifier.weight(1f))
+            QuietButton("Edit", { a.edit(r.id) })
+        }
+    }
+}
+
+/** How the ring timing was, per leg: one tap each, or Skip. */
 @Composable
 private fun RatingCard(r: PendingRating, a: HomeActions) {
     Section("How was the ring timing?") {
-        Text("Each answer tunes that stop: too early → rings later next time, too late → earlier.", style = MaterialTheme.typography.bodySmall)
+        Hint("One tap per stop. Too early: it rings later next time. Too late: earlier.")
         for ((leg, name) in r.legs) {
-            Text(name, style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = Space.xs))
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
                 for ((label, value) in listOf("Too early" to "too_early", "Good" to "good", "Too late" to "too_late")) {
-                    OutlinedButton(onClick = { a.rate(r, leg, value) }) { Text(label) }
+                    StatusChip(label, if (value == "good") Tone.OK else Tone.NEUTRAL, Modifier.weight(1f), onClick = { a.rate(r, leg, value) })
                 }
             }
         }
-        TextButton(onClick = a.skipRating) { Text("Skip") }
+        QuietButton("Skip", a.skipRating)
     }
 }

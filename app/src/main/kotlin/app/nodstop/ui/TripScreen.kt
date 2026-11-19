@@ -1,6 +1,8 @@
 package app.nodstop.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,51 +45,59 @@ fun TripScreen(go: (Screen) -> Unit) {
 
 @Composable
 fun TripContent(trip: TripService.TripUi?, onBack: () -> Unit, onOff: () -> Unit, onMap: () -> Unit, onStop: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        TopBar("Trip", onBack = onBack)
+    ScreenColumn("Trip", onBack) {
         val t = trip
         if (t == null) {
-            Text("No trip running.")
-            return@Column
+            Section { Text("No trip running.", style = MaterialTheme.typography.bodyLarge) }
+            return@ScreenColumn
         }
         val s = t.status
-        Section(t.routeName) {
-            Text("Leg ${t.legIndex + 1} of ${t.legNames.size}: ${t.legName ?: ""}", style = MaterialTheme.typography.titleMedium)
-            Text(TripService.phaseLabel(t), style = MaterialTheme.typography.headlineSmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+            StatusChip(TripService.phaseLabel(t), if (s.phase == Phase.RINGING) Tone.BAD else Tone.INFO)
+            StatusChip(
+                s.lastFixAgeS.let { age ->
+                    when {
+                        age == null -> "Waiting for GPS"
+                        s.gpsOk -> "GPS ok"
+                        else -> "GPS lost ${age.roundToInt()} s"
+                    }
+                },
+                if (s.gpsOk) Tone.OK else Tone.WARN,
+            )
+        }
+        // Glanceable at arm's length: where, how far, how long.
+        Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+            Hint("${t.routeName} · leg ${t.legIndex + 1} of ${t.legNames.size} · get off at")
+            Text(t.legName ?: "your stop", style = MaterialTheme.typography.displaySmall)
+        }
+        Section {
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.xl)) {
+                BigStat(s.distanceM?.let { TripService.distance(it) } ?: "—", if (s.onLearnedRoute) "along the route" else "straight line")
+                BigStat(s.etaS?.let { TripService.minutes(it) } ?: "—", if (s.phase == Phase.WAITING) "once the bus moves" else "to go")
+            }
             val start = s.startDistanceM
             val d = s.distanceM
-            if (start != null && d != null && start > 0) {
-                LinearProgressIndicator(progress = { (1 - d / start).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-            }
-            KeyValue("Distance to stop", d?.let { TripService.distance(it) + if (s.onLearnedRoute) " (along the route)" else " (straight line)" } ?: "—")
-            KeyValue("ETA", s.etaS?.let { TripService.minutes(it) } ?: if (s.phase == Phase.WAITING) "when the bus moves" else "—")
+            if (start != null && d != null && start > 0) Progress((1 - d / start).toFloat())
+            val alarm = s.alarmAtMs
+            Text(
+                if (alarm != null) "Alarm ${TripService.clock(alarm)} · ${reasonLabel(s.alarmReason, s.leadS)}"
+                else if (s.phase == Phase.RINGING) "Ringing now" else "No alarm on this leg",
+                style = MaterialTheme.typography.titleSmall,
+            )
+        }
+        PrimaryButton(if (t.legIndex + 1 < t.legNames.size) "I'm off this bus · next leg" else "I'm off this bus · end trip", onOff)
+        SecondaryButton("Show on map", onMap)
+        Section("Details") {
             KeyValue("ETA from", when {
                 s.onLearnedRoute && s.pace != null -> "past rides × today's pace (${String.format(java.util.Locale.US, "%.1f", s.pace)}×)"
                 s.onLearnedRoute -> "past rides"
-                else -> "your speed over the last minute"
+                else -> "your speed this ride"
             })
             KeyValue("Speed", s.speedKmh?.let { "${it.roundToInt()} km/h" } ?: "—")
-            val age = s.lastFixAgeS
-            KeyValue("GPS", when {
-                age == null -> "waiting for a fix"
-                s.gpsOk -> "ok (${age.roundToInt()} s ago)"
-                else -> "lost (${age.roundToInt()} s ago)"
-            })
-            KeyValue("Alarm", s.alarmAtMs?.let { "${TripService.clock(it)} · ${reasonLabel(s.alarmReason, s.leadS)}" } ?: if (s.phase == Phase.RINGING) "ringing" else "none")
-            KeyValue("Route knowledge", if (s.learnedRides > 0) "learned from ${s.learnedRides} ride${if (s.learnedRides == 1) "" else "s"}" else "first ride: learning it now")
+            KeyValue("Route knowledge", if (s.learnedRides > 0) "${s.learnedRides} past ride${if (s.learnedRides == 1) "" else "s"}" else "first ride: learning")
+            Hint("A real system alarm: if the app is closed, it still rings, never later than safe.")
         }
-        Text(
-            "Rings about 45 s before your stop. It's a real system alarm: if the app is closed, it still rings, never later than safe.",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Button(modifier = Modifier.fillMaxWidth(), onClick = onOff) {
-            Text(if (t.legIndex + 1 < t.legNames.size) "I'm off this bus (next leg)" else "I'm off this bus (end trip)")
-        }
-        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onMap) { Text("Show on map") }
-        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onStop) { Text("Stop trip") }
+        QuietButton("Stop trip", onStop, danger = true, modifier = Modifier.fillMaxWidth())
     }
 }
 
