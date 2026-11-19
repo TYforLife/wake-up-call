@@ -312,14 +312,14 @@ prompt: Debug → Share (location hidden), plus Readiness's "Last ring" line. Us
 happened, and say so in the PR. Add it to `engine/src/test/resources/traces/` as a replay test.
 
 ### R0 Know what happened
-- [ ] The ring diagnostic (`ringd`) also records: the ringer mode (normal / vibrate / mute), the Do Not Disturb filter, whether the vibrator reported vibrating, and whether earbuds were connected. "Last ring" says it in words: "buzzed ✓ (phone on Mute)" or "couldn't buzz ✗: Mute blocked vibration".
-- [ ] The trip log notes GPS gaps over 10 s (count and longest, `note`-free so it survives hidden exports) and whether the engine thought you'd boarded when you entered the circle.
+- [x] The ring diagnostic (`ringd`) also records: the ringer mode (normal / vibrate / mute), the Do Not Disturb filter, whether the vibrator reported vibrating, and whether earbuds were connected. "Last ring" says it in words: "buzzed ✓ (phone on Mute)" or "couldn't buzz ✗: Mute blocked vibration".
+- [x] The trip log notes GPS gaps over 10 s (count and longest, `note`-free so it survives hidden exports) and whether the engine thought you'd boarded when you entered the circle.
 
 ### R1 Buzz on Mute
-- [ ] If the phone is on Mute or Do Not Disturb when a ring starts and Nodstop has Do Not Disturb access, switch to vibrate (and let alarms through) for the ring only, and put the setting back after "I'm awake". Still the one ring path: `RingService` does it, and the restore also runs on a cold start, like `DndController`'s.
-- [ ] Readiness: "Let the alarm buzz on Mute" becomes a **required** check (Do Not Disturb access), with one Fix button. Home's setup chip counts it.
-- [ ] If vibration still can't be confirmed (no access, or the vibrator refused) and no earbuds are connected, the speaker last resort turns on for that ring, whatever the setting, after 30 s. The PR must say this, because it's a behaviour change the owner asked for ("ignore Mute").
-- [ ] JVM tests for the decision (mode in → actions out, restore always), and the cold-start restore.
+- [x] If the phone is on Mute or Do Not Disturb when a ring starts and Nodstop has Do Not Disturb access, switch to vibrate (and let alarms through) for the ring only, and put the setting back after "I'm awake". Still the one ring path: `RingService` does it, and the restore also runs on a cold start, like `DndController`'s.
+- [x] Readiness: "Let the alarm buzz on Mute" becomes a **required** check (Do Not Disturb access), with one Fix button. Home's setup chip counts it.
+- [x] If vibration still can't be confirmed (no access, or the vibrator refused) and no earbuds are connected, the speaker last resort turns on for that ring, whatever the setting, after 30 s. The PR must say this, because it's a behaviour change the owner asked for ("ignore Mute").
+- [x] JVM tests for the decision (mode in → actions out, restore always), and the cold-start restore.
 
 ### R2 Quiet trip, clearly
 - [ ] "Quiet other notifications during trips" moves to the top of Readiness and to the first trip's start: one switch, plain words ("Alarms and your important contacts still get through"), asking for access in the same tap. Still off until the owner turns it on.

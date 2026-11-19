@@ -25,4 +25,15 @@ class RingReportTest {
         val test = base.copy(test = true, earbuds = false, ackSource = "notification").summary()
         assertTrue(test.startsWith("Last test ring") && test.endsWith("vibration · stopped by notification"), test)
     }
+
+    @Test
+    fun `it says whether it could buzz, and why not (PLAN R0)`() {
+        val v = base.copy(earbuds = false, ringer = "mute", dnd = "off")
+        val switched = v.copy(buzz = RingMode.Buzz.SWITCHED)
+        assertTrue(switched.summary().contains("buzzed ✓ (phone was on Mute: vibrate for the ring)"), switched.summary())
+        assertTrue(switched.encode().endsWith("ringer=mute dnd=off buzz=switched"), switched.encode())
+        val blocked = v.copy(buzz = RingMode.Buzz.MAY_BE_BLOCKED, speakerAfterS = 30)
+        assertTrue(blocked.summary().contains("may not have buzzed ✗: phone on Mute and no Do Not Disturb access · speaker after 30 s"), blocked.summary())
+        assertTrue(base.copy(earbuds = false, buzz = RingMode.Buzz.OK).summary().contains("buzzed ✓"))
+    }
 }

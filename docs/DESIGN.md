@@ -274,7 +274,9 @@ JSON Lines, one object per line, `kotlinx.serialization`:
 Kinds: `start` (with `legs` including what's learned, optional `awake` and last-known `lat/lng/acc/ft`),
 `fix`, `tick`, `rang`, `ack`, `skip`, `stop`, `out` (`alarmAt, ar` (reason), `overshoot, arrived, boarded,
 d, eta, v, leg, ph`), plus app annotations ignored by replay: `rate`, `note`, `wys` (While You Slept
-counts at each ring, §10) and `ringd` (how a ring reached you, §5). `wys` and `ringd` are kept in
+counts at each ring, §10), `ringd` (how a ring reached you, §5), `gps` (GPS gaps over 10 s and the
+longest, at each ring and at the trip's end) and `zone` (the first time you're inside a leg's circle: was
+boarding detected, and when the alarm was set). `wys`, `ringd`, `gps` and `zone` are kept in
 location-hidden exports like `rate`, since they have no positions or text. Input kinds also include
 `urgent` (§10) and `legs` (a wake circle changed mid-trip, §2.6).
 
@@ -334,7 +336,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | `TripService` | Foreground service, type `location`. Started from the UI (foreground), so no background-location permission is needed. Gets the last known position, then fused location at HIGH_ACCURACY every 2 s; fix age measured on the monotonic clock. Feeds the engine, applies `alarmAtMs`, buzzes once at the stop, stores learned rides, and runs the live trip notification (§5 Notifications). A `Tick` every 5 s. Writes the trace. Saves the active trip (legs, leg, alarm reason, time left) on every change and every 15 s. |
 | `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. |
 | `AlarmReceiver` | Always starts `RingService`, with no conditions. Sends `Rang` to the engine if the process is alive. |
-| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, how it was stopped) in the trip log (`ringd`) and as Readiness's "Last ring" line. |
+| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, the sound mode and Do Not Disturb at the start, whether it could buzz, when the speaker joined, how it was stopped) in the trip log (`ringd`) and as Readiness's "Last ring" line. |
 | `AlarmActivity` | Shows over the lock screen and turns the screen on. **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
 | `LocationSource` | Interface. `FusedLocationSource` (real; also last-known and one-shot "Use my location") and `SimulatedLocationSource` (a pretend bus in real time: halts 90 s at stop 1, drives 3 km to stop 2, halts 2 min, then keeps going, for couch tests). |
 | `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (route editor) or all (Debug). |
@@ -355,6 +357,14 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 
 - **Phone in use** (screen on when the ring starts): a gentle start is easy to miss while scrolling, so
   vibration is at full strength from the first second and the earbuds start at 70%, then 100% at 30 s.
+- **Buzz on Mute** (PLAN R1, `RingMode`, `RingModeController`): if the phone is on Mute, or in a Do Not
+  Disturb mode that may block alarms (total silence or priority), when a ring starts and Nodstop has Do
+  Not Disturb access (a required Readiness check, "Let the alarm buzz on Mute"), it switches to vibrate
+  (and alarms only) for the ring and puts your setting back after "I'm awake" or Stop; only if it's still
+  what we set. The record is saved before anything changes, so the next app start undoes a ring a crash
+  left behind. A trip's own "quiet trip" mode (alarms only) is left alone.
+- **No earbuds and the buzz may not get through** (on Mute without that access, or no vibrator): the
+  phone speaker joins at **30 s**, whatever the "speaker last resort" setting.
 
 - Vibration uses alarm usage, so it gets through DND when alarms are allowed.
 - If the earbuds disconnect mid-ring, the tone stops at once (device callback, "becoming noisy",

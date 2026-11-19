@@ -39,6 +39,8 @@ import app.nodstop.engine.Input
 import app.nodstop.engine.Leg
 import app.nodstop.engine.Output
 import app.nodstop.engine.Phase
+import app.nodstop.engine.Geo
+import app.nodstop.engine.TraceEvent
 import app.nodstop.engine.Status
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,6 +80,8 @@ class TripService : Service() {
     private var lastReason: AlarmReason? = null
     private val handler = Handler(Looper.getMainLooper())
     private var briefing: BriefingCoordinator? = null
+    /** GPS gaps and circle entries for the trip log (PLAN R0). */
+    private var notes = RideNotes()
     private val routesScope = MainScope()
     private var routesJob: Job? = null
 
@@ -196,7 +200,8 @@ class TripService : Service() {
         input(Input.Start(now, allLegs.drop(legOffset), awakeOnFirst, lastKnown, autoLeg))
         val src = sim ?: FusedLocationSource(this)
         source = src
-        src.start { fix -> input(Input.FixIn(fix.tMs, fix)) }
+        notes = RideNotes()
+        src.start { fix -> notes.onFix(fix.tMs); input(Input.FixIn(fix.tMs, fix)) }
         handler.postDelayed(tick, TICK_MS)
     }
 
@@ -223,6 +228,16 @@ class TripService : Service() {
         }
 
         val legName = t.legs.getOrNull(t.legOffset + out.status.legIndex)?.name
+        // Entering your circle: was boarding detected, and when is the alarm? (Explains a circle that didn't ring.)
+        val s = out.status
+        if (s.phase == Phase.WAITING || s.phase == Phase.RIDING) {
+            val leg = t.legs.getOrNull(t.legOffset + s.legIndex)
+            val straight = s.position?.let { p -> leg?.let { Geo.distanceM(p, it.stop) } }
+            notes.onPosition(
+                t.legOffset + s.legIndex, leg?.wakeRadiusM, straight, s.startDistanceM != null || s.phase == Phase.RIDING,
+                s.alarmAtMs?.let { (it - now) / 1000 },
+            )?.let { app.traces.write(listOf(TraceEvent(now, "zone", msg = it))) }
+        }
         if (out.arrived) nudge(legName)
         if (out.overshoot) RingService.overshoot()
         out.learned?.let { u -> if (!t.simulated) app.learned.merge(u) }
@@ -262,6 +277,7 @@ class TripService : Service() {
     }
 
     private fun finishTrip(t: ActiveTrip) {
+        app.traces.write(listOf(TraceEvent(System.currentTimeMillis(), "gps", msg = notes.gpsLine())))
         offerRating(t)
         app.trips.clear()
         app.traces.endTrip()
@@ -295,6 +311,7 @@ class TripService : Service() {
     fun onRang() {
         val now = System.currentTimeMillis()
         input(Input.Rang(now))
+        app.traces.write(listOf(TraceEvent(now, "gps", msg = notes.gpsLine())))
         logRingStats(now)
         briefing?.onRang()
     }

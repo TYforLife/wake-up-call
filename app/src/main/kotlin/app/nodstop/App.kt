@@ -34,6 +34,8 @@ class App : Application() {
         Notifications.createChannels(this)
         // A fresh process has no trip running yet: undo Do Not Disturb if a crash left ours on (DESIGN §10).
         DndController.onTripEnd(this)
+        // A ring that switched Mute to vibrate and was killed before "I'm awake": put your setting back.
+        app.nodstop.alarm.RingModeController.onRingEnd(this)
         Shortcuts.update(this, routes.routes.value)
     }
 

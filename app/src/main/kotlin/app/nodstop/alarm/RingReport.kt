@@ -14,6 +14,12 @@ data class RingReport(
     val shownAfterMs: Long? = null,
     val ackSource: String? = null,
     val ackAfterMs: Long? = null,
+    /** The phone's sound mode and Do Not Disturb when it started (PLAN R0), and whether it could buzz. */
+    val ringer: String? = null,
+    val dnd: String? = null,
+    val buzz: RingMode.Buzz? = null,
+    /** When the speaker joined this ring, or null for never. */
+    val speakerAfterS: Int? = null,
 ) {
     /** One line for the trip log (kind "ringd": no positions, no message text). */
     fun encode(): String = listOf(
@@ -23,7 +29,11 @@ data class RingReport(
         "shown=${shownAfterMs?.let { "${it}ms" } ?: "no"}",
         "audio=${if (earbuds) "earbuds" else "vibration"}",
         "ack=${ackSource ?: "none"}${ackAfterMs?.let { "@${it / 1000}s" } ?: ""}",
-    ).joinToString(" ")
+        ringer?.let { "ringer=$it" },
+        dnd?.let { "dnd=$it" },
+        buzz?.let { "buzz=${it.name.lowercase()}" },
+        speakerAfterS?.let { "speaker=${it}s" },
+    ).filterNotNull().joinToString(" ")
 
     /** For Readiness: did the last ring reach you, and if not, why. */
     fun summary(): String = buildString {
@@ -37,7 +47,17 @@ data class RingReport(
                 else -> "shown as a banner (you were using the phone)"
             },
         )
-        append(if (earbuds) " · earbuds" else " · vibration")
+        append(if (earbuds) " · earbuds" else "")
+        append(
+            when (buzz) {
+                null -> if (earbuds) "" else " · vibration"
+                RingMode.Buzz.OK -> " · buzzed ✓"
+                RingMode.Buzz.SWITCHED -> " · buzzed ✓ (phone was on ${if (ringer == "mute") "Mute" else "Do Not Disturb"}: vibrate for the ring)"
+                RingMode.Buzz.MAY_BE_BLOCKED -> " · may not have buzzed ✗: phone on ${if (ringer == "mute") "Mute" else "Do Not Disturb"} and no Do Not Disturb access"
+                RingMode.Buzz.NO_VIBRATOR -> " · couldn't buzz ✗: no vibrator"
+            },
+        )
+        speakerAfterS?.let { append(" · speaker after $it s") }
         ackSource?.let { append(" · stopped by $it") }
     }
 }

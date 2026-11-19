@@ -234,6 +234,26 @@ class Settings(context: Context) {
         }.commit()
     }
 
+    /** What a ring switched (Mute → vibrate, DND → alarms), to put back after it (PLAN R1). */
+    fun ringModeRecord(): app.nodstop.alarm.RingMode.Record? {
+        val r = prefs.getInt(KEY_RING_PREV_RINGER, -1)
+        val f = prefs.getInt(KEY_RING_PREV_FILTER, -1)
+        if (!prefs.getBoolean(KEY_RING_SET, false)) return null
+        return app.nodstop.alarm.RingMode.Record(r.takeIf { it >= 0 }, f.takeIf { it >= 0 })
+    }
+
+    fun setRingModeRecord(r: app.nodstop.alarm.RingMode.Record?) {
+        // commit(), not apply(): this must be on disk before the phone's settings change.
+        prefs.edit().apply {
+            if (r == null) { remove(KEY_RING_SET); remove(KEY_RING_PREV_RINGER); remove(KEY_RING_PREV_FILTER) }
+            else {
+                putBoolean(KEY_RING_SET, true)
+                putInt(KEY_RING_PREV_RINGER, r.prevRinger ?: -1)
+                putInt(KEY_RING_PREV_FILTER, r.prevFilter ?: -1)
+            }
+        }.commit()
+    }
+
     private val _vipNames = MutableStateFlow(readVips())
     /** While You Slept: important contacts, typed in (no contacts permission). Only their messages can ring. */
     val vipNames: StateFlow<List<String>> = _vipNames
@@ -286,6 +306,9 @@ class Settings(context: Context) {
         const val KEY_GPU = "wys_use_gpu"
         const val KEY_GPU_OK = "wys_gpu_verified"
         const val KEY_DND = "dnd_during_trips"
+        const val KEY_RING_SET = "ring_mode_set"
+        const val KEY_RING_PREV_RINGER = "ring_prev_ringer"
+        const val KEY_RING_PREV_FILTER = "ring_prev_filter"
         const val KEY_DND_SET = "dnd_set_by_us"
         const val KEY_DND_PREV = "dnd_previous_filter"
         const val KEY_SPEAKER = "speaker_last_resort"

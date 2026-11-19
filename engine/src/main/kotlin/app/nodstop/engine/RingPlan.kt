@@ -18,14 +18,18 @@ object RingPlan {
     private val earbudVolume = intArrayOf(40, 70, 100)
     private val buzz = arrayOf(Buzz.GENTLE, Buzz.STRONG, Buzz.MAX)
 
-    fun step(elapsedMs: Long, headset: Boolean, speakerLastResort: Boolean, overshoot: Boolean, inUse: Boolean = false): RingStep {
+    /** [speakerAfterMs]: when the speaker (if allowed) joins; overshoot brings it in at once. */
+    fun step(
+        elapsedMs: Long, headset: Boolean, speakerLastResort: Boolean, overshoot: Boolean, inUse: Boolean = false,
+        speakerAfterMs: Long = SPEAKER_AFTER_MS,
+    ): RingStep {
         val stage = when {
             overshoot -> 2
             elapsedMs < STAGE_1_MS -> 0
             elapsedMs < STAGE_2_MS -> 1
             else -> 2
         }
-        if (speakerLastResort && (overshoot || elapsedMs >= SPEAKER_AFTER_MS)) {
+        if (speakerLastResort && (overshoot || elapsedMs >= speakerAfterMs)) {
             return RingStep(AudioRoute.SPEAKER, 100, Buzz.MAX)
         }
         val vol = earbudVolume[if (inUse) maxOf(stage, 1) else stage]

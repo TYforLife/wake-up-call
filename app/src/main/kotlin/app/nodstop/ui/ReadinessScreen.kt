@@ -105,6 +105,12 @@ object Readiness {
                 if (Build.VERSION.SDK_INT >= 34) Fix.Open(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, pkg(ctx))) else null,
             ),
             Check(
+                "Let the alarm buzz on Mute", nm.isNotificationPolicyAccessGranted,
+                "If your phone is on Mute or Do Not Disturb, the alarm switches it to vibrate for the ring and puts it " +
+                    "back after \"I'm awake\". Needs Do Not Disturb access.",
+                Fix.Open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)),
+            ),
+            Check(
                 "Exact alarms", am.canScheduleExactAlarms(),
                 "The alarm must fire on time, even in Doze.",
                 Fix.Open(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg(ctx))),
