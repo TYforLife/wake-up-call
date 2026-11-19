@@ -43,6 +43,16 @@ object MapModel {
     )
 
     /**
+     * Which routes the map shows (PLAN R4): during a trip, only that trip's; otherwise the one you picked,
+     * else the one you last used, else the first. Never every stop of every route at once.
+     */
+    fun visibleRoutes(routes: List<Route>, tripRouteName: String?, chosenId: String?, lastUsedId: String?): List<Route> {
+        if (tripRouteName != null) return routes.filter { it.name == tripRouteName }.take(1)
+        val pick = routes.firstOrNull { it.id == chosenId } ?: routes.firstOrNull { it.id == lastUsedId } ?: routes.firstOrNull()
+        return listOfNotNull(pick)
+    }
+
+    /**
      * Every pinned stop of every route (the running trip's current stop highlighted) and the learned routes.
      */
     fun layers(

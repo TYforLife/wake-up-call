@@ -331,7 +331,7 @@ happened, and say so in the PR. Add it to `engine/src/test/resources/traces/` as
 - [x] A ride where fixes stop near the circle (Samsung batching with the screen off) still rings by the failsafe before the edge: scenario test.
 
 ### R4 Map shows this trip
-- [ ] While a trip runs, the map shows only that trip's stops, circles and learned route; with no trip, only the stops of the route you last used (a chip switches routes). Test in `MapModelTest`.
+- [x] While a trip runs, the map shows only that trip's stops, circles and learned route; with no trip, only the stops of the route you last used (a chip switches routes). Test in `MapModelTest`.
 
 **Test on phone (Run 6):** phone on Mute, no earbuds: couch test rings and buzzes, and the mode is back to
 Mute after "I'm awake"; a ride with a circle: rings on entry; the map during a trip shows only its stops.

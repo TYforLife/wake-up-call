@@ -428,8 +428,11 @@ class TripService : Service() {
         val status: StateFlow<TripUi?> = _status
 
         /** Start a route; [fromLeg] = a leg you chose, or -1 to pick it from where you are. */
-        fun startRoute(ctx: Context, routeId: String, fromLeg: Int = -1) = send(ctx, Intent(ctx, TripService::class.java)
-            .setAction(ACTION_START_ROUTE).putExtra(EXTRA_ROUTE_ID, routeId).putExtra(EXTRA_FROM_LEG, fromLeg))
+        fun startRoute(ctx: Context, routeId: String, fromLeg: Int = -1) {
+            App.instance.settings.setLastRouteId(routeId)
+            send(ctx, Intent(ctx, TripService::class.java)
+                .setAction(ACTION_START_ROUTE).putExtra(EXTRA_ROUTE_ID, routeId).putExtra(EXTRA_FROM_LEG, fromLeg))
+        }
 
         fun startSim(ctx: Context, km: Double, kmh: Double) = send(ctx, Intent(ctx, TripService::class.java)
             .setAction(ACTION_START_SIM).putExtra(EXTRA_SIM_KM, km).putExtra(EXTRA_SIM_KMH, kmh))

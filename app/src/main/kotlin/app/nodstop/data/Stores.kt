@@ -286,6 +286,10 @@ class Settings(context: Context) {
 
     fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
 
+    /** The route you last started: what the map shows when no trip runs (PLAN R4). */
+    val lastRouteId: String? get() = prefs.getString(KEY_LAST_ROUTE, null)
+    fun setLastRouteId(id: String) { prefs.edit().putString(KEY_LAST_ROUTE, id).apply() }
+
     /** The first trip's start asked about a quiet trip (once, PLAN R2). */
     val quietOffered: Boolean get() = prefs.getBoolean(KEY_QUIET_OFFERED, false)
     fun setQuietOffered() { prefs.edit().putBoolean(KEY_QUIET_OFFERED, true).apply() }
@@ -306,6 +310,7 @@ class Settings(context: Context) {
         const val KEY_LAST_RING = "last_ring"
         const val KEY_ASK_TIMING = "ask_ring_timing"
         const val KEY_QUIET_OFFERED = "quiet_trip_offered"
+        const val KEY_LAST_ROUTE = "last_route_id"
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
         const val KEY_GPU = "wys_use_gpu"

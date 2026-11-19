@@ -431,8 +431,9 @@ rows. Every screen's content is a stateless composable with a screenshot test (`
   - Never Force stop the app; Android cancels its alarms when you do.
 - **Map** (from Home, and "Show on map" on the Trip screen): MapLibre with OpenFreeMap's "liberty"
   style. Shows you as a blue dot (waiting, no trip, or off the bus) or a bus icon (on the bus: RIDING,
-  or still at bus speed while ringing/awake), every pinned stop (the trip's current stop highlighted),
-  wake zones and faint learned routes. **Turn and tilt with two fingers** like Google Maps; the compass
+  or still at bus speed while ringing/awake), and **only one route's stops** (PLAN R4): during a trip,
+  that trip's (current stop highlighted); otherwise the route you picked with the chips at the top,
+  else the one you last started (`MapModel.visibleRoutes`). With their wake zones and faint learned routes. **Turn and tilt with two fingers** like Google Maps; the compass
   shows once turned and puts north back up. Frames you and the current stop, then **follows you by
   default** every time it opens. Any gesture pauses following; it resumes 10 s after your last one
   (`FollowPolicy`). The follow button: **Follow me** when paused; while following it switches **North

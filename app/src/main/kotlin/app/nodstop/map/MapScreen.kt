@@ -116,11 +116,14 @@ fun MapScreen(go: (Screen) -> Unit) {
     val allRoutes = if (t != null && routes.none { it.name == t.routeName })
         routes + Route(name = t.routeName, legs = t.legNames.zip(t.legStops).map { (n, p) -> LegDraft(n, "${p.lat}, ${p.lng}") })
     else routes
+    // Only this trip's stops, or one route's when no trip runs (PLAN R4); chips switch the route.
+    var chosen by remember { mutableStateOf<String?>(null) }
+    val visible = MapModel.visibleRoutes(allRoutes, t?.routeName, chosen, app.settings.lastRouteId)
     // Tap a stop pin to drag its wake zone; the circle follows the slider live, Save keeps it.
     var selected by remember { mutableStateOf<Pair<String, Int>?>(null) }
     var draft by remember { mutableStateOf<Double?>(null) } // metres; null = Auto
     val sel0 = selected
-    val shown = if (sel0 == null) allRoutes else allRoutes.map { r ->
+    val shown = if (sel0 == null) visible else visible.map { r ->
         if (r.id != sel0.first) r else r.copy(legs = r.legs.mapIndexed { i, l -> if (i == sel0.second) l.copy(wakeRadiusM = draft) else l })
     }
     val layers = remember(shown, learned, t?.routeName, t?.legIndex) {
@@ -149,7 +152,14 @@ fun MapScreen(go: (Screen) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.padding(horizontal = Space.l)) { TopBar("Map", onBack = { go(Screen.Home) }) }
+        Box(Modifier.padding(horizontal = Space.l)) { TopBar(t?.let { "Map · ${it.routeName}" } ?: "Map", onBack = { go(Screen.Home) }) }
+        if (t == null && routes.size > 1) Row(
+            Modifier.fillMaxWidth().padding(horizontal = Space.l, vertical = Space.xs),
+            horizontalArrangement = Arrangement.spacedBy(Space.s),
+        ) {
+            val current = visible.firstOrNull()?.id
+            for (r in routes) StatusChip(r.name, if (r.id == current) Tone.INFO else Tone.NEUTRAL, onClick = { chosen = r.id; selected = null })
+        }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             MapLibreView(layers, me, kind, follow, mode, heading, onUserDrag = { policy.onUserDrag(System.currentTimeMillis()); dragTick++ },
                 onPinTap = { routeId, leg ->
