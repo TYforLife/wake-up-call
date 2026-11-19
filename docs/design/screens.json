@@ -1,0 +1,110 @@
+[
+ {
+  "id": "setup-wake",
+  "label": "Setup \u00b7 1 of 2: It can wake you",
+  "note": "First run. Grouped by what each check protects, in order; one Allow each. Replaces the 9-row Readiness list.",
+  "night": false
+ },
+ {
+  "id": "setup-follow",
+  "label": "Setup \u00b7 2 of 2: It can follow the bus",
+  "note": "Samsung's sleeping-apps step becomes a checked step with a button, not a paragraph.",
+  "night": false
+ },
+ {
+  "id": "now-ready",
+  "label": "Now \u00b7 Ready (morning)",
+  "note": "Idle Now. The likely route (time of day, then place, then last used) is one big Start. Home and Trip are one place.",
+  "night": false
+ },
+ {
+  "id": "now-notready",
+  "label": "Now \u00b7 Not ready",
+  "note": "A required check broke after setup: Now leads with it, in words, with one fix.",
+  "night": false
+ },
+ {
+  "id": "now-waiting",
+  "label": "Now \u00b7 Waiting for the bus",
+  "note": "Started at the stop. The status line says the truth: a backup alarm until boarding is seen.",
+  "night": false
+ },
+ {
+  "id": "now-riding",
+  "label": "Now \u00b7 Riding (armed)",
+  "note": "Riding. Where, how far, how long, armed. The map is a peek on the same screen.",
+  "night": false
+ },
+ {
+  "id": "now-riding-night",
+  "label": "Now \u00b7 Riding at night",
+  "note": "The same screen at night: dim ground, the one action in wake amber.",
+  "night": true
+ },
+ {
+  "id": "now-gps-lost",
+  "label": "Now \u00b7 GPS lost",
+  "note": "GPS lost changes the whole screen's tone and says when the backup rings.",
+  "night": false
+ },
+ {
+  "id": "ring-locked",
+  "label": "Ringing \u00b7 phone locked",
+  "note": "The only loud screen. Night palette in both themes; the hold target fills the lower half.",
+  "night": false
+ },
+ {
+  "id": "ring-inuse",
+  "label": "Ringing \u00b7 while using the phone",
+  "note": "Over another app the ring is a heads-up with I'm awake; vibration starts at full strength.",
+  "night": false
+ },
+ {
+  "id": "awake-next",
+  "label": "Awake \u00b7 what now",
+  "note": "After I'm awake: what to do now comes first, the briefing below it.",
+  "night": false
+ },
+ {
+  "id": "awake-stay",
+  "label": "Awake \u00b7 early safety ring",
+  "note": "An early ring says plainly that it's early and that it will ring again.",
+  "night": false
+ },
+ {
+  "id": "now-transfer",
+  "label": "Now \u00b7 Transfer",
+  "note": "A clear 'you're off' moment, then the next stop, with the route as a rail.",
+  "night": false
+ },
+ {
+  "id": "routes",
+  "label": "Routes",
+  "note": "Routes are buses in order. What's missing is said on the route itself.",
+  "night": false
+ },
+ {
+  "id": "route-edit",
+  "label": "Route \u00b7 From work",
+  "note": "One primary action: the next thing the route needs.",
+  "night": false
+ },
+ {
+  "id": "stop-map",
+  "label": "Set a stop \u00b7 on the map",
+  "note": "Pins are dropped on the map (or from your location, or a pasted link); the circle is set on the same map.",
+  "night": false
+ },
+ {
+  "id": "settings",
+  "label": "Settings",
+  "note": "Preferences only. 'Report a missed alarm' replaces Debug \u2192 Share; Debug is hidden.",
+  "night": false
+ },
+ {
+  "id": "lock",
+  "label": "Lock screen \u00b7 dozing",
+  "note": "Where the rider actually looks while dozing: the Live Update and the optional timing question.",
+  "night": true
+ }
+]

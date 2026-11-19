@@ -340,10 +340,12 @@ Mute after "I'm awake"; a ride with a circle: rings on entry; the map during a t
 
 Prerequisite: Run 6 merged. This run produces **designs, not code**. Its PR is docs-only.
 
-- [ ] **Research and audit.** The rider's real journeys, half-asleep and one-handed: set up a route; start at the stop; ride and doze; wake; get off; transfer; end; give feedback. For each, today's steps, taps and failure points, from the code and the owner's feedback. Written up in `docs/UX.md`.
-- [ ] **Information architecture.** What the app is for on each screen, in one sentence. Which screens go: e.g. Trip and Home merge into one "now" screen while riding; Readiness becomes a first-run setup plus a status chip; Debug hides. Navigation map.
+- [x] **Research and audit.** The rider's real journeys, half-asleep and one-handed: set up a route; start at the stop; ride and doze; wake; get off; transfer; end; give feedback. For each, today's steps, taps and failure points, from the code and the owner's feedback. Written up in `docs/UX.md`.
+- [x] **Information architecture.** What the app is for on each screen, in one sentence. Which screens go: e.g. Trip and Home merge into one "now" screen while riding; Readiness becomes a first-run setup plus a status chip; Debug hides. Navigation map.
 - [ ] **Design system** in Claude's **Design System** artifact type: tokens (light and dark, including the alarm screen's night palette), type, spacing, components with states (start, riding, ringing, awake, GPS lost, not ready). The owner can browse it on the phone.
 - [ ] **Screens and flows** in Claude's **Design** artifact type: hi-fi mockups of every screen and state at phone size, plus the key flows as sequences (first run, start a trip, the ring and after, a transfer, set a circle on the map). Real copy, not lorem.
+  - Done as rendered mockups in `docs/design/screens/` (18 screens, 5 flows, from `docs/design/mockups.html`). The artifact copy waits on permission to publish (see below).
+- The design system's files are in `docs/design/system/` (tokens, brand book, 12 components with previews, cover). The Design System artifact exists (https://claude.ai/artifact/CEjr1LwtbBKZzcXQeZEKdS), but publishing its files was blocked by the session's permission check, so it is still empty.
 - [ ] Links to both artifacts in the PR. The owner reviews and comments **in the artifacts**; the session answers there and revises.
 - [ ] **Gate D** (owner): approves the designs. Then Run 8 builds them screen by screen, each PR with the mockup next to its screenshot.
 
@@ -352,7 +354,7 @@ Prerequisite: Run 6 merged. This run produces **designs, not code**. Its PR is d
 Start them like the earlier runs:
 
 ```
-/goal Finish Run 6 in docs/PLAN.md and merge its PR
+/goal Finish Run 7 in docs/PLAN.md and merge its PR
 ```
 
 ## Later (not for automated runs yet)

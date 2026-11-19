@@ -1,0 +1,47 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Cover</title>
+<style>
+  html, body { margin: 0; padding: 0; background: var(--ground); }
+  .cover { position: relative; width: 960px; height: 288px; overflow: hidden; background: var(--ground); }
+  .art { position: absolute; left: 480px; top: 0; width: 480px; height: 288px; }
+  .slab { fill: var(--alarm-raised); }
+  .amber { fill: var(--alarm-amber); }
+  .teal { fill: var(--armed); }
+  .tint { fill: var(--action-soft); }
+  .r-lg { rx: var(--radius-lg); }
+  .r-xl { rx: var(--radius-xl); }
+  .route { stroke: var(--alarm-muted); stroke-width: 4; stroke-linecap: round; }
+  .stop { fill: var(--alarm-muted); }
+  .here { fill: var(--alarm-amber); }
+  .zone { fill: none; stroke: var(--alarm-amber); stroke-width: 3; }
+  .text { position: absolute; left: 32px; bottom: 32px; max-width: 440px; }
+  .name { font-family: var(--font-sans); font-weight: 700; font-size: 96px; line-height: .92; color: var(--ink); letter-spacing: -0.01em; }
+  .tag { font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--ink-muted); margin-top: 12px; }
+</style></head>
+<body>
+<div class="cover">
+  <svg class="art" viewBox="0 0 480 288" aria-hidden="true">
+    <!-- blocks: alarm-raised slab 216x288 (bleeds top and bottom), alarm-amber 128x128, armed 240x96 (bleeds right and bottom), action-soft 96x96
+         arrangement: one tall night slab with satellites, as the riding screen sits beside the alarm
+         pattern: the literal motif, a bus route: stops on a line at the space-6 pitch, the last one inside its wake circle; chosen because the circle is what this app is about
+         steps and radii: space-6 (24) pitch and gaps, space-4 (16) inset; radius-lg on blocks, radius-xl on the slab -->
+    <rect class="slab r-xl" x="0" y="-32" width="216" height="352"/>
+    <rect class="amber r-lg" x="240" y="24" width="128" height="128"/>
+    <rect class="tint r-lg" x="384" y="24" width="96" height="96"/>
+    <rect class="teal r-lg" x="240" y="176" width="264" height="136"/>
+    <line class="route" x1="24" y1="200" x2="168" y2="200"/>
+    <circle class="stop" cx="24" cy="200" r="7"/>
+    <circle class="stop" cx="72" cy="200" r="7"/>
+    <circle class="stop" cx="120" cy="200" r="7"/>
+    <circle class="here" cx="168" cy="200" r="9"/>
+    <circle class="zone" cx="168" cy="200" r="30"/>
+  </svg>
+  <div class="text">
+    <div class="name">Nodstop</div>
+    <div class="tag">Sleep on the bus. It wakes you before your stop.</div>
+  </div>
+</div>
+</body>
+</html>
