@@ -28,12 +28,15 @@ internal fun File.writeAtomically(text: String) {
     if (!tmp.renameTo(this)) { writeText(text); tmp.delete() }
 }
 
-class RouteStore(context: Context) {
-    private val file = File(context.filesDir, "routes.json")
+class RouteStore(dir: File) {
+    constructor(context: Context) : this(context.filesDir)
+
+    // Declared before anything that loads: Kotlin runs initializers top to bottom (a null serializer here
+    // crashed every launch of build 61).
+    private val file = File(dir, "routes.json")
+    private val serializer = ListSerializer(Route.serializer())
     private val _routes = MutableStateFlow(load())
     val routes: StateFlow<List<Route>> = _routes
-
-    private val serializer = ListSerializer(Route.serializer())
 
     /** Never treats an unreadable file as "no routes" (that used to overwrite them on the next save). */
     private fun load(): List<Route> = when (val l = SafeStore.load(file, serializer, System.currentTimeMillis()) { Route.seeds() }) {
@@ -116,8 +119,10 @@ object Resume {
 }
 
 /** What has been learned about each stop from past rides (stop key → learned), in learned.json. */
-class LearnedStore(context: Context) {
-    private val file = File(context.filesDir, "learned.json")
+class LearnedStore(dir: File) {
+    constructor(context: Context) : this(context.filesDir)
+
+    private val file = File(dir, "learned.json")
     private val serializer = MapSerializer(String.serializer(), Learned.serializer())
     private var cache: Map<String, Learned> = load()
     private val _all = MutableStateFlow(cache)
@@ -154,8 +159,10 @@ class LearnedStore(context: Context) {
     }
 }
 
-class TripStore(context: Context) {
-    private val file = File(context.filesDir, "active_trip.json")
+class TripStore(dir: File) {
+    constructor(context: Context) : this(context.filesDir)
+
+    private val file = File(dir, "active_trip.json")
 
     fun load(): ActiveTrip? = if (!file.exists()) null else
         SafeStore.load(file, ActiveTrip.serializer().nullable, System.currentTimeMillis()) { null }.value
