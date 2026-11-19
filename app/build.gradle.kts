@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Screenshots of the screens on the JVM, reviewable from a phone (PLAN U0).
+    alias(libs.plugins.paparazzi)
 }
 
 val runNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.getOrElse(1)
@@ -79,5 +81,8 @@ dependencies {
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
+    // Paparazzi is a JUnit 4 rule: run it on the JUnit 5 platform through the vintage engine.
+    testImplementation(libs.junit4)
+    testRuntimeOnly(libs.junit.vintage)
     testRuntimeOnly(libs.junit.launcher)
 }

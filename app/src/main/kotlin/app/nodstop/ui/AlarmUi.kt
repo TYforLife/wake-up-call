@@ -56,7 +56,13 @@ import kotlinx.coroutines.launch
  * "I'm awake" button: press and hold for [holdMs] (it fills up and buzzes). A tap or a brush does nothing.
  */
 @Composable
-fun AlarmScreen(ring: RingService.RingUi?, holdMs: Int, onAwake: () -> Unit, onClose: () -> Unit) {
+fun AlarmScreen(
+    ring: RingService.RingUi?,
+    holdMs: Int,
+    onAwake: () -> Unit,
+    onClose: () -> Unit,
+    panel: @Composable (Modifier) -> Unit = { WhileYouSleptPanel(it) },
+) {
     Column(
         Modifier.fillMaxSize().background(Color(0xFF0E1630)).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -99,7 +105,7 @@ fun AlarmScreen(ring: RingService.RingUi?, holdMs: Int, onAwake: () -> Unit, onC
                 color = Color(0xFF9AA7C7), fontSize = 15.sp,
             )
         }
-        WhileYouSleptPanel(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp))
+        panel(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp))
         HoldToAck(holdMs, onAwake)
     }
 }
@@ -109,14 +115,18 @@ fun AlarmScreen(ring: RingService.RingUi?, holdMs: Int, onAwake: () -> Unit, onC
  * The messages are cleared when this screen closes (DESIGN §10, W3).
  */
 @Composable
-fun AfterWakeScreen(onShare: (PanelLine) -> Unit, onDone: () -> Unit) {
+fun AfterWakeScreen(
+    onShare: (PanelLine) -> Unit,
+    onDone: () -> Unit,
+    panel: @Composable (Modifier) -> Unit = { WhileYouSleptPanel(it, onShare) },
+) {
     Column(
         Modifier.fillMaxSize().background(Color(0xFF0E1630)).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("You're awake", color = Color(0xFFFFC94A), fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
         Text("Messages are cleared when you tap Done.", color = Color(0xFF9AA7C7), fontSize = 14.sp)
-        WhileYouSleptPanel(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp), onShare)
+        panel(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp))
         Button(onClick = onDone, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("Done", fontSize = 18.sp) }
     }
 }
@@ -128,6 +138,12 @@ private fun WhileYouSleptPanel(modifier: Modifier, onShare: ((PanelLine) -> Unit
     val vips by App.instance.settings.vipNames.collectAsState()
     val digest = remember(snap, vips) { Digests.build(snap.messages, snap.otherNotifications, vips) }
     val lines = remember(snap, digest) { PanelLines.combine(digest, snap.briefed, snap.urgent) }
+    WhileYouSleptContent(modifier, PanelText.summary(snap.active, digest), lines, onShare)
+}
+
+/** The panel itself, from plain data (also what the screenshot tests render). */
+@Composable
+fun WhileYouSleptContent(modifier: Modifier, summary: String, lines: List<PanelLine>, onShare: ((PanelLine) -> Unit)? = null) {
     Column(
         modifier
             .clip(RoundedCornerShape(20.dp))
@@ -137,7 +153,7 @@ private fun WhileYouSleptPanel(modifier: Modifier, onShare: ((PanelLine) -> Unit
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("While you slept", color = Color(0xFFFFC94A), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Text(PanelText.summary(snap.active, digest), color = Color(0xFFB8C3DD), fontSize = 15.sp)
+        Text(summary, color = Color(0xFFB8C3DD), fontSize = 15.sp)
         for (line in lines.take(PanelText.MAX_LINES)) PanelLineCard(line, onShare)
         PanelText.more(lines.size)?.let { Text(it, color = Color(0xFFB8C3DD), fontSize = 15.sp) }
     }
