@@ -27,6 +27,8 @@ object Notifications {
     /** Android 16 Live Updates: promoted to the lock screen and status bar. */
     private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
 
+    const val TRIP_STOP_LABEL = "Stop trip"
+
     fun createChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java)
         nm.deleteNotificationChannel("heads_up") // v0's 5-min heads-up, replaced by the at-stop nudge
@@ -92,6 +94,14 @@ object Notifications {
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_NAVIGATION)
             .setContentIntent(openApp(ctx))
+            // The "island" (PLAN U2): stop the trip from the notification or the status-bar chip. Needs the
+            // phone unlocked, so a pocket or a stranger can't cancel your alarm.
+            .addAction(
+                Notification.Action.Builder(
+                    Icon.createWithResource(ctx, R.drawable.ic_tile), TRIP_STOP_LABEL,
+                    PendingIntent.getService(ctx, 21, TripService.stopIntent(ctx), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+                ).setAuthenticationRequired(true).build(),
+            )
         if (Build.VERSION.SDK_INT >= 36) {
             d?.let { b.setShortCriticalText(TripService.distance(it)) }
             val style = Notification.ProgressStyle()
@@ -117,6 +127,13 @@ object Notifications {
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_AT_STOP, n) }
     }
 
+    /** The ring notification's title (also what the heads-up shows while you're using the phone). */
+    fun ringTitle(reason: AlarmReason?): String = when (reason) {
+        AlarmReason.OVERSHOOT -> "You passed your stop!"
+        AlarmReason.URGENT -> "Urgent message"
+        else -> "Wake up! Your stop is close"
+    }
+
     fun reasonText(reason: AlarmReason?): String? = when (reason) {
         AlarmReason.NO_GPS -> "No GPS yet: the app can't see where you are. Stay awake."
         AlarmReason.FAILSAFE -> "GPS stopped: your stop may be close. Check where you are."
@@ -137,11 +154,7 @@ object Notifications {
             Intent(ctx, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(AlarmActivity.EXTRA_ACK, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = when (reason) {
-            AlarmReason.OVERSHOOT -> "You passed your stop!"
-            AlarmReason.URGENT -> "Urgent message"
-            else -> "Wake up! Your stop is close"
-        }
+        val title = ringTitle(reason)
         return Notification.Builder(ctx, CH_ALARM)
             .setSmallIcon(R.drawable.ic_tile)
             .setContentTitle(title)

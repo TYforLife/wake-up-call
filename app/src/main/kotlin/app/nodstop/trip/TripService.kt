@@ -382,6 +382,9 @@ class TripService : Service() {
         fun resumeAfterColdRing(ctx: Context) = send(ctx, Intent(ctx, TripService::class.java).setAction(ACTION_RESUME))
 
         /** Stop the trip, including one whose process was killed (its alarm is still scheduled). */
+        /** Stops the trip (the notification's Stop trip action). */
+        fun stopIntent(ctx: Context): Intent = Intent(ctx, TripService::class.java).setAction(ACTION_STOP)
+
         fun stop(ctx: Context) {
             val svc = instance
             if (svc != null) svc.stopTrip()

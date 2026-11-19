@@ -255,8 +255,10 @@ JSON Lines, one object per line, `kotlinx.serialization`:
 
 Kinds: `start` (with `legs` including what's learned, optional `awake` and last-known `lat/lng/acc/ft`),
 `fix`, `tick`, `rang`, `ack`, `skip`, `stop`, `out` (`alarmAt, ar` (reason), `overshoot, arrived, boarded,
-d, eta, v, leg, ph`), plus app annotations ignored by replay: `rate`, `note`, and `wys` (While You Slept
-counts at each ring, §10; kept in location-hidden exports like `rate`, since it has no positions or text).
+d, eta, v, leg, ph`), plus app annotations ignored by replay: `rate`, `note`, `wys` (While You Slept
+counts at each ring, §10) and `ringd` (how a ring reached you, §5). `wys` and `ringd` are kept in
+location-hidden exports like `rate`, since they have no positions or text. Input kinds also include
+`urgent` (§10) and `legs` (a wake circle changed mid-trip, §2.6).
 
 Replaying the inputs of a recorded trace must reproduce the recorded `out` lines exactly.
 
@@ -313,7 +315,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | `TripService` | Foreground service, type `location`. Started from the UI (foreground), so no background-location permission is needed. Gets the last known position, then fused location at HIGH_ACCURACY every 2 s; fix age measured on the monotonic clock. Feeds the engine, applies `alarmAtMs`, buzzes once at the stop, stores learned rides, and runs the live trip notification (§5 Notifications). A `Tick` every 5 s. Writes the trace. Saves the active trip (legs, leg, alarm reason, time left) on every change and every 15 s. |
 | `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. |
 | `AlarmReceiver` | Always starts `RingService`, with no conditions. Sends `Rang` to the engine if the process is alive. |
-| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. |
+| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, how it was stopped) in the trip log (`ringd`) and as Readiness's "Last ring" line. |
 | `AlarmActivity` | Shows over the lock screen and turns the screen on. **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
 | `LocationSource` | Interface. `FusedLocationSource` (real; also last-known and one-shot "Use my location") and `SimulatedLocationSource` (a pretend bus in real time: halts 90 s at stop 1, drives 3 km to stop 2, halts 2 min, then keeps going, for couch tests). |
 | `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (route editor) or all (Debug). |
@@ -343,7 +345,7 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 ### Notifications
 
 - **Trip progress** (silent): "On the bus → Smales Farm", "1.2 km · ~3 min · learned route", a progress
-  bar. On Android 16 it's a Live Update: promoted to the lock screen and status bar chip with the
+  bar, and a **Stop trip** action that needs the phone unlocked (so a pocket can't cancel your alarm). On Android 16 it's a Live Update: promoted to the lock screen and status bar chip with the
   distance (`POST_PROMOTED_NOTIFICATIONS`; Readiness shows whether it's allowed).
 - **At your stop**: the one-buzz nudge, "You're at Smales Farm, get off now".
 - **Wake-up alarm**: full-screen intent, colourised, with an **I'm awake** action.
@@ -359,7 +361,8 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 
 ### Screens (v0)
 
-- **Home**: list of Routes, Start per route (or the Quick Settings tile), the running trip (or an "interrupted" card if the app
+- **Home**: if full-screen alarms are off, a red card at the top ("The alarm can't turn your screen on")
+  with the button to allow them. Then the list of Routes, Start per route (or the Quick Settings tile), the running trip (or an "interrupted" card if the app
   was killed mid-trip, with the alarm time still set), Stop trip (confirmed), a "How was the ring
   timing?" card after each trip (too early / good / too late per leg, written to the trip log).
   Shows the build number and short SHA (from BuildConfig) at the bottom.

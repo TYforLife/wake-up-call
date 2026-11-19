@@ -3,6 +3,7 @@ package app.nodstop.alarm
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
@@ -56,6 +57,7 @@ class RingService : Service() {
     private lateinit var audio: AudioManager
     private lateinit var vibrator: Vibrator
     private var wakeLock: PowerManager.WakeLock? = null
+    private var screenLock: PowerManager.WakeLock? = null
     private var ringing = false
     private var startedAt = 0L
     private var overshoot = false
@@ -137,8 +139,20 @@ class RingService : Service() {
         ringing = true
         overshoot = false
         startedAt = SystemClock.elapsedRealtime()
-        wakeLock = getSystemService(PowerManager::class.java)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "nodstop:ring").apply { acquire(6 * 3_600_000L) }
+        val pm = getSystemService(PowerManager::class.java)
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "nodstop:ring").apply { acquire(6 * 3_600_000L) }
+        // Turn the screen on (PLAN U2): the full-screen alarm shows over the lock screen once it's on. The
+        // full-screen intent should do this by itself; this covers phones where it doesn't.
+        val screenWasOn = pm.isInteractive
+        if (!screenWasOn) {
+            @Suppress("DEPRECATION")
+            screenLock = runCatching {
+                pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "nodstop:ring-screen")
+                    .apply { acquire(30_000L) }
+            }.getOrNull()
+        }
+        val fullScreen = Build.VERSION.SDK_INT < 34 || getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+        RingDiag.start(screenWasOn, fullScreen, headset() != null, screenWoken = screenLock != null || pm.isInteractive, test = test)
         savedMusicVol = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
         savedAlarmVol = audio.getStreamVolume(AudioManager.STREAM_ALARM)
         focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
@@ -240,6 +254,8 @@ class RingService : Service() {
             runCatching { audio.unregisterAudioDeviceCallback(deviceCallback) }
             runCatching { unregisterReceiver(noisy) }
             wakeLock?.takeIf { it.isHeld }?.release()
+            screenLock?.takeIf { it.isHeld }?.release()
+            screenLock = null
         }
         _state.value = null
         stopForeground(STOP_FOREGROUND_REMOVE)

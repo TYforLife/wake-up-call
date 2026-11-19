@@ -238,9 +238,9 @@ as "when I'm on my phone", and #10 is read as "after I'm awake, entering the sto
 Prerequisite: none beyond a green `main`.
 
 ### U0 See what happened, and see the screens
-- [ ] Ring-delivery diagnostics in the trip log (`note`-free, kept in hidden exports): receiver fired, ring service started, full-screen permission state, alarm screen shown (y/n, time), screen was on/off, earbuds or vibration, "I'm awake" source (hold, volume, notification).
+- [x] Ring-delivery diagnostics in the trip log (`note`-free, kept in hidden exports): receiver fired, ring service started, full-screen permission state, alarm screen shown (y/n, time), screen was on/off, earbuds or vibration, "I'm awake" source (hold, volume, notification).
 - [ ] Screenshot tests for every screen (Paparazzi, JVM, no emulator; reason: the only way to review UI from a phone-only workflow). CI uploads the PNGs; PRs show before/after.
-- [ ] Readiness shows the result of the last ring ("Last ring: screen turned on ✓ / shown as a banner ✗, why").
+- [x] Readiness shows the result of the last ring ("Last ring: screen turned on ✓ / shown as a banner ✗, why").
 
 ### U1 Never lose data on an update
 - [x] A store that can't read its file keeps it (`routes.json.bad-<time>`), loads the last good backup, and never overwrites it with empty data.
@@ -248,10 +248,10 @@ Prerequisite: none beyond a green `main`.
 - [x] Debug → Export / Import all data (routes, stops, learned rides, settings) as one JSON file through the share sheet and file picker. No positions leave the phone unless you share the file.
 
 ### U2 The ring reaches you, screen on, and canceling is one tap
-- [ ] The screen turns on at the ring when the phone is locked: full-screen intent first; if the permission is missing, Readiness says so at the top of Home, not only on Readiness; a wake lock with screen-on as fallback; the diagnostic from U0 records which path worked.
-- [ ] While you're using the phone: the ring shows as a heads-up with **I'm awake** and keeps escalating; it never depends on the full-screen activity.
-- [ ] "Island": the trip notification becomes a promoted ongoing notification (Live Update / status-bar chip where the phone supports it, Samsung's Now Bar on One UI 8) with **Stop trip** and "Get off at X · 1.2 km"; the ring notification is promoted too, with **I'm awake**.
-- [ ] Tests for the notification builders' actions and texts (JVM, pure parts).
+- [x] The screen turns on at the ring when the phone is locked: full-screen intent first; if the permission is missing, Readiness says so at the top of Home, not only on Readiness; a wake lock with screen-on as fallback; the diagnostic from U0 records which path worked.
+- [x] While you're using the phone: the ring shows as a heads-up with **I'm awake** and keeps escalating; it never depends on the full-screen activity.
+- [x] "Island": the trip notification becomes a promoted ongoing notification (Live Update / status-bar chip where the phone supports it, Samsung's Now Bar on One UI 8) with **Stop trip** and "Get off at X · 1.2 km"; the ring notification is promoted too, with **I'm awake**.
+- [x] Tests for the notification builders' actions and texts (JVM, pure parts).
 
 ### U3 Wake zone that works the way you use it
 - [x] Saving a zone (or any route change) **applies to the running trip** at once, through a new engine input (`UpdateLegs`) that can only make the alarm earlier or leave it; tested with the invariant suite.

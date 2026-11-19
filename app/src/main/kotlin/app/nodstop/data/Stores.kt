@@ -252,7 +252,14 @@ class Settings(context: Context) {
 
     fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
 
+    private val _lastRing = MutableStateFlow(prefs.getString(KEY_LAST_RING, null))
+    /** How the last ring reached you, in words (PLAN U0), for Readiness. */
+    val lastRing: StateFlow<String?> = _lastRing
+
+    fun setLastRing(summary: String) { prefs.edit().putString(KEY_LAST_RING, summary).apply(); _lastRing.value = summary }
+
     private companion object {
+        const val KEY_LAST_RING = "last_ring"
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
         const val KEY_GPU = "wys_use_gpu"

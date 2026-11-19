@@ -54,6 +54,18 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
         Text("Nodstop", style = MaterialTheme.typography.headlineMedium)
         Text("Sleep on the bus. Wakes you about 45 s before your stop, from GPS alone.", style = MaterialTheme.typography.bodyMedium)
 
+        // The one setting that decides whether the alarm can turn your screen on (PLAN U2): never hidden away.
+        val fullScreenOk = remember(resumeTick) { Readiness.fullScreenAllowed(ctx) }
+        if (!fullScreenOk) Section {
+            Text("The alarm can't turn your screen on", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+            Text(
+                "Full-screen alarms are off for Nodstop, so a ring only shows as a banner. Allow them so \"I'm awake\" " +
+                    "is already on screen when it rings.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(onClick = { runCatching { ctx.startActivity(Readiness.fullScreenSettings(ctx)) } }) { Text("Allow full-screen alarms") }
+        }
+
         if (notReady > 0) Section {
             Text("$notReady setup check${if (notReady > 1) "s" else ""} need attention before you rely on the alarm.")
             Button(onClick = { go(Screen.Readiness) }) { Text("Open Readiness") }

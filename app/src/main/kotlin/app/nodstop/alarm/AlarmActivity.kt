@@ -54,6 +54,7 @@ class AlarmActivity : ComponentActivity() {
 
     /** Held "I'm awake" on this screen: keep it open to read the briefing if there is one. */
     private fun awakeHere() {
+        RingDiag.acked("hold")
         awake(this, clearMessages = false)
         val snap = MessageStore.instance.snapshot()
         if (snap.active && (snap.messages.isNotEmpty() || snap.otherNotifications > 0)) acked.value = true else close()
@@ -71,6 +72,11 @@ class AlarmActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (RingService.state.value != null) RingDiag.shown()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleAck(intent)
@@ -80,7 +86,7 @@ class AlarmActivity : ComponentActivity() {
     private fun handleAck(intent: Intent?): Boolean {
         if (intent?.getBooleanExtra(EXTRA_ACK, false) != true) return false
         intent.removeExtra(EXTRA_ACK)
-        if (RingService.state.value != null) awake(this)
+        if (RingService.state.value != null) { RingDiag.acked("notification"); awake(this) }
         finish()
         return true
     }
@@ -90,7 +96,7 @@ class AlarmActivity : ComponentActivity() {
             if (event.repeatCount == 0) volumeDownSince = SystemClock.elapsedRealtime()
             else if (volumeDownSince > 0 && SystemClock.elapsedRealtime() - volumeDownSince >= VOLUME_HOLD_MS) {
                 volumeDownSince = 0
-                if (RingService.state.value != null) { awake(this); finish() }
+                if (RingService.state.value != null) { RingDiag.acked("volume key"); awake(this); finish() }
             }
             return true
         }
