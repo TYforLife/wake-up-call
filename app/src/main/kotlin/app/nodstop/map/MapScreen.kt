@@ -147,40 +147,18 @@ fun MapScreen(go: (Screen) -> Unit) {
         val selLeg = sel?.let { s -> selRoute?.legs?.getOrNull(s.second) }
         if (sel != null && selRoute != null && selLeg != null) {
             val pin = layers.pins.firstOrNull { it.routeId == sel.first && it.legIndex == sel.second }
-            val d = draft
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Wake zone · ${selLeg.name}", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    if (d == null) "Auto · about ${pin?.zoneM?.toInt() ?: 0} m" else ZoneScale.label(d),
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-                Text(
-                    if (d == null) "From past rides (or your lead × 25 km/h). Pick a size to set your own."
-                    else "Rings as soon as the bus enters it, or earlier by the usual timing. Applies to a trip that's running too.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    androidx.compose.material3.FilterChip(selected = d == null, onClick = { draft = null }, label = { Text("Auto") })
-                    for (p in ZoneScale.PRESETS) {
-                        androidx.compose.material3.FilterChip(selected = d == p, onClick = { draft = p }, label = { Text(ZoneScale.label(p)) })
+            ZoneSheet(
+                legName = selLeg.name, draft = draft, autoM = pin?.zoneM ?: 0.0, onDraft = { draft = it },
+                onSave = {
+                    if (routes.any { it.id == selRoute.id }) {
+                        app.routes.upsert(selRoute.copy(legs = selRoute.legs.mapIndexed { i, l -> if (i == sel.second) l.copy(wakeRadiusM = draft) else l }))
+                    } else {
+                        CoordParser.parse(selLeg.coords)?.let { p -> TripService.instance?.setWakeRadius(p, draft) }
                     }
-                }
-                androidx.compose.material3.Slider(
-                    value = d?.let { ZoneScale.toPos(it) } ?: 0f,
-                    onValueChange = { v -> draft = ZoneScale.toMeters(v) },
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.Button(onClick = {
-                        if (routes.any { it.id == selRoute.id }) {
-                            app.routes.upsert(selRoute.copy(legs = selRoute.legs.mapIndexed { i, l -> if (i == sel.second) l.copy(wakeRadiusM = draft) else l }))
-                        } else {
-                            CoordParser.parse(selLeg.coords)?.let { p -> TripService.instance?.setWakeRadius(p, draft) }
-                        }
-                        selected = null
-                    }) { Text("Save") }
-                    androidx.compose.material3.TextButton(onClick = { selected = null }) { Text("Cancel") }
-                }
-            }
+                    selected = null
+                },
+                onCancel = { selected = null },
+            )
         }
         Text(
             when {
@@ -191,6 +169,38 @@ fun MapScreen(go: (Screen) -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(12.dp),
         )
+    }
+}
+
+/** A stop's wake zone: presets, the value in big type, a slider (most of its track under 1 km). Stateless. */
+@Composable
+fun ZoneSheet(legName: String, draft: Double?, autoM: Double, onDraft: (Double?) -> Unit, onSave: () -> Unit, onCancel: () -> Unit) {
+    val d = draft
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Wake zone · $legName", style = MaterialTheme.typography.titleMedium)
+        Text(
+            if (d == null) "Auto · about ${autoM.toInt()} m" else ZoneScale.label(d),
+            style = MaterialTheme.typography.headlineMedium,
+        )
+        Text(
+            if (d == null) "From past rides (or your lead × 25 km/h). Pick a size to set your own."
+            else "Rings as soon as the bus enters it, or earlier by the usual timing. Applies to a trip that's running too.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            androidx.compose.material3.FilterChip(selected = d == null, onClick = { onDraft(null) }, label = { Text("Auto") })
+            for (p in ZoneScale.PRESETS) {
+                androidx.compose.material3.FilterChip(selected = d == p, onClick = { onDraft(p) }, label = { Text(ZoneScale.label(p)) })
+            }
+        }
+        androidx.compose.material3.Slider(
+            value = d?.let { ZoneScale.toPos(it) } ?: 0f,
+            onValueChange = { v -> onDraft(ZoneScale.toMeters(v)) },
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.material3.Button(onClick = onSave) { Text("Save") }
+            androidx.compose.material3.TextButton(onClick = onCancel) { Text("Cancel") }
+        }
     }
 }
 

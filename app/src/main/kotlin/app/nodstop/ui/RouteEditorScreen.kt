@@ -31,9 +31,23 @@ import app.nodstop.App
 import app.nodstop.data.LegDraft
 import app.nodstop.data.Route
 import app.nodstop.engine.CoordParser
+import app.nodstop.engine.Learned
+import app.nodstop.engine.LatLng
 import app.nodstop.trip.FusedLocationSource
 import kotlin.math.roundToInt
 import java.util.Locale
+
+class EditorActions(
+    val name: (String) -> Unit = {},
+    val leg: (Int, LegDraft) -> Unit = { _, _ -> },
+    val locate: (Int) -> Unit = {},
+    val forget: (LatLng) -> Unit = {},
+    val addLeg: () -> Unit = {},
+    val removeLeg: (Int) -> Unit = {},
+    val save: () -> Unit = {},
+    val delete: () -> Unit = {},
+    val back: () -> Unit = {},
+)
 
 @Composable
 fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
@@ -47,21 +61,58 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
     val ctx = LocalContext.current
     val learnedAll by App.instance.learned.all.collectAsState()
 
+    RouteEditorContent(
+        isNew = original == null, name = name, legs = legs, learned = { learnedAll[Route.stopKey(it)] },
+        locating = locating, error = locateError,
+        a = EditorActions(
+            name = { name = it },
+            leg = { i, l -> legs[i] = l },
+            locate = { i ->
+                locating = i
+                FusedLocationSource(ctx).current { loc ->
+                    locating = null
+                    if (loc != null) legs[i] = legs[i].copy(coords = String.format(Locale.US, "%.6f, %.6f", loc.latitude, loc.longitude))
+                    else locateError = "Couldn't get your location. Check Readiness → Precise location."
+                }
+            },
+            forget = { App.instance.learned.forget(it) },
+            addLeg = { legs += LegDraft() },
+            removeLeg = { legs.removeAt(it) },
+            save = {
+                val r = (original ?: Route(name = name, legs = emptyList())).copy(name = name.trim(), legs = legs.toList())
+                store.upsert(r)
+                onDone()
+            },
+            delete = { confirmDelete = true },
+            back = onDone,
+        ),
+    )
+    if (confirmDelete && original != null) Confirm(
+        "Delete ${original.name}?", "This can't be undone.", "Delete",
+        onConfirm = { store.delete(original.id); onDone() }, onDismiss = { confirmDelete = false },
+    )
+}
+
+@Composable
+fun RouteEditorContent(
+    isNew: Boolean, name: String, legs: List<LegDraft>, learned: (LatLng) -> Learned?,
+    locating: Int?, error: String?, a: EditorActions,
+) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TopBar(if (original == null) "New route" else "Edit route", onBack = onDone)
-        OutlinedTextField(name, { name = it }, label = { Text("Route name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        TopBar(if (isNew) "New route" else "Edit route", onBack = a.back)
+        OutlinedTextField(name, a.name, label = { Text("Route name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
 
         legs.forEachIndexed { i, leg ->
             Section("Leg ${i + 1}") {
                 OutlinedTextField(
-                    leg.name, { legs[i] = leg.copy(name = it) }, label = { Text("Get off at (stop name)") },
+                    leg.name, { a.leg(i, leg.copy(name = it)) }, label = { Text("Get off at (stop name)") },
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                 )
                 OutlinedTextField(
-                    leg.coords, { legs[i] = leg.copy(coords = it) }, label = { Text("Where you get off: coordinates or a Maps link") },
+                    leg.coords, { a.leg(i, leg.copy(coords = it)) }, label = { Text("Where you get off: coordinates or a Maps link") },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 val p = CoordParser.parse(leg.coords)
@@ -80,57 +131,42 @@ fun RouteEditorScreen(routeId: String?, onDone: () -> Unit) {
                     },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = {
-                        locating = i
-                        FusedLocationSource(ctx).current { loc ->
-                            locating = null
-                            if (loc != null) legs[i] = legs[i].copy(coords = String.format(Locale.US, "%.6f, %.6f", loc.latitude, loc.longitude))
-                            else locateError = "Couldn't get your location. Check Readiness → Precise location."
-                        }
-                    }, enabled = locating == null) { Text(if (locating == i) "Locating…" else "Use my location") }
+                    OutlinedButton(onClick = { a.locate(i) }, enabled = locating == null) { Text(if (locating == i) "Locating…" else "Use my location") }
                 }
                 Text(
                     "Standing at the stop? Tap Use my location. Close is fine: after a ride or two the app learns exactly where you get off.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (p != null) {
-                    val learned = learnedAll[Route.stopKey(p)]
-                    learned?.leadS?.let { Text("Rings about ${it.roundToInt()} s before this stop (tuned by your ratings).", style = MaterialTheme.typography.bodySmall) }
-                    if (learned != null && learned.rides > 0) {
+                    val l = learned(p)
+                    l?.leadS?.let { Text("Rings about ${it.roundToInt()} s before this stop (tuned by your ratings).", style = MaterialTheme.typography.bodySmall) }
+                    if (l != null && l.rides > 0) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                "Learned the route from ${learned.rides} ride${if (learned.rides == 1) "" else "s"} that reached this pin.",
+                                "Learned the route from ${l.rides} ride${if (l.rides == 1) "" else "s"} that reached this pin.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f),
                             )
-                            TextButton(onClick = { App.instance.learned.forget(p) }) { Text("Forget") }
+                            TextButton(onClick = { a.forget(p) }) { Text("Forget") }
                         }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Alarm for this leg", Modifier.weight(1f))
-                    Switch(leg.alarmEnabled, { legs[i] = leg.copy(alarmEnabled = it) })
+                    Switch(leg.alarmEnabled, { a.leg(i, leg.copy(alarmEnabled = it)) })
                 }
-                if (legs.size > 1) TextButton(onClick = { legs.removeAt(i) }) { Text("Remove leg") }
+                if (legs.size > 1) TextButton(onClick = { a.removeLeg(i) }) { Text("Remove leg") }
             }
         }
-        if (legs.size < 3) OutlinedButton(onClick = { legs += LegDraft() }) { Text("+ Add leg") }
-        locateError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        if (legs.size < 3) OutlinedButton(onClick = a.addLeg) { Text("+ Add leg") }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(enabled = name.isNotBlank(), onClick = {
-                val r = (original ?: Route(name = name, legs = emptyList())).copy(name = name.trim(), legs = legs.toList())
-                store.upsert(r)
-                onDone()
-            }) { Text("Save") }
-            if (original != null) OutlinedButton(onClick = { confirmDelete = true }) { Text("Delete") }
+            Button(enabled = name.isNotBlank(), onClick = a.save) { Text("Save") }
+            if (!isNew) OutlinedButton(onClick = a.delete) { Text("Delete") }
         }
     }
-    if (confirmDelete && original != null) Confirm(
-        "Delete ${original.name}?", "This can't be undone.", "Delete",
-        onConfirm = { store.delete(original.id); onDone() }, onDismiss = { confirmDelete = false },
-    )
 }
 
 private fun fmt(x: Double) = String.format(Locale.US, "%.5f", x)

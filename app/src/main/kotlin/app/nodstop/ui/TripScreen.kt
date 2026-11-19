@@ -31,12 +31,23 @@ fun TripScreen(go: (Screen) -> Unit) {
     val ctx = LocalContext.current
     val trip by TripService.status.collectAsState()
     var confirmStop by remember { mutableStateOf(false) }
+    TripContent(
+        trip, onBack = { go(Screen.Home) }, onOff = { TripService.instance?.skipLeg() },
+        onMap = { go(Screen.Map) }, onStop = { confirmStop = true },
+    )
+    if (confirmStop) Confirm(
+        "Stop trip?", "No alarm will ring for this trip.", "Stop trip",
+        onConfirm = { TripService.stop(ctx); go(Screen.Home) }, onDismiss = { confirmStop = false },
+    )
+}
 
+@Composable
+fun TripContent(trip: TripService.TripUi?, onBack: () -> Unit, onOff: () -> Unit, onMap: () -> Unit, onStop: () -> Unit) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TopBar("Trip", onBack = { go(Screen.Home) })
+        TopBar("Trip", onBack = onBack)
         val t = trip
         if (t == null) {
             Text("No trip running.")
@@ -72,16 +83,12 @@ fun TripScreen(go: (Screen) -> Unit) {
             "Rings about 45 s before your stop. It's a real system alarm: if the app is closed, it still rings, never later than safe.",
             style = MaterialTheme.typography.bodySmall,
         )
-        Button(modifier = Modifier.fillMaxWidth(), onClick = { TripService.instance?.skipLeg() }) {
+        Button(modifier = Modifier.fillMaxWidth(), onClick = onOff) {
             Text(if (t.legIndex + 1 < t.legNames.size) "I'm off this bus (next leg)" else "I'm off this bus (end trip)")
         }
-        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { go(Screen.Map) }) { Text("Show on map") }
-        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { confirmStop = true }) { Text("Stop trip") }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onMap) { Text("Show on map") }
+        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onStop) { Text("Stop trip") }
     }
-    if (confirmStop) Confirm(
-        "Stop trip?", "No alarm will ring for this trip.", "Stop trip",
-        onConfirm = { TripService.stop(ctx); go(Screen.Home) }, onDismiss = { confirmStop = false },
-    )
 }
 
 private fun reasonLabel(r: AlarmReason?, leadS: Double?): String = when (r) {

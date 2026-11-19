@@ -133,36 +133,85 @@ object Readiness {
     }
 }
 
+/** Readiness's switches and texts, as plain data (also what the screenshot tests render). */
+data class ReadinessUi(
+    val checks: List<Readiness.Check>,
+    val lastRing: String? = null,
+    val speaker: Boolean = false,
+    val askTiming: Boolean = true,
+    val vips: List<String> = emptyList(),
+    val tea: Boolean = false,
+    val gpu: Boolean = false,
+    val dnd: Boolean = false,
+    val dndGranted: Boolean = true,
+)
+
+class ReadinessActions(
+    val back: () -> Unit = {},
+    val fix: (Readiness.Check) -> Unit = {},
+    val speaker: (Boolean) -> Unit = {},
+    val askTiming: (Boolean) -> Unit = {},
+    val vips: (List<String>) -> Unit = {},
+    val tea: (Boolean) -> Unit = {},
+    val gpu: (Boolean) -> Unit = {},
+    val dnd: (Boolean) -> Unit = {},
+    val appSettings: () -> Unit = {},
+)
+
 @Composable
 fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
     val ctx = LocalContext.current
     val refresh = remember { mutableIntStateOf(0) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh.intValue++ }
-    val speaker by App.instance.settings.speakerLastResort.collectAsState()
+    val settings = App.instance.settings
+    val speaker by settings.speakerLastResort.collectAsState()
     val checks = remember(resumeTick, refresh.intValue, speaker) { Readiness.checks(ctx) }
+    val lastRing by settings.lastRing.collectAsState()
+    val ask by settings.askTiming.collectAsState()
+    val vips by settings.vipNames.collectAsState()
+    val tea by settings.teaTone.collectAsState()
+    val gpu by settings.useGpu.collectAsState()
+    val dnd by settings.dndDuringTrips.collectAsState()
+    val ui = ReadinessUi(checks, lastRing, speaker, ask, vips, tea, gpu, dnd, DndController.granted(ctx))
+    ReadinessContent(ui, ReadinessActions(
+        back = { go(Screen.Home) },
+        fix = { c ->
+            when (val f = c.fix) {
+                is Readiness.Fix.Permission -> launcher.launch(f.permission)
+                is Readiness.Fix.Open -> runCatching { ctx.startActivity(f.intent) }
+                null -> Unit
+            }
+        },
+        speaker = { settings.setSpeakerLastResort(it) },
+        askTiming = { settings.setAskTiming(it) },
+        vips = { settings.setVipNames(it) },
+        tea = { settings.setTeaTone(it) },
+        gpu = { settings.setUseGpu(it) },
+        dnd = { on ->
+            settings.setDndDuringTrips(on)
+            if (on && !DndController.granted(ctx)) runCatching { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
+        },
+        appSettings = { runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))) } },
+    ))
+}
 
+@Composable
+fun ReadinessContent(ui: ReadinessUi, a: ReadinessActions) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TopBar("Readiness", onBack = { go(Screen.Home) })
-        val lastRing by App.instance.settings.lastRing.collectAsState()
-        lastRing?.let { Section { Text(it, style = MaterialTheme.typography.bodyMedium) } }
+        TopBar("Readiness", onBack = a.back)
+        ui.lastRing?.let { Section { Text(it, style = MaterialTheme.typography.bodyMedium) } }
         Section {
-            for (c in checks) {
+            for (c in ui.checks) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("●", color = if (c.ok) Color(0xFF2E7D32) else Color(0xFFD32F2F))
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(c.title, style = MaterialTheme.typography.titleSmall)
                         Text(c.detail, style = MaterialTheme.typography.bodySmall)
                     }
-                    val fix = c.fix
-                    if (!c.ok && fix != null) Button(onClick = {
-                        when (fix) {
-                            is Readiness.Fix.Permission -> launcher.launch(fix.permission)
-                            is Readiness.Fix.Open -> runCatching { ctx.startActivity(fix.intent) }
-                        }
-                    }) { Text("Fix") }
+                    if (!c.ok && c.fix != null) Button(onClick = { a.fix(c) }) { Text("Fix") }
                 }
             }
         }
@@ -176,7 +225,7 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Switch(checked = speaker, onCheckedChange = { App.instance.settings.setSpeakerLastResort(it) })
+                Switch(checked = ui.speaker, onCheckedChange = a.speaker)
             }
             Text(
                 "Without the speaker, vibration has to wake you: keep the phone in a pocket or your hand, not a bag. " +
@@ -185,7 +234,6 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
             )
         }
         Section("Ring timing") {
-            val ask by App.instance.settings.askTiming.collectAsState()
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Ask after each ring", style = MaterialTheme.typography.titleSmall)
@@ -195,14 +243,11 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Switch(checked = ask, onCheckedChange = { App.instance.settings.setAskTiming(it) })
+                Switch(checked = ui.askTiming, onCheckedChange = a.askTiming)
             }
         }
         Section("While you slept (experimental)") {
-            val settings = App.instance.settings
-            val vips by settings.vipNames.collectAsState()
-            val tea by settings.teaTone.collectAsState()
-            var vipText by remember(vips) { mutableStateOf(vips.joinToString(", ")) }
+            var vipText by remember(ui.vips) { mutableStateOf(ui.vips.joinToString(", ")) }
             Text("Important contacts", style = MaterialTheme.typography.titleSmall)
             Text(
                 "Names as they appear in your chats, separated by commas (e.g. Mum, Daycare). Only their messages can " +
@@ -211,16 +256,15 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(value = vipText, onValueChange = { vipText = it }, modifier = Modifier.weight(1f), singleLine = true)
-                TextButton(enabled = vipText != vips.joinToString(", "), onClick = { settings.setVipNames(vipText.split(',')) }) { Text("Save") }
+                TextButton(enabled = vipText != ui.vips.joinToString(", "), onClick = { a.vips(vipText.split(',')) }) { Text("Save") }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Tea tone", style = MaterialTheme.typography.titleSmall)
                     Text("Briefing lines in group-chat voice. Same facts, checked again; plain if a rewrite changes one.", style = MaterialTheme.typography.bodySmall)
                 }
-                Switch(checked = tea, onCheckedChange = { settings.setTeaTone(it) })
+                Switch(checked = ui.tea, onCheckedChange = a.tea)
             }
-            val gpu by settings.useGpu.collectAsState()
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Use the GPU (experimental)", style = MaterialTheme.typography.titleSmall)
@@ -231,9 +275,8 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Switch(checked = gpu, onCheckedChange = { settings.setUseGpu(it) })
+                Switch(checked = ui.gpu, onCheckedChange = a.gpu)
             }
-            val dnd by App.instance.settings.dndDuringTrips.collectAsState()
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Do Not Disturb during trips", style = MaterialTheme.typography.titleSmall)
@@ -243,14 +286,9 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Switch(checked = dnd, onCheckedChange = { on ->
-                    App.instance.settings.setDndDuringTrips(on)
-                    if (on && !DndController.granted(ctx)) {
-                        runCatching { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
-                    }
-                })
+                Switch(checked = ui.dnd, onCheckedChange = a.dnd)
             }
-            if (dnd && !DndController.granted(ctx)) {
+            if (ui.dnd && !ui.dndGranted) {
                 Text("Needs Do Not Disturb access for Nodstop: tap the switch again after allowing it.", style = MaterialTheme.typography.bodySmall, color = Color(0xFFD32F2F))
             }
         }
@@ -258,9 +296,7 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
             Text("1. Settings → Apps → Nodstop → Battery → Unrestricted")
             Text("2. Settings → Battery → Background usage limits: make sure Nodstop is not in Sleeping or Deep sleeping apps, and add it to Never sleeping apps")
             Text("3. Never Force stop the app: Android cancels its alarms when you do.")
-            OutlinedButton(onClick = {
-                runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }
-            }) { Text("Open Nodstop's app settings") }
+            OutlinedButton(onClick = a.appSettings) { Text("Open Nodstop's app settings") }
         }
     }
 }
