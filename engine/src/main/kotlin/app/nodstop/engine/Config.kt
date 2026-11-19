@@ -39,11 +39,22 @@ data class Config(
     val alightRadiusM: Double = 300.0,
     val alightSlowKmh: Double = 8.0,
     val alightDwellS: Double = 45.0,
+    /**
+     * After "I'm awake": inside this stop's wake circle (or [quickAlightM] without one; never more than
+     * [quickAlightMaxM]) at walking pace for [quickAlightS], the leg ends at once (PLAN U3). Then the old stop
+     * is watched for [prevStopWatchS]: if you were really still on the bus and it carries on past, it rings.
+     */
+    val quickAlightM: Double = 150.0,
+    val quickAlightMaxM: Double = 500.0,
+    val quickAlightS: Double = 10.0,
+    val prevStopWatchS: Double = 120.0,
     /** The light "you're at your stop" nudge: within this distance, or stopped within [nudgeStoppedM]. */
     val nudgeM: Double = 60.0,
     val nudgeStoppedM: Double = 200.0,
     /** After "I'm awake", alarms from fixes older than the ack can't ring for this long (no instant re-ring). */
     val rearmS: Double = 120.0,
+    /** While ringing, the alarm stays scheduled this far ahead, so a killed ring rings again. */
+    val reringS: Double = 60.0,
     /** An ack only counts as "awake for this stop" within this ETA; earlier rings keep tracking. */
     val ackCountsWithinS: Double = 180.0,
     /** While You Slept: urgent-message rings per trip, at most (DESIGN §10). */

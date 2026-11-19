@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -32,13 +33,18 @@ class RouteStore(context: Context) {
     private val _routes = MutableStateFlow(load())
     val routes: StateFlow<List<Route>> = _routes
 
-    private fun load(): List<Route> {
-        if (!file.exists()) return Route.seeds().also { save(it) }
-        return runCatching { storeJson.decodeFromString(ListSerializer(Route.serializer()), file.readText()) }
-            .getOrElse { emptyList() }
+    private val serializer = ListSerializer(Route.serializer())
+
+    /** Never treats an unreadable file as "no routes" (that used to overwrite them on the next save). */
+    private fun load(): List<Route> = when (val l = SafeStore.load(file, serializer, System.currentTimeMillis()) { Route.seeds() }) {
+        is SafeStore.Loaded.Missing -> l.value.also { save(it) }
+        else -> l.value
     }
 
-    private fun save(list: List<Route>) = file.writeAtomically(storeJson.encodeToString(ListSerializer(Route.serializer()), list))
+    private fun save(list: List<Route>) = SafeStore.save(file, serializer, list)
+
+    /** Replaces every route (Debug → Import). */
+    fun replaceAll(list: List<Route>) { save(list); _routes.value = list }
 
     fun get(id: String): Route? = _routes.value.firstOrNull { it.id == id }
 
@@ -117,8 +123,10 @@ class LearnedStore(context: Context) {
     private val _all = MutableStateFlow(cache)
     val all: StateFlow<Map<String, Learned>> = _all
 
-    private fun load(): Map<String, Learned> = if (!file.exists()) emptyMap() else
-        runCatching { storeJson.decodeFromString(serializer, file.readText()) }.getOrElse { emptyMap() }
+    private fun load(): Map<String, Learned> = SafeStore.load(file, serializer, System.currentTimeMillis()) { emptyMap() }.value
+
+    /** Replaces everything learned (Debug → Import). */
+    fun replaceAll(m: Map<String, Learned>) = set(m)
 
     fun get(dest: LatLng): Learned? = cache[Route.stopKey(dest)]
 
@@ -141,7 +149,7 @@ class LearnedStore(context: Context) {
 
     private fun set(m: Map<String, Learned>) {
         cache = m
-        file.writeAtomically(storeJson.encodeToString(serializer, m))
+        SafeStore.save(file, serializer, m)
         _all.value = m
     }
 }
@@ -150,7 +158,7 @@ class TripStore(context: Context) {
     private val file = File(context.filesDir, "active_trip.json")
 
     fun load(): ActiveTrip? = if (!file.exists()) null else
-        runCatching { storeJson.decodeFromString(ActiveTrip.serializer(), file.readText()) }.getOrNull()
+        SafeStore.load(file, ActiveTrip.serializer().nullable, System.currentTimeMillis()) { null }.value
 
     fun save(trip: ActiveTrip) = file.writeAtomically(storeJson.encodeToString(ActiveTrip.serializer(), trip))
 
@@ -164,7 +172,14 @@ data class PendingRating(
     val endedMs: Long,
     /** Each rated leg's stop (same order as [legs]), so a rating can tune that stop's lead. */
     val dests: List<LatLng> = emptyList(),
-)
+) {
+    /** Without [leg] (answered elsewhere); null when nothing is left to ask. */
+    fun without(leg: Int): PendingRating? {
+        val keep = legs.indices.filter { legs[it].first != leg }
+        if (keep.isEmpty()) return null
+        return copy(legs = keep.map { legs[it] }, dests = keep.mapNotNull { dests.getOrNull(it) }.takeIf { it.size == keep.size } ?: emptyList())
+    }
+}
 
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -244,7 +259,21 @@ class Settings(context: Context) {
 
     fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
 
+    private val _askTiming = MutableStateFlow(prefs.getBoolean(KEY_ASK_TIMING, true))
+    /** After each leg's ring, ask (one silent notification) whether it was too early, good or too late. */
+    val askTiming: StateFlow<Boolean> = _askTiming
+
+    fun setAskTiming(on: Boolean) { prefs.edit().putBoolean(KEY_ASK_TIMING, on).apply(); _askTiming.value = on }
+
+    private val _lastRing = MutableStateFlow(prefs.getString(KEY_LAST_RING, null))
+    /** How the last ring reached you, in words (PLAN U0), for Readiness. */
+    val lastRing: StateFlow<String?> = _lastRing
+
+    fun setLastRing(summary: String) { prefs.edit().putString(KEY_LAST_RING, summary).apply(); _lastRing.value = summary }
+
     private companion object {
+        const val KEY_LAST_RING = "last_ring"
+        const val KEY_ASK_TIMING = "ask_ring_timing"
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
         const val KEY_GPU = "wys_use_gpu"

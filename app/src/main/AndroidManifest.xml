@@ -65,6 +65,10 @@
             android:name=".alarm.AlarmReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".trip.RateReceiver"
+            android:exported="false" />
+
         <service
             android:name=".tile.RouteTile0"
             android:exported="true"

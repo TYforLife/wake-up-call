@@ -82,7 +82,7 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
 | Everything already in DESIGN §5 | Already approved |
 | `kotlinx-coroutines-core` (`:brief` tests) and `kotlinx-serialization-json` (`:brief`, already in DESIGN §5) | Testing the suspend `Llm` call; parsing the model's JSON lines |
 | `com.google.ai.edge.litertlm:litertlm-android` 0.16.1 (Run 2; the newest built with Kotlin 2.2.21, 0.17+ needs Kotlin 2.4) | Runs Gemma on the phone (DESIGN §10) |
-| `app.cash.paparazzi` Gradle plugin (Run 4, U0; test-only, pin an exact version that works with AGP 8.13) | Renders every screen to PNG on the JVM, so UI changes can be reviewed from a phone without an emulator |
+| Roborazzi 1.79.0 (plugin + `roborazzi`, `roborazzi-compose`), Robolectric 4.18.1, JUnit 4 + vintage engine, Compose `ui-test-junit4` / `ui-test-manifest` (Run 4, U0; test-only, only with `-Pscreenshots`) | Renders screens to PNG on the JVM, so UI changes can be reviewed from a phone. Paparazzi was tried first: 2.0 alpha breaks AGP 8.13's resource merge, 1.3.5 can't render API 36. Robolectric's renderer comes from a host cloud sessions can't reach, so screenshots are recorded in CI only. |
 
 ## Where things go
 
@@ -238,25 +238,31 @@ as "when I'm on my phone", and #10 is read as "after I'm awake, entering the sto
 Prerequisite: none beyond a green `main`.
 
 ### U0 See what happened, and see the screens
-- [ ] Ring-delivery diagnostics in the trip log (`note`-free, kept in hidden exports): receiver fired, ring service started, full-screen permission state, alarm screen shown (y/n, time), screen was on/off, earbuds or vibration, "I'm awake" source (hold, volume, notification).
-- [ ] Screenshot tests for every screen (Paparazzi, JVM, no emulator; reason: the only way to review UI from a phone-only workflow). CI uploads the PNGs; PRs show before/after.
-- [ ] Readiness shows the result of the last ring ("Last ring: screen turned on ✓ / shown as a banner ✗, why").
+- [x] Ring-delivery diagnostics in the trip log (`note`-free, kept in hidden exports): receiver fired, ring service started, full-screen permission state, alarm screen shown (y/n, time), screen was on/off, earbuds or vibration, "I'm awake" source (hold, volume, notification).
+- [x] Screenshot tests (Roborazzi on Robolectric, JVM, no emulator), starting with the alarm screens; the other screens get theirs in U6 when they're made stateless. CI records them (`-Pscreenshots`) and attaches the PNGs to the `debug-latest` release, viewable on the phone.
+- [x] Readiness shows the result of the last ring ("Last ring: screen turned on ✓ / shown as a banner ✗, why").
 
 ### U1 Never lose data on an update
-- [ ] A store that can't read its file keeps it (`routes.json.bad-<time>`), loads the last good backup, and never overwrites it with empty data.
-- [ ] Every save keeps the previous file as `.bak`; a schema version is stored; migration tests decode fixtures of every schema shipped so far (routes, learned, settings, active trip).
-- [ ] Debug → Export / Import all data (routes, stops, learned rides, settings) as one JSON file through the share sheet and file picker. No positions leave the phone unless you share the file.
+- [x] A store that can't read its file keeps it (`routes.json.bad-<time>`), loads the last good backup, and never overwrites it with empty data.
+- [x] Every save keeps the previous file as `.bak`; a schema version is stored; migration tests decode fixtures of every schema shipped so far (routes, learned, settings, active trip).
+- [x] Debug → Export / Import all data (routes, stops, learned rides, settings) as one JSON file through the share sheet and file picker. No positions leave the phone unless you share the file.
 
 ### U2 The ring reaches you, screen on, and canceling is one tap
-- [ ] The screen turns on at the ring when the phone is locked: full-screen intent first; if the permission is missing, Readiness says so at the top of Home, not only on Readiness; a wake lock with screen-on as fallback; the diagnostic from U0 records which path worked.
-- [ ] While you're using the phone: the ring shows as a heads-up with **I'm awake** and keeps escalating; it never depends on the full-screen activity.
-- [ ] "Island": the trip notification becomes a promoted ongoing notification (Live Update / status-bar chip where the phone supports it, Samsung's Now Bar on One UI 8) with **Stop trip** and "Get off at X · 1.2 km"; the ring notification is promoted too, with **I'm awake**.
-- [ ] Tests for the notification builders' actions and texts (JVM, pure parts).
+- [x] The screen turns on at the ring when the phone is locked: full-screen intent first; if the permission is missing, Readiness says so at the top of Home, not only on Readiness; a wake lock with screen-on as fallback; the diagnostic from U0 records which path worked.
+- [x] While you're using the phone: the ring shows as a heads-up with **I'm awake** and keeps escalating; it never depends on the full-screen activity.
+- [x] "Island": the trip notification becomes a promoted ongoing notification (Live Update / status-bar chip where the phone supports it, Samsung's Now Bar on One UI 8) with **Stop trip** and "Get off at X · 1.2 km"; the ring notification is promoted too, with **I'm awake**.
+- [x] Tests for the notification builders' actions and texts (JVM, pure parts).
 
 ### U3 Wake zone that works the way you use it
-- [ ] Saving a zone (or any route change) **applies to the running trip** at once, through a new engine input (`UpdateLegs`) that can only make the alarm earlier or leave it; tested with the invariant suite.
-- [ ] Slider is non-linear: 50 m–2 km, most of the track under 1 km (e.g. square-root scale), with quick presets (Auto, 150, 250, 400, 700 m) and the value in big type; the circle follows live.
-- [ ] After "I'm awake", entering this stop's circle (or 150 m if none) at walking speed for 10 s ends the leg and moves to the next one; "rode past" protection keeps watching the previous stop for 2 minutes. Engine tests: two-leg and three-leg routes, early ack, ack inside the circle, still on the bus inside the circle.
+- [x] Saving a zone (or any route change) **applies to the running trip** at once, through a new engine input (`UpdateLegs`) that can only make the alarm earlier or leave it; tested with the invariant suite.
+- [x] Slider is non-linear: 50 m–2 km, most of the track under 1 km (e.g. square-root scale), with quick presets (Auto, 150, 250, 400, 700 m) and the value in big type; the circle follows live.
+- [x] After "I'm awake", entering this stop's circle (or 150 m if none) at walking speed for 10 s ends the leg and moves to the next one; "rode past" protection keeps watching the previous stop for 2 minutes. Engine tests: two-leg and three-leg routes, early ack, ack inside the circle, still on the bus inside the circle.
+
+### U2b Missed rings (owner report: "4 failed alarms today, even when I'm on my phone")
+- [x] Re-ring until acknowledged: while ringing, the one alarm stays scheduled 60 s ahead (engine `RERING`, and `RingService` after a cold start), so a ring that dies rings again. Engine tests.
+- [x] No model in memory at the ring: every pass loads and frees the model, no pass starts within 90 s of the alarm, the ring cancels model work. `BatchPlan` test.
+- [x] Phone in use at the ring: full-strength vibration and earbuds at 70% from the first second (`RingPlan`, tested never weaker than the normal ladder).
+- [x] Optional per-leg timing rating: a silent notification after "I'm awake" (Too early / Good / Too late), the end-of-trip card only asks about legs not already asked, and Readiness can turn both off.
 
 **Test on phone (Run 4):** couch test of the lock-screen ring (screen must turn on), a ring while using
 another app (banner with I'm awake), the island with Stop trip, changing the circle during a simulated

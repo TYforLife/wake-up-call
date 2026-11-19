@@ -74,6 +74,11 @@ sealed interface Input {
      * Rings now. It can only add a ring, never delay or remove one (invariant W1).
      */
     data class Urgent(override val tMs: Long) : Input
+    /**
+     * The route was edited during the trip (PLAN U3). Only wake circles are taken, and only for legs whose
+     * stop is unchanged; a circle you're already inside rings now. It can only make an alarm earlier.
+     */
+    data class UpdateLegs(override val tMs: Long, val legs: List<Leg>) : Input
 }
 
 /**

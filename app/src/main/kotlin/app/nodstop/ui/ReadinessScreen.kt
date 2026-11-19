@@ -66,6 +66,13 @@ object Readiness {
     fun notificationAccessOk(ctx: Context) =
         ctx.getSystemService(NotificationManager::class.java).isNotificationListenerAccessGranted(captureComponent(ctx))
 
+    fun fullScreenAllowed(ctx: Context): Boolean =
+        Build.VERSION.SDK_INT < 34 || ctx.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+
+    fun fullScreenSettings(ctx: Context): Intent =
+        if (Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, pkg(ctx))
+        else Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+
     fun canStartTrip(ctx: Context) = granted(ctx, Manifest.permission.ACCESS_FINE_LOCATION) && notificationsOk(ctx)
 
     fun checks(ctx: Context): List<Check> {
@@ -139,6 +146,8 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         TopBar("Readiness", onBack = { go(Screen.Home) })
+        val lastRing by App.instance.settings.lastRing.collectAsState()
+        lastRing?.let { Section { Text(it, style = MaterialTheme.typography.bodyMedium) } }
         Section {
             for (c in checks) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -174,6 +183,20 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                     "Check Settings → Sounds and vibration → Vibration intensity isn't at zero.",
                 style = MaterialTheme.typography.bodySmall,
             )
+        }
+        Section("Ring timing") {
+            val ask by App.instance.settings.askTiming.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Ask after each ring", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "After \"I'm awake\", a silent notification asks: too early, good or too late? Answering is " +
+                            "optional; each answer moves that stop's ring 10–15 s next time.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = ask, onCheckedChange = { App.instance.settings.setAskTiming(it) })
+            }
         }
         Section("While you slept (experimental)") {
             val settings = App.instance.settings

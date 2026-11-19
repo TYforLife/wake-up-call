@@ -71,6 +71,13 @@ Before the first fix of a trip, the phone's **last known position** (up to 3 min
 failsafe from its own time, so a trip that never gets a fix is still covered. With no position at
 all, a **No GPS** alarm rings 3 min in: you're unprotected, stay awake.
 
+**While it rings, the alarm stays scheduled.** Each ring re-arms the one system alarm `RERING` (60 s)
+ahead, with the same reason, and each re-ring pushes it on again; "I'm awake" replaces it and Stop
+trip cancels it. So if anything kills the ring before the ack (the process is killed for memory, the
+service is stopped), the system rings again within a minute. After a cold start (no trip service),
+`RingService` keeps that re-ring itself; if the trip turns out to be over when "I'm awake" is held,
+the cold path cancels it.
+
 ### 2.1 Phases of a leg (no timers)
 
 | Phase | Meaning | Alarm protects |
@@ -81,6 +88,10 @@ all, a **No GPS** alarm rings 3 min in: you're unprotected, stay awake.
 | AWAKE | You held "I'm awake" for this stop | the **next** alarm-on leg's failsafe; plus "rode past" watch |
 | (leg done) | You got off: within 300 m of the stop, under 8 km/h, for 45 s in a row | next leg starts WAITING |
 
+- **Quick get-off** (after "I'm awake"): in this stop's circle (150 m without one, 500 m at most) at
+  walking pace for 10 s, the leg ends at once instead of after 45 s. Then the old stop is watched for 2 min:
+  if you were really still on the bus (a red light in the circle) and it rides on past, it rings
+  "You passed your stop"; acking that keeps you on the current leg.
 - **Getting off ends the leg**, not an ack and not a timer. That 45 s is you standing at the transfer
   or walking away; a bus dwell is shorter. The spot where that slow spell began is where you got off.
 - **An ack only counts as "awake for this stop" when the stop was ≤ 3 min away.** An early safety ring
@@ -161,8 +172,12 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
 - **Automatic** (dashed): how far out, in a straight line, the bus usually is when the stop's lead is
   left on past rides (median); before any ride, lead × 25 km/h (about 310 m at 45 s). Display only: the
   alarm itself follows §2's timing.
-- **Yours** (solid): tap a stop pin on the map and drag the slider (Auto, or 100–2000 m); the circle
-  follows live; Save stores it on that leg (`LegDraft.wakeRadiusM`). Once you're on the bus and inside
+- **Yours** (solid): tap a stop pin on the map, then a preset (Auto, 150, 250, 400, 700 m) or the slider
+  (50 m–2 km on a square-root scale, so most of it is under 1 km; `ZoneScale`); the circle follows live;
+  Save stores it on that leg (`LegDraft.wakeRadiusM`). **A saved circle applies to a running trip at once**
+  (`Input.UpdateLegs`: only circles, only for legs whose stop is unchanged; a circle you're already inside
+  rings now; property-tested never to make an alarm later). A simulated trip's stops can be set too (for
+  that trip only). Once you're on the bus and inside
   it, it rings, unless the timing rang first: **whichever comes first**, so it can only ring earlier.
   Waiting at a stop inside the zone doesn't ring until you're on the bus.
 
@@ -205,7 +220,9 @@ trips break the bound without the failsafe, or without `V_FLOOR`.
 | `OVERSHOOT_NEAR` / `GROW` | 300 m / 300 m | At bus speed (≥ 15 km/h). |
 | Nudge | 60 m, or stopped within 200 m | Once per leg. |
 | `ACK_COUNTS_WITHIN` | 180 s | Earlier acks keep tracking the stop. |
+| Quick get-off | circle or 150 m (≤ 500 m), < 8 km/h, 10 s | After "I'm awake"; then the old stop is watched 120 s. |
 | `REARM` | 120 s | After an ack, stale fixes can't ring sooner. |
+| `RERING` | 60 s | While ringing, the alarm stays scheduled this far ahead (§2). |
 | Learning | 60 m match, × 0.95, 25 m trail, 5 tracks, 300 m max stop shift | §2.3 |
 
 ---
@@ -246,8 +263,10 @@ JSON Lines, one object per line, `kotlinx.serialization`:
 
 Kinds: `start` (with `legs` including what's learned, optional `awake` and last-known `lat/lng/acc/ft`),
 `fix`, `tick`, `rang`, `ack`, `skip`, `stop`, `out` (`alarmAt, ar` (reason), `overshoot, arrived, boarded,
-d, eta, v, leg, ph`), plus app annotations ignored by replay: `rate`, `note`, and `wys` (While You Slept
-counts at each ring, §10; kept in location-hidden exports like `rate`, since it has no positions or text).
+d, eta, v, leg, ph`), plus app annotations ignored by replay: `rate`, `note`, `wys` (While You Slept
+counts at each ring, §10) and `ringd` (how a ring reached you, §5). `wys` and `ringd` are kept in
+location-hidden exports like `rate`, since they have no positions or text. Input kinds also include
+`urgent` (§10) and `legs` (a wake circle changed mid-trip, §2.6).
 
 Replaying the inputs of a recorded trace must reproduce the recorded `out` lines exactly.
 
@@ -304,10 +323,11 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | `TripService` | Foreground service, type `location`. Started from the UI (foreground), so no background-location permission is needed. Gets the last known position, then fused location at HIGH_ACCURACY every 2 s; fix age measured on the monotonic clock. Feeds the engine, applies `alarmAtMs`, buzzes once at the stop, stores learned rides, and runs the live trip notification (§5 Notifications). A `Tick` every 5 s. Writes the trace. Saves the active trip (legs, leg, alarm reason, time left) on every change and every 15 s. |
 | `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. |
 | `AlarmReceiver` | Always starts `RingService`, with no conditions. Sends `Rang` to the engine if the process is alive. |
-| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. |
+| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, how it was stopped) in the trip log (`ringd`) and as Readiness's "Last ring" line. |
 | `AlarmActivity` | Shows over the lock screen and turns the screen on. **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
 | `LocationSource` | Interface. `FusedLocationSource` (real; also last-known and one-shot "Use my location") and `SimulatedLocationSource` (a pretend bus in real time: halts 90 s at stop 1, drives 3 km to stop 2, halts 2 min, then keeps going, for couch tests). |
 | `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (route editor) or all (Debug). |
+| `SafeStore` | How every store loads and saves: each save keeps the previous file as `.bak`; a file that can't be read is kept as `.bad-<time>` and the backup is used, so an update can never wipe routes or learned rides. Fixture tests decode every shipped format. Debug → **Your data** backs everything up to one JSON file (share sheet) and restores it (file picker). |
 | `TraceLogger` | Writes JSONL per trip to app files, flushed per line. Share uses the system share sheet: **location hidden** (every position moved by one random offset, engine re-run, `Trace.anonymize`) for the public repo, or raw (private). |
 | Quick Settings tiles, launcher shortcuts | One tile per first two routes ("To work", "From work"): one tap opens the app and starts the route. Tapping while a trip runs just shows it. Long-press the app icon for the same. |
 
@@ -322,6 +342,9 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 | 30 s+ (or overshoot) | Earbuds at 100%, continuous strong vibration | Continuous strong vibration |
 | 60 s+ (or overshoot), **only if "speaker last resort" is on** (off by default) | Phone speaker, `USAGE_ALARM` at 100% | Same |
 
+- **Phone in use** (screen on when the ring starts): a gentle start is easy to miss while scrolling, so
+  vibration is at full strength from the first second and the earbuds start at 70%, then 100% at 30 s.
+
 - Vibration uses alarm usage, so it gets through DND when alarms are allowed.
 - If the earbuds disconnect mid-ring, the tone stops at once (device callback, "becoming noisy",
   and an audio-routing listener), so it never leaks to the phone speaker. Vibration carries on.
@@ -333,7 +356,7 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 ### Notifications
 
 - **Trip progress** (silent): "On the bus → Smales Farm", "1.2 km · ~3 min · learned route", a progress
-  bar. On Android 16 it's a Live Update: promoted to the lock screen and status bar chip with the
+  bar, and a **Stop trip** action that needs the phone unlocked (so a pocket can't cancel your alarm). On Android 16 it's a Live Update: promoted to the lock screen and status bar chip with the
   distance (`POST_PROMOTED_NOTIFICATIONS`; Readiness shows whether it's allowed).
 - **At your stop**: the one-buzz nudge, "You're at Smales Farm, get off now".
 - **Wake-up alarm**: full-screen intent, colourised, with an **I'm awake** action.
@@ -349,9 +372,13 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 
 ### Screens (v0)
 
-- **Home**: list of Routes, Start per route (or the Quick Settings tile), the running trip (or an "interrupted" card if the app
+- **Home**: if full-screen alarms are off, a red card at the top ("The alarm can't turn your screen on")
+  with the button to allow them. Then the list of Routes, Start per route (or the Quick Settings tile), the running trip (or an "interrupted" card if the app
   was killed mid-trip, with the alarm time still set), Stop trip (confirmed), a "How was the ring
-  timing?" card after each trip (too early / good / too late per leg, written to the trip log).
+  timing?" card after each trip (too early / good / too late per leg, written to the trip log), only
+  for legs not already asked about. Optional: after "I'm awake" on a stop's own ring (Wake or
+  Failsafe, not simulated), a silent notification asks the same for that leg, with three buttons
+  (gone after 15 min). Readiness → "Ask after each ring" turns both off.
   Shows the build number and short SHA (from BuildConfig) at the bottom.
 - **Route editor**: name, plus 1–3 legs. Each leg has a name, where you get off (paste a point or a
   Maps link, or **Use my location** at the stop), and an alarm on/off toggle. **No times.** Shows what's
@@ -393,10 +420,13 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
   - On push to any branch, plus `workflow_dispatch`.
   - `build` job: per-branch concurrency (a new push cancels only that branch's older run).
     `actions/setup-java` (Temurin 21) and `gradle/actions/setup-gradle`;
-    `./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug`.
+    `./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug`; then screenshots
+    (`./gradlew :app:recordRoborazziDebug -Pscreenshots`, Robolectric; never blocks the APK), uploaded as an
+    artifact and to the release.
   - `publish` job: `concurrency: debug-release`, cancel in progress; `permissions: contents: write`;
     publishes with the `gh` CLI to the rolling prerelease `debug-latest`: create it if missing,
-    `gh release upload ... app-debug.apk --clobber`, and set the notes to branch, SHA and build number.
+    `gh release upload ... app-debug.apk --clobber` (plus the screenshot PNGs), and set the notes to
+    branch, SHA and build number.
 - Phone install URL: `https://github.com/tyforlife/wake-up-call/releases/download/debug-latest/app-debug.apk`
   (signed in to GitHub in the phone browser; allow "Install unknown apps" for that browser once).
   The newest push on any branch wins: check the build number on Home.
@@ -549,8 +579,10 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   battery), or at once for 30 new messages; final passes once the scheduled alarm is ≤ 5 min away, at
   most one a minute, so the briefing is fresh at the ring. Each pass re-briefs only chats with something
   new since their last line, so later passes are small and quick. Each model call times out at 60 s and
-  falls back to the digest for its conversations. No AI below 20% battery. The model stays loaded from
-  the first pass until the ring (then it is unloaded until the next pass needs it).
+  falls back to the digest for its conversations. No AI below 20% battery. **No model in memory at the
+  ring:** each pass (and each urgent check) loads the model and frees it when done, no pass starts
+  within 90 s of the scheduled alarm, and the ring cancels any model work and frees it. The ring shares
+  this process, and under memory pressure (you're using the phone) Android kills the biggest process.
   The lead is short (§3), so the final pass may not finish before the ring: W2 shows the newest
   finished batch plus digest lines for anything newer.
 - Urgent: only for important contacts the rider types in on Readiness (matched as whole words against

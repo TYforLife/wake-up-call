@@ -20,9 +20,10 @@ class TraceAnnotationTest {
             Trace.encode(TraceEvent(2_000, "note", msg = "anything")),
             Trace.encode(TraceEvent(3_000, "wys", msg = "chats=3 model=2 urgent=0 others=1 modelOn=true ready=false")),
             Trace.encode(TraceEvent(4_000, "rate", leg = 0, msg = "good")),
+            Trace.encode(TraceEvent(5_000, "ringd", msg = "screen=off fullScreen=allowed woke=true shown=900ms audio=earbuds ack=hold@12s")),
         )
         val out = Trace.anonymize(lines, 1.0, 1.0).map(Trace::decode)
-        assertEquals(listOf("start", "out", "wys", "rate"), out.map { it.k })
+        assertEquals(listOf("start", "out", "wys", "rate", "ringd"), out.map { it.k })
         assertTrue(out.first { it.k == "wys" }.msg!!.startsWith("chats=3"))
     }
 }

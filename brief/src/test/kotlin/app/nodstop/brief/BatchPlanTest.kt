@@ -62,4 +62,12 @@ class BatchPlanTest {
 
     @Test
     fun `the model call limit is 60 s`() = assertEquals(60_000L, BatchPlan.LLM_TIMEOUT_MS)
+
+    @Test
+    fun `no pass starts in the last 90 s before the alarm, so the model is out of memory at the ring`() {
+        val fin = BatchPlan.ran(s, t0, 5, final = true)
+        assertEquals(Decision(false), decide(t0 + 200_000, alarm = t0 + 200_000 + BatchPlan.QUIET_BEFORE_ALARM_MS - 1, count = 6, st = fin))
+        assertEquals(Decision(true, final = true), decide(t0 + 200_000, alarm = t0 + 200_000 + BatchPlan.QUIET_BEFORE_ALARM_MS, count = 6, st = fin))
+        assertEquals(Decision(false), decide(t0 + 200_000, alarm = t0 + 100_000, count = 6, st = fin)) // overdue
+    }
 }

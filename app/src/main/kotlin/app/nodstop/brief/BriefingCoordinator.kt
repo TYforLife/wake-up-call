@@ -71,6 +71,8 @@ class BriefingCoordinator(
                     if (urgent != null && store.markUrgent(generation, urgent.convKey)) onUrgent()
                 } catch (_: Throwable) {
                     // Not urgent as far as we know: the stop alarm is unaffected either way.
+                } finally {
+                    release(l)
                 }
             }
             return
@@ -92,13 +94,18 @@ class BriefingCoordinator(
                 if (lines != null) store.mergeBriefed(generation, lines)
             } catch (_: Throwable) {
                 // Any failure: the digest stays (W2).
+            } finally {
+                // Never keep a GB-sized model in this process between passes: the ring shares it, and
+                // under memory pressure (you're using the phone) Android would kill the biggest process.
+                release(l)
             }
         }
     }
 
-    /** The alarm rang: free the model's memory until the next pass needs it. */
+    /** The alarm rang: stop any model work and free its memory now; the alarm screen shows what's ready. */
     fun onRang() {
-        if (job?.isActive != true) unload()
+        job?.cancel()
+        unload()
     }
 
     fun stop() {
@@ -107,9 +114,18 @@ class BriefingCoordinator(
         unload()
     }
 
+    @Synchronized
     private fun llmFor(model: app.nodstop.model.ModelManager.Model): LiteRtLlm =
         llm ?: LiteRtLlm(model.path, ctx.cacheDir.absolutePath, App.instance.settings.let { it.useGpu.value && it.gpuVerified }).also { llm = it }
 
+    /** Frees [l] once its job is done (a newer job's model is left alone). */
+    @Synchronized
+    private fun release(l: LiteRtLlm) {
+        l.close()
+        if (llm === l) llm = null
+    }
+
+    @Synchronized
     private fun unload() {
         llm?.close()
         llm = null

@@ -10,6 +10,8 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import app.nodstop.alarm.AlarmActivity
 import app.nodstop.engine.AlarmReason
+import app.nodstop.engine.LatLng
+import app.nodstop.trip.RateReceiver
 import app.nodstop.engine.Phase
 import app.nodstop.trip.TripService
 import app.nodstop.ui.MainActivity
@@ -23,9 +25,12 @@ object Notifications {
     const val ID_TRIP = 1
     const val ID_RING = 2
     const val ID_AT_STOP = 3
+    const val ID_RATE = 4
 
     /** Android 16 Live Updates: promoted to the lock screen and status bar. */
     private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
+
+    const val TRIP_STOP_LABEL = "Stop trip"
 
     fun createChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -92,6 +97,14 @@ object Notifications {
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_NAVIGATION)
             .setContentIntent(openApp(ctx))
+            // The "island" (PLAN U2): stop the trip from the notification or the status-bar chip. Needs the
+            // phone unlocked, so a pocket or a stranger can't cancel your alarm.
+            .addAction(
+                Notification.Action.Builder(
+                    Icon.createWithResource(ctx, R.drawable.ic_tile), TRIP_STOP_LABEL,
+                    PendingIntent.getService(ctx, 21, TripService.stopIntent(ctx), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+                ).setAuthenticationRequired(true).build(),
+            )
         if (Build.VERSION.SDK_INT >= 36) {
             d?.let { b.setShortCriticalText(TripService.distance(it)) }
             val style = Notification.ProgressStyle()
@@ -117,6 +130,39 @@ object Notifications {
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_AT_STOP, n) }
     }
 
+    /** After "I'm awake" on a stop's ring: optional, silent, gone after 15 min (PLAN U3 feedback). */
+    fun rateLeg(ctx: Context, traceFile: String, leg: Int, legName: String?, dest: LatLng?) {
+        fun action(label: String, value: String, code: Int): Notification.Action {
+            val i = Intent(ctx, RateReceiver::class.java).setAction(RateReceiver.ACTION_RATE)
+                .putExtra(RateReceiver.EXTRA_VALUE, value).putExtra(RateReceiver.EXTRA_FILE, traceFile)
+                .putExtra(RateReceiver.EXTRA_LEG, leg)
+            if (dest != null) i.putExtra(RateReceiver.EXTRA_LAT, dest.lat).putExtra(RateReceiver.EXTRA_LNG, dest.lng)
+            val pi = PendingIntent.getBroadcast(ctx, 4200 + code, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            return Notification.Action.Builder(null as Icon?, label, pi).build()
+        }
+        val n = Notification.Builder(ctx, CH_TRIP)
+            .setSmallIcon(R.drawable.ic_tile)
+            .setContentTitle(RATE_TITLE)
+            .setContentText(legName?.let { "$it · optional, tunes this stop" } ?: "Optional, tunes this stop")
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setTimeoutAfter(15 * 60_000L)
+            .addAction(action("Too early", "too_early", 0))
+            .addAction(action("Good", "good", 1))
+            .addAction(action("Too late", "too_late", 2))
+            .build()
+        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_RATE, n) }
+    }
+
+    const val RATE_TITLE = "How was that ring's timing?"
+
+    /** The ring notification's title (also what the heads-up shows while you're using the phone). */
+    fun ringTitle(reason: AlarmReason?): String = when (reason) {
+        AlarmReason.OVERSHOOT -> "You passed your stop!"
+        AlarmReason.URGENT -> "Urgent message"
+        else -> "Wake up! Your stop is close"
+    }
+
     fun reasonText(reason: AlarmReason?): String? = when (reason) {
         AlarmReason.NO_GPS -> "No GPS yet: the app can't see where you are. Stay awake."
         AlarmReason.FAILSAFE -> "GPS stopped: your stop may be close. Check where you are."
@@ -137,11 +183,7 @@ object Notifications {
             Intent(ctx, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(AlarmActivity.EXTRA_ACK, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = when (reason) {
-            AlarmReason.OVERSHOOT -> "You passed your stop!"
-            AlarmReason.URGENT -> "Urgent message"
-            else -> "Wake up! Your stop is close"
-        }
+        val title = ringTitle(reason)
         return Notification.Builder(ctx, CH_ALARM)
             .setSmallIcon(R.drawable.ic_tile)
             .setContentTitle(title)

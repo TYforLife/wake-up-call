@@ -13,10 +13,16 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.util.Log
+import app.nodstop.data.Route
+import app.nodstop.engine.LatLng
+import app.nodstop.engine.CoordParser
 import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
 import app.nodstop.brief.BriefingCoordinator
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
 import app.nodstop.brief.Digests
 import app.nodstop.brief.PanelLines
 import app.nodstop.brief.RingStats
@@ -30,7 +36,6 @@ import app.nodstop.engine.Engine
 import app.nodstop.engine.EngineState
 import app.nodstop.engine.Fix
 import app.nodstop.engine.Input
-import app.nodstop.engine.LatLng
 import app.nodstop.engine.Leg
 import app.nodstop.engine.Output
 import app.nodstop.engine.Phase
@@ -73,6 +78,8 @@ class TripService : Service() {
     private var lastReason: AlarmReason? = null
     private val handler = Handler(Looper.getMainLooper())
     private var briefing: BriefingCoordinator? = null
+    private val routesScope = MainScope()
+    private var routesJob: Job? = null
 
     private val tick = object : Runnable {
         override fun run() {
@@ -89,6 +96,8 @@ class TripService : Service() {
         super.onCreate()
         instance = this
         lastScheduled = app.scheduler.scheduledAtMs
+        // A wake circle changed on the map applies to this trip at once (PLAN U3).
+        routesJob = routesScope.launch { app.routes.routes.collect { onRoutesChanged(it) } }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -128,6 +137,8 @@ class TripService : Service() {
                 val old = app.trips.load()
                 val plan = Resume.plan(old, now)
                 if (old == null || plan == null) {
+                    // Nothing left to protect: drop the cold ring's re-ring safety net too.
+                    if (trip == null) app.scheduler.cancel()
                     app.trips.clear()
                     if (trip == null) shutdown()
                     return START_NOT_STICKY
@@ -259,8 +270,8 @@ class TripService : Service() {
     }
 
     private fun offerRating(t: ActiveTrip) {
-        if (t.simulated) return
-        val rated = t.legs.withIndex().filter { it.value.alarmEnabled }
+        if (t.simulated || !app.settings.askTiming.value) return
+        val rated = t.legs.withIndex().filter { it.value.alarmEnabled && it.index !in askedLegs }
         if (rated.isNotEmpty()) app.settings.setPendingRating(
             PendingRating(t.traceFile, rated.map { it.index to it.value.name }, System.currentTimeMillis(), rated.map { it.value.dest }),
         )
@@ -295,14 +306,61 @@ class TripService : Service() {
         val lines = PanelLines.combine(digest, snap.briefed, snap.urgent)
         app.traces.wys(now, RingStats.of(lines, digest.otherNotifications, app.models.current() != null).encode())
     }
-    fun ack() = input(Input.Ack(System.currentTimeMillis()))
+    fun ack() {
+        val t = trip
+        val ringing = state.phase == Phase.RINGING
+        val reason = state.ringReason
+        val leg = t?.let { it.legOffset + state.legIndex }
+        input(Input.Ack(System.currentTimeMillis()))
+        // A stop's own ring (not a safety or message ring): ask, optionally, how its timing was.
+        if (t != null && leg != null && ringing && !t.simulated && app.settings.askTiming.value &&
+            (reason == AlarmReason.WAKE || reason == AlarmReason.FAILSAFE)
+        ) {
+            val l = t.legs.getOrNull(leg)
+            if (l != null && l.alarmEnabled) {
+                askedLegs += leg
+                Notifications.rateLeg(this, t.traceFile, leg, l.name, l.dest)
+            }
+        }
+    }
+
+    /** Legs already asked about by notification this trip: the end-of-trip card skips them. */
+    private val askedLegs = HashSet<Int>()
     fun skipLeg() = input(Input.SkipLeg(System.currentTimeMillis()))
 
     fun stopTrip() {
         if (trip != null) input(Input.Stop(System.currentTimeMillis())) else shutdown()
     }
 
+    /** Any saved leg with this trip's stop: take its wake circle (works for a simulated trip's stops too). */
+    private fun onRoutesChanged(routes: List<Route>) {
+        val t = trip ?: return
+        val own = routes.firstOrNull { it.id == t.routeId }
+        val byStop = HashMap<LatLng, Double?>()
+        for (r in routes.filter { it !== own } + listOfNotNull(own)) {
+            r.legs.forEach { d -> CoordParser.parse(d.coords)?.let { p -> byStop[p] = d.wakeRadiusM } }
+        }
+        val merged = t.legs.map { l -> if (byStop.containsKey(l.dest)) l.copy(wakeRadiusM = byStop[l.dest]) else l }
+        applyLegs(merged)
+    }
+
+    /** A simulated trip's stop isn't in any saved route: the map sets its circle here (not saved). */
+    fun setWakeRadius(stop: LatLng, radiusM: Double?) {
+        val t = trip ?: return
+        applyLegs(t.legs.map { if (it.dest == stop) it.copy(wakeRadiusM = radiusM) else it })
+    }
+
+    private fun applyLegs(merged: List<Leg>) {
+        val t = trip ?: return
+        if (merged == t.legs) return
+        val updated = t.copy(legs = merged)
+        trip = updated
+        app.trips.save(updated)
+        input(Input.UpdateLegs(System.currentTimeMillis(), merged.drop(t.legOffset)))
+    }
+
     override fun onDestroy() {
+        routesJob?.cancel()
         // Do NOT cancel the alarm here: if the system destroys us, the scheduled alarm is the dead-man's switch.
         briefing?.stop(); briefing = null
         MessageStore.instance.stop()
@@ -345,6 +403,9 @@ class TripService : Service() {
         fun resumeAfterColdRing(ctx: Context) = send(ctx, Intent(ctx, TripService::class.java).setAction(ACTION_RESUME))
 
         /** Stop the trip, including one whose process was killed (its alarm is still scheduled). */
+        /** Stops the trip (the notification's Stop trip action). */
+        fun stopIntent(ctx: Context): Intent = Intent(ctx, TripService::class.java).setAction(ACTION_STOP)
+
         fun stop(ctx: Context) {
             val svc = instance
             if (svc != null) svc.stopTrip()

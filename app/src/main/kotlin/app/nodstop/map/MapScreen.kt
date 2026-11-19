@@ -32,10 +32,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlin.math.roundToInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import app.nodstop.engine.LatLng
+import app.nodstop.engine.CoordParser
 import app.nodstop.App
 import app.nodstop.data.LegDraft
 import app.nodstop.data.Route
-import app.nodstop.engine.LatLng
 import app.nodstop.trip.FusedLocationSource
 import app.nodstop.trip.TripService
 import app.nodstop.ui.Readiness
@@ -130,7 +131,7 @@ fun MapScreen(go: (Screen) -> Unit) {
             MapLibreView(layers, me, kind, follow, onUserDrag = { policy.onUserDrag(System.currentTimeMillis()); dragTick++ },
                 onPinTap = { routeId, leg ->
                     selected = routeId to leg
-                    draft = routes.firstOrNull { it.id == routeId }?.legs?.getOrNull(leg)?.wakeRadiusM
+                    draft = allRoutes.firstOrNull { it.id == routeId }?.legs?.getOrNull(leg)?.wakeRadiusM
                 })
             Row(
                 Modifier.align(Alignment.BottomEnd).padding(12.dp),
@@ -142,29 +143,42 @@ fun MapScreen(go: (Screen) -> Unit) {
             }
         }
         val sel = selected
-        val selRoute = sel?.let { s -> routes.firstOrNull { it.id == s.first } }
+        // A simulated trip's stops aren't saved routes: they're editable too, applied to the running trip only.
+        val selRoute = sel?.let { s -> allRoutes.firstOrNull { it.id == s.first } }
         val selLeg = sel?.let { s -> selRoute?.legs?.getOrNull(s.second) }
         if (sel != null && selRoute != null && selLeg != null) {
             val pin = layers.pins.firstOrNull { it.routeId == sel.first && it.legIndex == sel.second }
             val d = draft
-            Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                Text("Wake zone · ${selLeg.name}", style = MaterialTheme.typography.titleSmall)
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Wake zone · ${selLeg.name}", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    if (d == null) "Auto: about ${pin?.zoneM?.toInt() ?: 0} m (from past rides, or lead × 25 km/h)"
-                    else "Yours: ${d.toInt()} m. Rings when the bus enters it, or earlier by the usual timing.",
+                    if (d == null) "Auto · about ${pin?.zoneM?.toInt() ?: 0} m" else ZoneScale.label(d),
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Text(
+                    if (d == null) "From past rides (or your lead × 25 km/h). Pick a size to set your own."
+                    else "Rings as soon as the bus enters it, or earlier by the usual timing. Applies to a trip that's running too.",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    androidx.compose.material3.FilterChip(selected = d == null, onClick = { draft = null }, label = { Text("Auto") })
+                    for (p in ZoneScale.PRESETS) {
+                        androidx.compose.material3.FilterChip(selected = d == p, onClick = { draft = p }, label = { Text(ZoneScale.label(p)) })
+                    }
+                }
                 androidx.compose.material3.Slider(
-                    value = (d ?: 0.0).toFloat(),
-                    onValueChange = { v -> draft = if (v < 100f) null else (v / 50f).roundToInt() * 50.0 },
-                    valueRange = 0f..2_000f,
+                    value = d?.let { ZoneScale.toPos(it) } ?: 0f,
+                    onValueChange = { v -> draft = ZoneScale.toMeters(v) },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     androidx.compose.material3.Button(onClick = {
-                        app.routes.upsert(selRoute.copy(legs = selRoute.legs.mapIndexed { i, l -> if (i == sel.second) l.copy(wakeRadiusM = draft) else l }))
+                        if (routes.any { it.id == selRoute.id }) {
+                            app.routes.upsert(selRoute.copy(legs = selRoute.legs.mapIndexed { i, l -> if (i == sel.second) l.copy(wakeRadiusM = draft) else l }))
+                        } else {
+                            CoordParser.parse(selLeg.coords)?.let { p -> TripService.instance?.setWakeRadius(p, draft) }
+                        }
                         selected = null
                     }) { Text("Save") }
-                    androidx.compose.material3.TextButton(onClick = { draft = null }) { Text("Auto") }
                     androidx.compose.material3.TextButton(onClick = { selected = null }) { Text("Cancel") }
                 }
             }
