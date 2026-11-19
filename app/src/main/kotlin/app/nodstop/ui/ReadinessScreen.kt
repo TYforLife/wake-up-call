@@ -184,6 +184,20 @@ fun ReadinessScreen(resumeTick: Int, go: (Screen) -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        Section("Ring timing") {
+            val ask by App.instance.settings.askTiming.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Ask after each ring", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "After \"I'm awake\", a silent notification asks: too early, good or too late? Answering is " +
+                            "optional; each answer moves that stop's ring 10–15 s next time.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = ask, onCheckedChange = { App.instance.settings.setAskTiming(it) })
+            }
+        }
         Section("While you slept (experimental)") {
             val settings = App.instance.settings
             val vips by settings.vipNames.collectAsState()

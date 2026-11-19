@@ -77,6 +77,7 @@ data class EngineState(
  *   failsafeAt = fixTime + max(DEADMAN_MIN, straight / V_MAX - LEAD)
  */
 class Engine(val cfg: Config = Config()) {
+    private val reringMs = (cfg.reringS * 1000).roundToLong()
 
     private class Edges {
         var overshoot = false
@@ -100,9 +101,13 @@ class Engine(val cfg: Config = Config()) {
             is Input.Tick -> s
             is Input.Urgent -> onUrgent(s, input.tMs)
             is Input.UpdateLegs -> updateLegs(s, input)
+            // While ringing, the alarm re-arms itself RERING ahead (DESIGN §2): if anything kills the ring before
+            // "I'm awake", the system rings again. Each re-ring pushes it on; the ack replaces it.
             is Input.Rang -> when (s.phase) {
                 Phase.WAITING, Phase.RIDING, Phase.AWAKE ->
-                    s.copy(phase = Phase.RINGING, resumePhase = s.phase, ringReason = s.alarmReason, alarmAtMs = null, alarmReason = null)
+                    s.copy(phase = Phase.RINGING, resumePhase = s.phase, ringReason = s.alarmReason,
+                        alarmAtMs = input.tMs + reringMs, alarmReason = s.alarmReason)
+                Phase.RINGING -> s.copy(alarmAtMs = input.tMs + reringMs, alarmReason = s.ringReason)
                 else -> s
             }
             is Input.Ack -> if (s.phase == Phase.RINGING) onAck(s, input.tMs) else s

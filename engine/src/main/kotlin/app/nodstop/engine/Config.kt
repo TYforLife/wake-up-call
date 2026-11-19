@@ -53,6 +53,8 @@ data class Config(
     val nudgeStoppedM: Double = 200.0,
     /** After "I'm awake", alarms from fixes older than the ack can't ring for this long (no instant re-ring). */
     val rearmS: Double = 120.0,
+    /** While ringing, the alarm stays scheduled this far ahead, so a killed ring rings again. */
+    val reringS: Double = 60.0,
     /** An ack only counts as "awake for this stop" within this ETA; earlier rings keep tracking. */
     val ackCountsWithinS: Double = 180.0,
     /** While You Slept: urgent-message rings per trip, at most (DESIGN §10). */

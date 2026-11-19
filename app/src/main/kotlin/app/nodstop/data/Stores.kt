@@ -172,7 +172,14 @@ data class PendingRating(
     val endedMs: Long,
     /** Each rated leg's stop (same order as [legs]), so a rating can tune that stop's lead. */
     val dests: List<LatLng> = emptyList(),
-)
+) {
+    /** Without [leg] (answered elsewhere); null when nothing is left to ask. */
+    fun without(leg: Int): PendingRating? {
+        val keep = legs.indices.filter { legs[it].first != leg }
+        if (keep.isEmpty()) return null
+        return copy(legs = keep.map { legs[it] }, dests = keep.mapNotNull { dests.getOrNull(it) }.takeIf { it.size == keep.size } ?: emptyList())
+    }
+}
 
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -252,6 +259,12 @@ class Settings(context: Context) {
 
     fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
 
+    private val _askTiming = MutableStateFlow(prefs.getBoolean(KEY_ASK_TIMING, true))
+    /** After each leg's ring, ask (one silent notification) whether it was too early, good or too late. */
+    val askTiming: StateFlow<Boolean> = _askTiming
+
+    fun setAskTiming(on: Boolean) { prefs.edit().putBoolean(KEY_ASK_TIMING, on).apply(); _askTiming.value = on }
+
     private val _lastRing = MutableStateFlow(prefs.getString(KEY_LAST_RING, null))
     /** How the last ring reached you, in words (PLAN U0), for Readiness. */
     val lastRing: StateFlow<String?> = _lastRing
@@ -260,6 +273,7 @@ class Settings(context: Context) {
 
     private companion object {
         const val KEY_LAST_RING = "last_ring"
+        const val KEY_ASK_TIMING = "ask_ring_timing"
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
         const val KEY_GPU = "wys_use_gpu"

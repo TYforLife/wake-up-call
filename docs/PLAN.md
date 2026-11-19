@@ -258,6 +258,12 @@ Prerequisite: none beyond a green `main`.
 - [x] Slider is non-linear: 50 m–2 km, most of the track under 1 km (e.g. square-root scale), with quick presets (Auto, 150, 250, 400, 700 m) and the value in big type; the circle follows live.
 - [x] After "I'm awake", entering this stop's circle (or 150 m if none) at walking speed for 10 s ends the leg and moves to the next one; "rode past" protection keeps watching the previous stop for 2 minutes. Engine tests: two-leg and three-leg routes, early ack, ack inside the circle, still on the bus inside the circle.
 
+### U2b Missed rings (owner report: "4 failed alarms today, even when I'm on my phone")
+- [x] Re-ring until acknowledged: while ringing, the one alarm stays scheduled 60 s ahead (engine `RERING`, and `RingService` after a cold start), so a ring that dies rings again. Engine tests.
+- [x] No model in memory at the ring: every pass loads and frees the model, no pass starts within 90 s of the alarm, the ring cancels model work. `BatchPlan` test.
+- [x] Phone in use at the ring: full-strength vibration and earbuds at 70% from the first second (`RingPlan`, tested never weaker than the normal ladder).
+- [x] Optional per-leg timing rating: a silent notification after "I'm awake" (Too early / Good / Too late), the end-of-trip card only asks about legs not already asked, and Readiness can turn both off.
+
 **Test on phone (Run 4):** couch test of the lock-screen ring (screen must turn on), a ring while using
 another app (banner with I'm awake), the island with Stop trip, changing the circle during a simulated
 trip (the next ring respects it), an update over an existing install (routes and learned rides kept),

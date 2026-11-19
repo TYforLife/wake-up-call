@@ -137,6 +137,8 @@ class TripService : Service() {
                 val old = app.trips.load()
                 val plan = Resume.plan(old, now)
                 if (old == null || plan == null) {
+                    // Nothing left to protect: drop the cold ring's re-ring safety net too.
+                    if (trip == null) app.scheduler.cancel()
                     app.trips.clear()
                     if (trip == null) shutdown()
                     return START_NOT_STICKY
@@ -268,8 +270,8 @@ class TripService : Service() {
     }
 
     private fun offerRating(t: ActiveTrip) {
-        if (t.simulated) return
-        val rated = t.legs.withIndex().filter { it.value.alarmEnabled }
+        if (t.simulated || !app.settings.askTiming.value) return
+        val rated = t.legs.withIndex().filter { it.value.alarmEnabled && it.index !in askedLegs }
         if (rated.isNotEmpty()) app.settings.setPendingRating(
             PendingRating(t.traceFile, rated.map { it.index to it.value.name }, System.currentTimeMillis(), rated.map { it.value.dest }),
         )
@@ -304,7 +306,26 @@ class TripService : Service() {
         val lines = PanelLines.combine(digest, snap.briefed, snap.urgent)
         app.traces.wys(now, RingStats.of(lines, digest.otherNotifications, app.models.current() != null).encode())
     }
-    fun ack() = input(Input.Ack(System.currentTimeMillis()))
+    fun ack() {
+        val t = trip
+        val ringing = state.phase == Phase.RINGING
+        val reason = state.ringReason
+        val leg = t?.let { it.legOffset + state.legIndex }
+        input(Input.Ack(System.currentTimeMillis()))
+        // A stop's own ring (not a safety or message ring): ask, optionally, how its timing was.
+        if (t != null && leg != null && ringing && !t.simulated && app.settings.askTiming.value &&
+            (reason == AlarmReason.WAKE || reason == AlarmReason.FAILSAFE)
+        ) {
+            val l = t.legs.getOrNull(leg)
+            if (l != null && l.alarmEnabled) {
+                askedLegs += leg
+                Notifications.rateLeg(this, t.traceFile, leg, l.name, l.dest)
+            }
+        }
+    }
+
+    /** Legs already asked about by notification this trip: the end-of-trip card skips them. */
+    private val askedLegs = HashSet<Int>()
     fun skipLeg() = input(Input.SkipLeg(System.currentTimeMillis()))
 
     fun stopTrip() {

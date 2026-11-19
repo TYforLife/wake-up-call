@@ -27,6 +27,7 @@ data class SettingsSnapshot(
     val teaTone: Boolean = false,
     val dndDuringTrips: Boolean = false,
     val useGpu: Boolean = false,
+    val askTiming: Boolean = true,
 )
 
 object DataExport {
@@ -43,7 +44,7 @@ object DataExport {
             exportedAtMs = nowMs,
             routes = app.routes.routes.value,
             learned = app.learned.all.value,
-            settings = SettingsSnapshot(s.speakerLastResort.value, s.vipNames.value, s.teaTone.value, s.dndDuringTrips.value, s.useGpu.value),
+            settings = SettingsSnapshot(s.speakerLastResort.value, s.vipNames.value, s.teaTone.value, s.dndDuringTrips.value, s.useGpu.value, s.askTiming.value),
         )
     }
 
@@ -56,6 +57,7 @@ object DataExport {
             setSpeakerLastResort(b.settings.speakerLastResort)
             setVipNames(b.settings.vipNames)
             setTeaTone(b.settings.teaTone)
+            setAskTiming(b.settings.askTiming)
             setDndDuringTrips(b.settings.dndDuringTrips)
             setUseGpu(b.settings.useGpu)
         }

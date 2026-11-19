@@ -24,4 +24,14 @@ class RingPlanTest {
 
     @Test fun `overshoot jumps straight to maximum`() =
         assertEquals(RingStep(AudioRoute.EARBUDS, 100, Buzz.MAX), RingPlan.step(0, true, false, true))
+
+    @Test fun `phone in use starts strong, and never weaker than the normal ladder`() {
+        assertEquals(RingStep(AudioRoute.EARBUDS, 70, Buzz.MAX), RingPlan.step(0, true, false, false, inUse = true))
+        assertEquals(RingStep(AudioRoute.NONE, 0, Buzz.MAX), RingPlan.step(0, false, false, false, inUse = true))
+        for (t in longArrayOf(0, 14_999, 15_000, 29_999, 30_000, 120_000)) for (hs in listOf(true, false)) {
+            val normal = RingPlan.step(t, hs, false, false)
+            val strong = RingPlan.step(t, hs, false, false, inUse = true)
+            assert(strong.volumePct >= normal.volumePct && strong.buzz >= normal.buzz)
+        }
+    }
 }

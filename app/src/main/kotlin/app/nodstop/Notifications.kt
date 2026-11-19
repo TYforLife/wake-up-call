@@ -10,6 +10,8 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import app.nodstop.alarm.AlarmActivity
 import app.nodstop.engine.AlarmReason
+import app.nodstop.engine.LatLng
+import app.nodstop.trip.RateReceiver
 import app.nodstop.engine.Phase
 import app.nodstop.trip.TripService
 import app.nodstop.ui.MainActivity
@@ -23,6 +25,7 @@ object Notifications {
     const val ID_TRIP = 1
     const val ID_RING = 2
     const val ID_AT_STOP = 3
+    const val ID_RATE = 4
 
     /** Android 16 Live Updates: promoted to the lock screen and status bar. */
     private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
@@ -126,6 +129,32 @@ object Notifications {
             .build()
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_AT_STOP, n) }
     }
+
+    /** After "I'm awake" on a stop's ring: optional, silent, gone after 15 min (PLAN U3 feedback). */
+    fun rateLeg(ctx: Context, traceFile: String, leg: Int, legName: String?, dest: LatLng?) {
+        fun action(label: String, value: String, code: Int): Notification.Action {
+            val i = Intent(ctx, RateReceiver::class.java).setAction(RateReceiver.ACTION_RATE)
+                .putExtra(RateReceiver.EXTRA_VALUE, value).putExtra(RateReceiver.EXTRA_FILE, traceFile)
+                .putExtra(RateReceiver.EXTRA_LEG, leg)
+            if (dest != null) i.putExtra(RateReceiver.EXTRA_LAT, dest.lat).putExtra(RateReceiver.EXTRA_LNG, dest.lng)
+            val pi = PendingIntent.getBroadcast(ctx, 4200 + code, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            return Notification.Action.Builder(null as Icon?, label, pi).build()
+        }
+        val n = Notification.Builder(ctx, CH_TRIP)
+            .setSmallIcon(R.drawable.ic_tile)
+            .setContentTitle(RATE_TITLE)
+            .setContentText(legName?.let { "$it · optional, tunes this stop" } ?: "Optional, tunes this stop")
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setTimeoutAfter(15 * 60_000L)
+            .addAction(action("Too early", "too_early", 0))
+            .addAction(action("Good", "good", 1))
+            .addAction(action("Too late", "too_late", 2))
+            .build()
+        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_RATE, n) }
+    }
+
+    const val RATE_TITLE = "How was that ring's timing?"
 
     /** The ring notification's title (also what the heads-up shows while you're using the phone). */
     fun ringTitle(reason: AlarmReason?): String = when (reason) {

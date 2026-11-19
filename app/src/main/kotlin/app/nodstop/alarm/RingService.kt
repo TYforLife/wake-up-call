@@ -29,6 +29,7 @@ import app.nodstop.Notifications
 import app.nodstop.engine.AlarmReason
 import app.nodstop.engine.AudioRoute
 import app.nodstop.engine.Buzz
+import app.nodstop.engine.Config
 import app.nodstop.engine.RingPlan
 import app.nodstop.engine.RingStep
 import app.nodstop.trip.TripService
@@ -70,6 +71,8 @@ class RingService : Service() {
     private var legName: String? = null
     private var reason: AlarmReason? = null
     private var test = false
+    /** The phone was in use when the ring started: start strong (RingPlan). */
+    private var inUse = false
 
     private val loop = object : Runnable {
         override fun run() {
@@ -130,6 +133,12 @@ class RingService : Service() {
             }
         }
         if (!ringing) begin()
+        // Re-ring safety net (DESIGN §2): with the trip service alive, the engine keeps the alarm a minute
+        // ahead while ringing. After a cold start there is no engine, so keep it here: if this ring dies
+        // before "I'm awake", the system rings again.
+        if (!test && TripService.instance == null) {
+            App.instance.scheduler.set(System.currentTimeMillis() + (Config().reringS * 1000).toLong())
+        }
         // Best effort: also open the alarm screen directly (the full-screen intent covers the locked case).
         runCatching { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         return START_STICKY
@@ -144,6 +153,7 @@ class RingService : Service() {
         // Turn the screen on (PLAN U2): the full-screen alarm shows over the lock screen once it's on. The
         // full-screen intent should do this by itself; this covers phones where it doesn't.
         val screenWasOn = pm.isInteractive
+        inUse = screenWasOn
         if (!screenWasOn) {
             @Suppress("DEPRECATION")
             screenLock = runCatching {
@@ -176,7 +186,7 @@ class RingService : Service() {
         if (!ringing) return
         val elapsed = SystemClock.elapsedRealtime() - startedAt
         val hs = headset()
-        val step = RingPlan.step(elapsed, hs != null, App.instance.settings.speakerLastResort.value, overshoot)
+        val step = RingPlan.step(elapsed, hs != null, App.instance.settings.speakerLastResort.value, overshoot, inUse)
         when (step.route) {
             AudioRoute.EARBUDS -> {
                 alarmTrack?.pause()

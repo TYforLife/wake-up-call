@@ -71,6 +71,13 @@ Before the first fix of a trip, the phone's **last known position** (up to 3 min
 failsafe from its own time, so a trip that never gets a fix is still covered. With no position at
 all, a **No GPS** alarm rings 3 min in: you're unprotected, stay awake.
 
+**While it rings, the alarm stays scheduled.** Each ring re-arms the one system alarm `RERING` (60 s)
+ahead, with the same reason, and each re-ring pushes it on again; "I'm awake" replaces it and Stop
+trip cancels it. So if anything kills the ring before the ack (the process is killed for memory, the
+service is stopped), the system rings again within a minute. After a cold start (no trip service),
+`RingService` keeps that re-ring itself; if the trip turns out to be over when "I'm awake" is held,
+the cold path cancels it.
+
 ### 2.1 Phases of a leg (no timers)
 
 | Phase | Meaning | Alarm protects |
@@ -215,6 +222,7 @@ trips break the bound without the failsafe, or without `V_FLOOR`.
 | `ACK_COUNTS_WITHIN` | 180 s | Earlier acks keep tracking the stop. |
 | Quick get-off | circle or 150 m (≤ 500 m), < 8 km/h, 10 s | After "I'm awake"; then the old stop is watched 120 s. |
 | `REARM` | 120 s | After an ack, stale fixes can't ring sooner. |
+| `RERING` | 60 s | While ringing, the alarm stays scheduled this far ahead (§2). |
 | Learning | 60 m match, × 0.95, 25 m trail, 5 tracks, 300 m max stop shift | §2.3 |
 
 ---
@@ -334,6 +342,9 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 | 30 s+ (or overshoot) | Earbuds at 100%, continuous strong vibration | Continuous strong vibration |
 | 60 s+ (or overshoot), **only if "speaker last resort" is on** (off by default) | Phone speaker, `USAGE_ALARM` at 100% | Same |
 
+- **Phone in use** (screen on when the ring starts): a gentle start is easy to miss while scrolling, so
+  vibration is at full strength from the first second and the earbuds start at 70%, then 100% at 30 s.
+
 - Vibration uses alarm usage, so it gets through DND when alarms are allowed.
 - If the earbuds disconnect mid-ring, the tone stops at once (device callback, "becoming noisy",
   and an audio-routing listener), so it never leaks to the phone speaker. Vibration carries on.
@@ -364,7 +375,10 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 - **Home**: if full-screen alarms are off, a red card at the top ("The alarm can't turn your screen on")
   with the button to allow them. Then the list of Routes, Start per route (or the Quick Settings tile), the running trip (or an "interrupted" card if the app
   was killed mid-trip, with the alarm time still set), Stop trip (confirmed), a "How was the ring
-  timing?" card after each trip (too early / good / too late per leg, written to the trip log).
+  timing?" card after each trip (too early / good / too late per leg, written to the trip log), only
+  for legs not already asked about. Optional: after "I'm awake" on a stop's own ring (Wake or
+  Failsafe, not simulated), a silent notification asks the same for that leg, with three buttons
+  (gone after 15 min). Readiness → "Ask after each ring" turns both off.
   Shows the build number and short SHA (from BuildConfig) at the bottom.
 - **Route editor**: name, plus 1–3 legs. Each leg has a name, where you get off (paste a point or a
   Maps link, or **Use my location** at the stop), and an alarm on/off toggle. **No times.** Shows what's
@@ -565,8 +579,10 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   battery), or at once for 30 new messages; final passes once the scheduled alarm is ≤ 5 min away, at
   most one a minute, so the briefing is fresh at the ring. Each pass re-briefs only chats with something
   new since their last line, so later passes are small and quick. Each model call times out at 60 s and
-  falls back to the digest for its conversations. No AI below 20% battery. The model stays loaded from
-  the first pass until the ring (then it is unloaded until the next pass needs it).
+  falls back to the digest for its conversations. No AI below 20% battery. **No model in memory at the
+  ring:** each pass (and each urgent check) loads the model and frees it when done, no pass starts
+  within 90 s of the scheduled alarm, and the ring cancels any model work and frees it. The ring shares
+  this process, and under memory pressure (you're using the phone) Android kills the biggest process.
   The lead is short (§3), so the final pass may not finish before the ring: W2 shows the newest
   finished batch plus digest lines for anything newer.
 - Urgent: only for important contacts the rider types in on Readiness (matched as whole words against
