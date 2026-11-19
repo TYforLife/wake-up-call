@@ -286,6 +286,10 @@ class Settings(context: Context) {
 
     fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
 
+    /** The first trip's start asked about a quiet trip (once, PLAN R2). */
+    val quietOffered: Boolean get() = prefs.getBoolean(KEY_QUIET_OFFERED, false)
+    fun setQuietOffered() { prefs.edit().putBoolean(KEY_QUIET_OFFERED, true).apply() }
+
     private val _askTiming = MutableStateFlow(prefs.getBoolean(KEY_ASK_TIMING, true))
     /** After each leg's ring, ask (one silent notification) whether it was too early, good or too late. */
     val askTiming: StateFlow<Boolean> = _askTiming
@@ -301,6 +305,7 @@ class Settings(context: Context) {
     private companion object {
         const val KEY_LAST_RING = "last_ring"
         const val KEY_ASK_TIMING = "ask_ring_timing"
+        const val KEY_QUIET_OFFERED = "quiet_trip_offered"
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
         const val KEY_GPU = "wys_use_gpu"

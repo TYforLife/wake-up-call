@@ -77,7 +77,14 @@ object Notifications {
             .build()
 
     /** The glanceable trip notification: phase, distance, progress bar. */
-    fun trip(ctx: Context, ui: TripService.TripUi): Notification {
+    /** The trip notification's quiet-trip note (PLAN R2): null when off; the count when known. */
+    fun quietLine(on: Boolean, held: Int?): String? = when {
+        !on -> null
+        held != null && held > 0 -> "Quiet trip: $held held"
+        else -> "Quiet trip"
+    }
+
+    fun trip(ctx: Context, ui: TripService.TripUi, quiet: String? = null): Notification {
         val s = ui.status
         val leg = "Leg ${ui.legIndex + 1}/${ui.legNames.size}"
         val title = when (s.phase) {
@@ -86,7 +93,7 @@ object Notifications {
             Phase.AWAKE -> "Get off at ${ui.legName}"
             else -> TripService.phaseLabel(ui)
         }
-        val text = "$leg · ${TripService.summary(ui)}"
+        val text = listOfNotNull("$leg · ${TripService.summary(ui)}", quiet).joinToString(" · ")
         val start = s.startDistanceM
         val d = s.distanceM
         val progress = if (start != null && d != null && start > 0) ((1 - d / start) * 100).roundToInt().coerceIn(0, 100) else null

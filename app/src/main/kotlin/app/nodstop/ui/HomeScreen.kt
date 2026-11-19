@@ -36,6 +36,7 @@ import app.nodstop.App
 import app.nodstop.BuildConfig
 import app.nodstop.Shortcuts
 import app.nodstop.data.PendingRating
+import app.nodstop.notify.DndController
 import app.nodstop.data.Route
 import app.nodstop.trip.TripService
 
@@ -71,6 +72,11 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
     val rating by app.settings.pendingRating.collectAsState()
     var confirmStop by remember { mutableStateOf(false) }
     var stopTick by remember { mutableStateOf(0) }
+    /** A start waiting for the one-time "Quiet this trip?" answer (PLAN R2). */
+    var offerQuiet by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    val startNow: (String, Int) -> Unit = { id, leg ->
+        if (Readiness.canStartTrip(ctx)) { TripService.startRoute(ctx, id, fromLeg = leg); go(Screen.Trip) } else go(Screen.Readiness)
+    }
     val persisted = remember(resumeTick, trip, stopTick) { if (trip == null) app.trips.load() else null }
     val notReady = remember(resumeTick) { Readiness.needsAttention(Readiness.checks(ctx)).size }
     val fullScreenOk = remember(resumeTick) { Readiness.fullScreenAllowed(ctx) }
@@ -82,7 +88,8 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
     )
     HomeContent(ui, HomeActions(
         start = { id, leg ->
-            if (Readiness.canStartTrip(ctx)) { TripService.startRoute(ctx, id, fromLeg = leg); go(Screen.Trip) } else go(Screen.Readiness)
+            if (!app.settings.quietOffered && !app.settings.dndDuringTrips.value && Readiness.canStartTrip(ctx)) offerQuiet = id to leg
+            else startNow(id, leg)
         },
         edit = { go(Screen.Edit(it)) },
         openTrip = { go(Screen.Trip) },
@@ -97,6 +104,34 @@ fun HomeScreen(resumeTick: Int, go: (Screen) -> Unit) {
         },
         skipRating = { app.settings.setPendingRating(null) },
     ))
+    offerQuiet?.let { (id, leg) ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { offerQuiet = null },
+            title = { Text("Quiet your trips?") },
+            text = {
+                Text(
+                    "Other notifications stay silent while you ride, so they don't wake you. Alarms still ring, and with " +
+                        "While you slept on, an urgent message from an important contact still wakes you. Your setting comes " +
+                        "back when the trip ends. You can change this in Readiness.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    offerQuiet = null
+                    app.settings.setQuietOffered()
+                    app.settings.setDndDuringTrips(true)
+                    startNow(id, leg)
+                    // Needs Do Not Disturb access: ask in the same tap. The trip quiets itself once it's allowed.
+                    if (!DndController.granted(ctx)) {
+                        runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
+                    }
+                }) { Text("Quiet my trips") }
+            },
+            dismissButton = {
+                TextButton(onClick = { offerQuiet = null; app.settings.setQuietOffered(); startNow(id, leg) }) { Text("Not now") }
+            },
+        )
+    }
     if (confirmStop) Confirm(
         "Stop trip?", "No alarm will ring for this trip.", "Stop trip",
         onConfirm = { TripService.stop(ctx); stopTick++ },

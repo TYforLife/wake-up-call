@@ -89,6 +89,7 @@ class TripService : Service() {
         override fun run() {
             val now = System.currentTimeMillis()
             input(Input.Tick(now))
+            quietIfAsked()
             briefing?.onTick(now, lastScheduled)
             handler.postDelayed(this, TICK_MS)
         }
@@ -189,6 +190,7 @@ class TripService : Service() {
         // While You Slept (DESIGN §10): catch chat notifications while this trip runs, in memory only.
         MessageStore.instance.start()
         DndController.onTripStart(this)
+        quietTried = DndController.granted(this) && app.settings.dndDuringTrips.value
         briefing?.stop()
         // An urgent VIP message (DESIGN §10): ring now, through the engine and the single ring path (W1).
         briefing = BriefingCoordinator(this, now) { handler.post { input(Input.Urgent(System.currentTimeMillis())) } }
@@ -212,6 +214,21 @@ class TripService : Service() {
         val (next, out) = engine.step(state, i)
         state = next
         apply(t, out, changed = next.legIndex != prevLeg || next.phase != prevPhase || i is Input.Start)
+    }
+
+    /** "Quiet trip: 6 held" while our Do Not Disturb is on (PLAN R2); the count needs notification access. */
+    private fun quietLine(): String? {
+        val on = app.settings.dndRecord()?.setByUs == true
+        val snap = MessageStore.instance.snapshot()
+        return Notifications.quietLine(on, if (snap.active) snap.added + snap.otherNotifications else null)
+    }
+
+    /** Quiet trip switched on (or its access granted) after the trip started: apply it once, now. */
+    private var quietTried = false
+    private fun quietIfAsked() {
+        if (quietTried || !app.settings.dndDuringTrips.value || !DndController.granted(this)) return
+        quietTried = true
+        DndController.onTripStart(this)
     }
 
     private fun apply(t: ActiveTrip, out: Output, changed: Boolean) {
@@ -259,7 +276,7 @@ class TripService : Service() {
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now
-            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui))
+            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine()))
         }
 
         if (out.status.phase == Phase.DONE) finishTrip(updated)

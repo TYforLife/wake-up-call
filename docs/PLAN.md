@@ -322,8 +322,8 @@ happened, and say so in the PR. Add it to `engine/src/test/resources/traces/` as
 - [x] JVM tests for the decision (mode in → actions out, restore always), and the cold-start restore.
 
 ### R2 Quiet trip, clearly
-- [ ] "Quiet other notifications during trips" moves to the top of Readiness and to the first trip's start: one switch, plain words ("Alarms and your important contacts still get through"), asking for access in the same tap. Still off until the owner turns it on.
-- [ ] The trip notification says when it's on ("Quiet trip: 6 held").
+- [x] "Quiet other notifications during trips" moves to the top of Readiness and to the first trip's start: one switch, plain words ("Alarms and your important contacts still get through"), asking for access in the same tap. Still off until the owner turns it on.
+- [x] The trip notification says when it's on ("Quiet trip: 6 held").
 
 ### R3 The circle rings when the bus enters it
 - [x] Inside your circle at bus speed rings, even if boarding was never detected (e.g. trip started already on the bus at a crawl). Walking speed inside it still doesn't, before boarding.

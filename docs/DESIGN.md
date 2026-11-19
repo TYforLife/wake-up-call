@@ -602,7 +602,11 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
 - **Do Not Disturb during trips**: optional, off by default, experimental until Gate B confirms the
   earbud tone and the at-stop buzz still come through. Sets `INTERRUPTION_FILTER_ALARMS` at Start,
   restores the previous filter on Stop, DONE or service destroy, and on next app start if a
-  "set by us" flag survived a crash.
+  "set by us" flag survived a crash. **Quiet trip** (PLAN R2): the switch ("Quiet other notifications
+  during trips") sits at the top of Readiness, and the first trip's Start asks once ("Quiet your trips?",
+  Quiet my trips / Not now), asking for Do Not Disturb access in the same tap. Turned on (or allowed)
+  mid-trip, it applies once at the next tick. The trip notification says "Quiet trip" ("Quiet trip: 6
+  held" when notification access can count them). Still off until the owner turns it on.
 
 ### Briefing (`:brief`, pure Kotlin/JVM: same rules as `:engine`)
 
