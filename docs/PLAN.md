@@ -82,6 +82,7 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
 | Everything already in DESIGN §5 | Already approved |
 | `kotlinx-coroutines-core` (`:brief` tests) and `kotlinx-serialization-json` (`:brief`, already in DESIGN §5) | Testing the suspend `Llm` call; parsing the model's JSON lines |
 | `com.google.ai.edge.litertlm:litertlm-android` 0.16.1 (Run 2; the newest built with Kotlin 2.2.21, 0.17+ needs Kotlin 2.4) | Runs Gemma on the phone (DESIGN §10) |
+| `app.cash.paparazzi` Gradle plugin (Run 4, U0; test-only, pin an exact version that works with AGP 8.13) | Renders every screen to PNG on the JVM, so UI changes can be reviewed from a phone without an emulator |
 
 ## Where things go
 
@@ -207,6 +208,89 @@ is the share of rings with `ready=true`.
   - battery use per trip noted
 
 ---
+
+## UX round: Runs 4 and 5 (owner feedback, 2026-11-19)
+
+Take this as its own UX session: plan first, then build. **Every screen change ships with before/after
+screenshots in the PR** (rendered in CI, see U0), because there is no device in the cloud session.
+
+### Feedback, and what the code says
+
+| # | Owner said | What's actually going on | Milestone |
+| --- | --- | --- | --- |
+| 1 | "Don't lose data between updates" | Stores treat a file they can't read as empty, and the next save **overwrites** it (`RouteStore.load` returns `emptyList()`, `LearnedStore` `emptyMap()`). One schema mistake in an update wipes routes and learned rides. | U1 |
+| 2 | "The slider feels awful; I mostly use the lower km range" | The wake-zone slider is linear 0–2,000 m, so the low range that's actually used is a sliver of the track. | U3 |
+| 3 | "Use speed for the whole trip (weighted to recent) + past rides" | `v_est` uses the last 15 s, the fastest 15 s of the last 30 s, and past rides; nothing remembers the whole trip. | U4 |
+| 4 | "Don't use the end point to improve the real stop: I end the trip when I'm woken at a good time" | The suggested-stop / learned-track logic assumes the trip ends where you get off. Trips ended by hand (or early) must never move or suggest a stop. | U4 |
+| 5 | "The brief didn't show because I held I'm awake. Was it supposed to?" | Partly by design: the panel shows *while ringing*; after the hold, "You're awake" only appears if something was captured (and capture needs notification access). Nothing tells you this. | U5 |
+| 6 | "A small island at the top, like Samsung's timer, to cancel easily" | The trip notification is a Live Update only on Android 16 and has no Stop action; the ring notification has "I'm awake" but isn't promoted. | U2 |
+| 7 | "Is it turning the screen on at the stop? I've never seen I'm awake already on screen" | The ring relies on a full-screen intent (needs the full-screen permission) plus `setTurnScreenOn`; `RingService` also tries a direct `startActivity`, which Android often blocks from the background. There's no record of which path worked. | U0 diagnostics, U2 fix |
+| 8 | "Can I turn the map, like Google Maps?" | Rotation is switched off in code (`isRotateGesturesEnabled = false`). | U6 |
+| 9 | "Alarm even when I'm on my phone? Why didn't it work? Maybe when I adjust the circle?" | A wake zone saved on the map goes into the route, but a **running trip keeps the legs it started with**, so changing the circle mid-trip does nothing until the next trip. Ringing while you use the phone shows as a banner, not full screen, and with no earbuds it's vibration only. Needs the ride's trace to confirm. | U0, U2, U3 |
+| 10 | "Can it move to the next leg automatically if I'm in the circle?" | After "I'm awake" the leg ends only after 45 s slow within 300 m of the stop. | U3 |
+| 11 | "Make the UI better, and more importantly the UX. It looks so bad." | No design system: ad-hoc colours, sizes and spacing per screen; key info isn't glanceable. | U6 (Run 5) |
+
+Two items were guesses where the note was unclear; check them in the PR: #9's "when I know my phone" is read
+as "when I'm on my phone", and #10 is read as "after I'm awake, entering the stop's circle ends the leg".
+
+## Run 4: Reliability you can feel
+
+Prerequisite: none beyond a green `main`.
+
+### U0 See what happened, and see the screens
+- [ ] Ring-delivery diagnostics in the trip log (`note`-free, kept in hidden exports): receiver fired, ring service started, full-screen permission state, alarm screen shown (y/n, time), screen was on/off, earbuds or vibration, "I'm awake" source (hold, volume, notification).
+- [ ] Screenshot tests for every screen (Paparazzi, JVM, no emulator; reason: the only way to review UI from a phone-only workflow). CI uploads the PNGs; PRs show before/after.
+- [ ] Readiness shows the result of the last ring ("Last ring: screen turned on ✓ / shown as a banner ✗, why").
+
+### U1 Never lose data on an update
+- [ ] A store that can't read its file keeps it (`routes.json.bad-<time>`), loads the last good backup, and never overwrites it with empty data.
+- [ ] Every save keeps the previous file as `.bak`; a schema version is stored; migration tests decode fixtures of every schema shipped so far (routes, learned, settings, active trip).
+- [ ] Debug → Export / Import all data (routes, stops, learned rides, settings) as one JSON file through the share sheet and file picker. No positions leave the phone unless you share the file.
+
+### U2 The ring reaches you, screen on, and canceling is one tap
+- [ ] The screen turns on at the ring when the phone is locked: full-screen intent first; if the permission is missing, Readiness says so at the top of Home, not only on Readiness; a wake lock with screen-on as fallback; the diagnostic from U0 records which path worked.
+- [ ] While you're using the phone: the ring shows as a heads-up with **I'm awake** and keeps escalating; it never depends on the full-screen activity.
+- [ ] "Island": the trip notification becomes a promoted ongoing notification (Live Update / status-bar chip where the phone supports it, Samsung's Now Bar on One UI 8) with **Stop trip** and "Get off at X · 1.2 km"; the ring notification is promoted too, with **I'm awake**.
+- [ ] Tests for the notification builders' actions and texts (JVM, pure parts).
+
+### U3 Wake zone that works the way you use it
+- [ ] Saving a zone (or any route change) **applies to the running trip** at once, through a new engine input (`UpdateLegs`) that can only make the alarm earlier or leave it; tested with the invariant suite.
+- [ ] Slider is non-linear: 50 m–2 km, most of the track under 1 km (e.g. square-root scale), with quick presets (Auto, 150, 250, 400, 700 m) and the value in big type; the circle follows live.
+- [ ] After "I'm awake", entering this stop's circle (or 150 m if none) at walking speed for 10 s ends the leg and moves to the next one; "rode past" protection keeps watching the previous stop for 2 minutes. Engine tests: two-leg and three-leg routes, early ack, ack inside the circle, still on the bus inside the circle.
+
+**Test on phone (Run 4):** couch test of the lock-screen ring (screen must turn on), a ring while using
+another app (banner with I'm awake), the island with Stop trip, changing the circle during a simulated
+trip (the next ring respects it), an update over an existing install (routes and learned rides kept),
+export then import.
+
+## Run 5: Smarter estimate and a real redesign
+
+Prerequisite: Run 4 merged.
+
+### U4 Estimate and learning
+- [ ] Whole-trip speed: an exponentially weighted average over the trip (recent minutes count most) joins `v_est` as one more term in the max (it can only ring earlier), plus today's pace vs past rides for the display ETA. Invariant and scenario tests stay green; real traces regenerated with the reason in the PR.
+- [ ] Learning ignores how a trip ended: a ride counts only if GPS passed within 60 m of the pin, and "suggested stop" is never derived from where you stopped the trip, acked or got off. Remove the suggestion UI if nothing trustworthy is left to suggest.
+
+### U5 After "I'm awake"
+- [ ] "You're awake" always appears after a hold on the alarm screen (with "Nothing new" or "Briefing unavailable: turn on While you slept" and a one-tap fix), then Done.
+- [ ] If you acked from the notification or volume key, a silent "What you missed (N chats)" notification (counts only, W3) reopens it until the messages are cleared.
+
+### U6 Visual and UX redesign
+- [ ] A small design system: colour tokens (light and dark), type scale, spacing, cards, primary/secondary buttons, status chips; applied everywhere.
+- [ ] Home: one big card per route with **Start**; a running-trip card on top (next stop, distance, ETA, Stop); the rating card as one tap.
+- [ ] Trip: glanceable at arm's length: stop name, distance and ETA large, progress bar, "I'm off this bus".
+- [ ] Map: rotate and tilt like Google Maps (two-finger), compass button to reset north, follow mode with heading-up option; stop sheet with the new zone slider.
+- [ ] Route editor and Readiness: grouped, plain-language, one primary action per section; Readiness collapses to "All set" when green.
+- [ ] Screenshot tests updated; PR shows before/after for every screen.
+
+**Test on phone (Run 5):** a week of rides: ETA closer on the slow city end, no stop suggestions from
+trips you ended early; every screen readable at arm's length; map rotation.
+
+Start them like the earlier runs:
+
+```
+/goal Finish Run 4 in docs/PLAN.md and merge its PR
+```
 
 ## Later (not for automated runs yet)
 These come after Gate C:
