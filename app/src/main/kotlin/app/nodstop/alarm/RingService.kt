@@ -73,6 +73,8 @@ class RingService : Service() {
     private var test = false
     /** The phone was in use when the ring started: start strong (RingPlan). */
     private var inUse = false
+    /** When the speaker joins this ring, or null for never (RingMode.speakerAfterMs). */
+    private var speakerAfterMs: Long? = null
 
     private val loop = object : Runnable {
         override fun run() {
@@ -162,7 +164,18 @@ class RingService : Service() {
             }.getOrNull()
         }
         val fullScreen = Build.VERSION.SDK_INT < 34 || getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
-        RingDiag.start(screenWasOn, fullScreen, headset() != null, screenWoken = screenLock != null || pm.isInteractive, test = test)
+        // Buzz on Mute (PLAN R1): read the phone's mode first (for the report), then switch it for the ring.
+        val ringer = RingModeController.ringer(this)
+        val filter = RingModeController.filter(this)
+        val buzz = RingModeController.onRingStart(this)
+        speakerAfterMs = RingMode.speakerAfterMs(
+            App.instance.settings.speakerLastResort.value, headset() != null, buzz, RingPlan.SPEAKER_AFTER_MS,
+        )
+        RingDiag.start(
+            screenWasOn, fullScreen, headset() != null, screenWoken = screenLock != null || pm.isInteractive, test = test,
+            ringer = RingMode.ringerName(ringer), dnd = RingMode.filterName(filter), buzz = buzz,
+            speakerAfterS = speakerAfterMs?.let { (it / 1000).toInt() },
+        )
         savedMusicVol = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
         savedAlarmVol = audio.getStreamVolume(AudioManager.STREAM_ALARM)
         focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
@@ -186,7 +199,8 @@ class RingService : Service() {
         if (!ringing) return
         val elapsed = SystemClock.elapsedRealtime() - startedAt
         val hs = headset()
-        val step = RingPlan.step(elapsed, hs != null, App.instance.settings.speakerLastResort.value, overshoot, inUse)
+        val after = speakerAfterMs
+        val step = RingPlan.step(elapsed, hs != null, after != null, overshoot, inUse, after ?: RingPlan.SPEAKER_AFTER_MS)
         when (step.route) {
             AudioRoute.EARBUDS -> {
                 alarmTrack?.pause()
@@ -263,6 +277,8 @@ class RingService : Service() {
             focus?.let { runCatching { audio.abandonAudioFocusRequest(it) } }
             runCatching { audio.unregisterAudioDeviceCallback(deviceCallback) }
             runCatching { unregisterReceiver(noisy) }
+            // Back to Mute (or your Do Not Disturb), if the ring switched it.
+            runCatching { RingModeController.onRingEnd(this) }
             wakeLock?.takeIf { it.isHeld }?.release()
             screenLock?.takeIf { it.isHeld }?.release()
             screenLock = null

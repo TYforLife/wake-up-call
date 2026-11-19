@@ -105,6 +105,12 @@ object Readiness {
                 if (Build.VERSION.SDK_INT >= 34) Fix.Open(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, pkg(ctx))) else null,
             ),
             Check(
+                "Let the alarm buzz on Mute", nm.isNotificationPolicyAccessGranted,
+                "If your phone is on Mute or Do Not Disturb, the alarm switches it to vibrate for the ring and puts it " +
+                    "back after \"I'm awake\". Needs Do Not Disturb access.",
+                Fix.Open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)),
+            ),
+            Check(
                 "Exact alarms", am.canScheduleExactAlarms(),
                 "The alarm must fire on time, even in Doze.",
                 Fix.Open(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg(ctx))),
@@ -213,6 +219,16 @@ fun ReadinessContent(ui: ReadinessUi, a: ReadinessActions) {
         } else Section("${attention.size} to fix before you rely on the alarm", tone = Tone.BAD) {
             for (c in attention) CheckRow(c, a)
         }
+        // Quiet trip (PLAN R2): the one switch people expect, at the top, in plain words.
+        Section("Quiet trip") {
+            SettingRow(
+                "Quiet other notifications during trips",
+                "Alarms still ring. With While you slept on, an urgent message from an important contact still wakes you. " +
+                    "Your setting comes back when the trip ends.",
+                ui.dnd, a.dnd,
+            )
+            if (ui.dnd && !ui.dndGranted) StatusChip("Needs Do Not Disturb access: allow it, then come back", Tone.WARN)
+        }
         ui.lastRing?.let { Section("Last ring") { Text(it.removePrefix("Last ring: "), style = MaterialTheme.typography.bodyMedium) } }
         if (optionalOff.isNotEmpty()) Section("Optional") { for (c in optionalOff) CheckRow(c, a) }
         if (showAll || attention.isNotEmpty()) {
@@ -256,12 +272,6 @@ fun ReadinessContent(ui: ReadinessUi, a: ReadinessActions) {
                 "Often faster and lighter on the battery; falls back to the CPU. Trips use it only after Debug → Briefing lab has run on the GPU once.",
                 ui.gpu, a.gpu,
             )
-            SettingRow(
-                "Do Not Disturb during trips",
-                "Holds other notifications while you sleep (alarms still get through) and restores your setting after.",
-                ui.dnd, a.dnd,
-            )
-            if (ui.dnd && !ui.dndGranted) StatusChip("Needs Do Not Disturb access: tap the switch again after allowing it", Tone.WARN)
         }
 
         GroupLabel("Samsung: do these once")

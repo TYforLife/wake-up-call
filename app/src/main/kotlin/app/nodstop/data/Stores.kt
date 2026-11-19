@@ -234,6 +234,26 @@ class Settings(context: Context) {
         }.commit()
     }
 
+    /** What a ring switched (Mute → vibrate, DND → alarms), to put back after it (PLAN R1). */
+    fun ringModeRecord(): app.nodstop.alarm.RingMode.Record? {
+        val r = prefs.getInt(KEY_RING_PREV_RINGER, -1)
+        val f = prefs.getInt(KEY_RING_PREV_FILTER, -1)
+        if (!prefs.getBoolean(KEY_RING_SET, false)) return null
+        return app.nodstop.alarm.RingMode.Record(r.takeIf { it >= 0 }, f.takeIf { it >= 0 })
+    }
+
+    fun setRingModeRecord(r: app.nodstop.alarm.RingMode.Record?) {
+        // commit(), not apply(): this must be on disk before the phone's settings change.
+        prefs.edit().apply {
+            if (r == null) { remove(KEY_RING_SET); remove(KEY_RING_PREV_RINGER); remove(KEY_RING_PREV_FILTER) }
+            else {
+                putBoolean(KEY_RING_SET, true)
+                putInt(KEY_RING_PREV_RINGER, r.prevRinger ?: -1)
+                putInt(KEY_RING_PREV_FILTER, r.prevFilter ?: -1)
+            }
+        }.commit()
+    }
+
     private val _vipNames = MutableStateFlow(readVips())
     /** While You Slept: important contacts, typed in (no contacts permission). Only their messages can ring. */
     val vipNames: StateFlow<List<String>> = _vipNames
@@ -266,6 +286,14 @@ class Settings(context: Context) {
 
     fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
 
+    /** The route you last started: what the map shows when no trip runs (PLAN R4). */
+    val lastRouteId: String? get() = prefs.getString(KEY_LAST_ROUTE, null)
+    fun setLastRouteId(id: String) { prefs.edit().putString(KEY_LAST_ROUTE, id).apply() }
+
+    /** The first trip's start asked about a quiet trip (once, PLAN R2). */
+    val quietOffered: Boolean get() = prefs.getBoolean(KEY_QUIET_OFFERED, false)
+    fun setQuietOffered() { prefs.edit().putBoolean(KEY_QUIET_OFFERED, true).apply() }
+
     private val _askTiming = MutableStateFlow(prefs.getBoolean(KEY_ASK_TIMING, true))
     /** After each leg's ring, ask (one silent notification) whether it was too early, good or too late. */
     val askTiming: StateFlow<Boolean> = _askTiming
@@ -281,11 +309,16 @@ class Settings(context: Context) {
     private companion object {
         const val KEY_LAST_RING = "last_ring"
         const val KEY_ASK_TIMING = "ask_ring_timing"
+        const val KEY_QUIET_OFFERED = "quiet_trip_offered"
+        const val KEY_LAST_ROUTE = "last_route_id"
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
         const val KEY_GPU = "wys_use_gpu"
         const val KEY_GPU_OK = "wys_gpu_verified"
         const val KEY_DND = "dnd_during_trips"
+        const val KEY_RING_SET = "ring_mode_set"
+        const val KEY_RING_PREV_RINGER = "ring_prev_ringer"
+        const val KEY_RING_PREV_FILTER = "ring_prev_filter"
         const val KEY_DND_SET = "dnd_set_by_us"
         const val KEY_DND_PREV = "dnd_previous_filter"
         const val KEY_SPEAKER = "speaker_last_resort"

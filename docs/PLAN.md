@@ -312,26 +312,26 @@ prompt: Debug → Share (location hidden), plus Readiness's "Last ring" line. Us
 happened, and say so in the PR. Add it to `engine/src/test/resources/traces/` as a replay test.
 
 ### R0 Know what happened
-- [ ] The ring diagnostic (`ringd`) also records: the ringer mode (normal / vibrate / mute), the Do Not Disturb filter, whether the vibrator reported vibrating, and whether earbuds were connected. "Last ring" says it in words: "buzzed ✓ (phone on Mute)" or "couldn't buzz ✗: Mute blocked vibration".
-- [ ] The trip log notes GPS gaps over 10 s (count and longest, `note`-free so it survives hidden exports) and whether the engine thought you'd boarded when you entered the circle.
+- [x] The ring diagnostic (`ringd`) also records: the ringer mode (normal / vibrate / mute), the Do Not Disturb filter, whether the vibrator reported vibrating, and whether earbuds were connected. "Last ring" says it in words: "buzzed ✓ (phone on Mute)" or "couldn't buzz ✗: Mute blocked vibration".
+- [x] The trip log notes GPS gaps over 10 s (count and longest, `note`-free so it survives hidden exports) and whether the engine thought you'd boarded when you entered the circle.
 
 ### R1 Buzz on Mute
-- [ ] If the phone is on Mute or Do Not Disturb when a ring starts and Nodstop has Do Not Disturb access, switch to vibrate (and let alarms through) for the ring only, and put the setting back after "I'm awake". Still the one ring path: `RingService` does it, and the restore also runs on a cold start, like `DndController`'s.
-- [ ] Readiness: "Let the alarm buzz on Mute" becomes a **required** check (Do Not Disturb access), with one Fix button. Home's setup chip counts it.
-- [ ] If vibration still can't be confirmed (no access, or the vibrator refused) and no earbuds are connected, the speaker last resort turns on for that ring, whatever the setting, after 30 s. The PR must say this, because it's a behaviour change the owner asked for ("ignore Mute").
-- [ ] JVM tests for the decision (mode in → actions out, restore always), and the cold-start restore.
+- [x] If the phone is on Mute or Do Not Disturb when a ring starts and Nodstop has Do Not Disturb access, switch to vibrate (and let alarms through) for the ring only, and put the setting back after "I'm awake". Still the one ring path: `RingService` does it, and the restore also runs on a cold start, like `DndController`'s.
+- [x] Readiness: "Let the alarm buzz on Mute" becomes a **required** check (Do Not Disturb access), with one Fix button. Home's setup chip counts it.
+- [x] If vibration still can't be confirmed (no access, or the vibrator refused) and no earbuds are connected, the speaker last resort turns on for that ring, whatever the setting, after 30 s. The PR must say this, because it's a behaviour change the owner asked for ("ignore Mute").
+- [x] JVM tests for the decision (mode in → actions out, restore always), and the cold-start restore.
 
 ### R2 Quiet trip, clearly
-- [ ] "Quiet other notifications during trips" moves to the top of Readiness and to the first trip's start: one switch, plain words ("Alarms and your important contacts still get through"), asking for access in the same tap. Still off until the owner turns it on.
-- [ ] The trip notification says when it's on ("Quiet trip: 6 held").
+- [x] "Quiet other notifications during trips" moves to the top of Readiness and to the first trip's start: one switch, plain words ("Alarms and your important contacts still get through"), asking for access in the same tap. Still off until the owner turns it on.
+- [x] The trip notification says when it's on ("Quiet trip: 6 held").
 
 ### R3 The circle rings when the bus enters it
-- [ ] Inside your circle at bus speed rings, even if boarding was never detected (e.g. trip started already on the bus at a crawl). Walking speed inside it still doesn't, before boarding.
-- [ ] With a circle set, `wakeAt` and the failsafe aim at the circle's edge (`straight − radius`), not the stop, so a GPS gap can't carry you deep inside before it rings. Earlier only: invariant suite plus a test with a 60-s gap just before the circle.
-- [ ] A ride where fixes stop near the circle (Samsung batching with the screen off) still rings by the failsafe before the edge: scenario test.
+- [x] Inside your circle at bus speed rings, even if boarding was never detected (e.g. trip started already on the bus at a crawl). Walking speed inside it still doesn't, before boarding.
+- [x] With a circle set, `wakeAt` and the failsafe aim at the circle's edge (`straight − radius`), not the stop, so a GPS gap can't carry you deep inside before it rings. Earlier only: invariant suite plus a test with a 60-s gap just before the circle.
+- [x] A ride where fixes stop near the circle (Samsung batching with the screen off) still rings by the failsafe before the edge: scenario test.
 
 ### R4 Map shows this trip
-- [ ] While a trip runs, the map shows only that trip's stops, circles and learned route; with no trip, only the stops of the route you last used (a chip switches routes). Test in `MapModelTest`.
+- [x] While a trip runs, the map shows only that trip's stops, circles and learned route; with no trip, only the stops of the route you last used (a chip switches routes). Test in `MapModelTest`.
 
 **Test on phone (Run 6):** phone on Mute, no earbuds: couch test rings and buzzes, and the mode is back to
 Mute after "I'm awake"; a ride with a circle: rings on entry; the map during a trip shows only its stops.

@@ -50,6 +50,18 @@ class MapModelTest {
         assertEquals("bus", f["properties"]!!.jsonObject["icon"]!!.jsonPrimitive.content)
         assertEquals(0, Json.parseToJsonElement(MapModel.meJson(null, MapModel.Me.PERSON)).jsonObject["features"]!!.jsonArray.size)
     }
+    @Test fun `the map shows only this trip's route, else the one you picked or last used (PLAN R4)`() {
+        val a = routes[0]
+        val b = routes[1]
+        assertEquals(listOf(b), MapModel.visibleRoutes(routes, "From work", chosenId = a.id, lastUsedId = a.id))
+        assertEquals(listOf(a), MapModel.visibleRoutes(routes, null, chosenId = a.id, lastUsedId = b.id))
+        assertEquals(listOf(b), MapModel.visibleRoutes(routes, null, chosenId = null, lastUsedId = b.id))
+        assertEquals(listOf(a), MapModel.visibleRoutes(routes, null, chosenId = "gone", lastUsedId = null))
+        assertEquals(emptyList<Any>(), MapModel.visibleRoutes(emptyList(), null, null, null))
+        // Shown stops: only the visible route's pins.
+        val l = MapModel.layers(MapModel.visibleRoutes(routes, "From work", null, null), { null }, "From work", 0)
+        assertEquals(listOf("Smales Farm", "Bond Cres"), l.pins.map { it.label })
+    }
 }
 
 class WakeZoneModelTest {
@@ -76,4 +88,5 @@ class WakeZoneModelTest {
         assertEquals(c.first(), c.last())
         c.forEach { assertEquals(900.0, app.nodstop.engine.Geo.distanceM(pin, it), 5.0) }
     }
+
 }

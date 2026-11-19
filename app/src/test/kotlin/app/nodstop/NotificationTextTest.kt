@@ -24,4 +24,12 @@ class NotificationTextTest {
 
     @Test
     fun `the island's action is Stop trip`() = assertEquals("Stop trip", Notifications.TRIP_STOP_LABEL)
+
+    @Test
+    fun `the trip notification says when it's a quiet trip (PLAN R2)`() {
+        assertEquals(null, Notifications.quietLine(false, 6))
+        assertEquals("Quiet trip", Notifications.quietLine(true, null))
+        assertEquals("Quiet trip", Notifications.quietLine(true, 0))
+        assertEquals("Quiet trip: 6 held", Notifications.quietLine(true, 6))
+    }
 }

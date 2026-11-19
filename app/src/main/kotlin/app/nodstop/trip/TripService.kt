@@ -39,6 +39,8 @@ import app.nodstop.engine.Input
 import app.nodstop.engine.Leg
 import app.nodstop.engine.Output
 import app.nodstop.engine.Phase
+import app.nodstop.engine.Geo
+import app.nodstop.engine.TraceEvent
 import app.nodstop.engine.Status
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,6 +80,8 @@ class TripService : Service() {
     private var lastReason: AlarmReason? = null
     private val handler = Handler(Looper.getMainLooper())
     private var briefing: BriefingCoordinator? = null
+    /** GPS gaps and circle entries for the trip log (PLAN R0). */
+    private var notes = RideNotes()
     private val routesScope = MainScope()
     private var routesJob: Job? = null
 
@@ -85,6 +89,7 @@ class TripService : Service() {
         override fun run() {
             val now = System.currentTimeMillis()
             input(Input.Tick(now))
+            quietIfAsked()
             briefing?.onTick(now, lastScheduled)
             handler.postDelayed(this, TICK_MS)
         }
@@ -185,6 +190,7 @@ class TripService : Service() {
         // While You Slept (DESIGN §10): catch chat notifications while this trip runs, in memory only.
         MessageStore.instance.start()
         DndController.onTripStart(this)
+        quietTried = DndController.granted(this) && app.settings.dndDuringTrips.value
         briefing?.stop()
         // An urgent VIP message (DESIGN §10): ring now, through the engine and the single ring path (W1).
         briefing = BriefingCoordinator(this, now) { handler.post { input(Input.Urgent(System.currentTimeMillis())) } }
@@ -196,7 +202,8 @@ class TripService : Service() {
         input(Input.Start(now, allLegs.drop(legOffset), awakeOnFirst, lastKnown, autoLeg))
         val src = sim ?: FusedLocationSource(this)
         source = src
-        src.start { fix -> input(Input.FixIn(fix.tMs, fix)) }
+        notes = RideNotes()
+        src.start { fix -> notes.onFix(fix.tMs); input(Input.FixIn(fix.tMs, fix)) }
         handler.postDelayed(tick, TICK_MS)
     }
 
@@ -207,6 +214,21 @@ class TripService : Service() {
         val (next, out) = engine.step(state, i)
         state = next
         apply(t, out, changed = next.legIndex != prevLeg || next.phase != prevPhase || i is Input.Start)
+    }
+
+    /** "Quiet trip: 6 held" while our Do Not Disturb is on (PLAN R2); the count needs notification access. */
+    private fun quietLine(): String? {
+        val on = app.settings.dndRecord()?.setByUs == true
+        val snap = MessageStore.instance.snapshot()
+        return Notifications.quietLine(on, if (snap.active) snap.added + snap.otherNotifications else null)
+    }
+
+    /** Quiet trip switched on (or its access granted) after the trip started: apply it once, now. */
+    private var quietTried = false
+    private fun quietIfAsked() {
+        if (quietTried || !app.settings.dndDuringTrips.value || !DndController.granted(this)) return
+        quietTried = true
+        DndController.onTripStart(this)
     }
 
     private fun apply(t: ActiveTrip, out: Output, changed: Boolean) {
@@ -223,6 +245,16 @@ class TripService : Service() {
         }
 
         val legName = t.legs.getOrNull(t.legOffset + out.status.legIndex)?.name
+        // Entering your circle: was boarding detected, and when is the alarm? (Explains a circle that didn't ring.)
+        val s = out.status
+        if (s.phase == Phase.WAITING || s.phase == Phase.RIDING) {
+            val leg = t.legs.getOrNull(t.legOffset + s.legIndex)
+            val straight = s.position?.let { p -> leg?.let { Geo.distanceM(p, it.stop) } }
+            notes.onPosition(
+                t.legOffset + s.legIndex, leg?.wakeRadiusM, straight, s.startDistanceM != null || s.phase == Phase.RIDING,
+                s.alarmAtMs?.let { (it - now) / 1000 },
+            )?.let { app.traces.write(listOf(TraceEvent(now, "zone", msg = it))) }
+        }
         if (out.arrived) nudge(legName)
         if (out.overshoot) RingService.overshoot()
         out.learned?.let { u -> if (!t.simulated) app.learned.merge(u) }
@@ -244,7 +276,7 @@ class TripService : Service() {
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now
-            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui))
+            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine()))
         }
 
         if (out.status.phase == Phase.DONE) finishTrip(updated)
@@ -262,6 +294,7 @@ class TripService : Service() {
     }
 
     private fun finishTrip(t: ActiveTrip) {
+        app.traces.write(listOf(TraceEvent(System.currentTimeMillis(), "gps", msg = notes.gpsLine())))
         offerRating(t)
         app.trips.clear()
         app.traces.endTrip()
@@ -295,6 +328,7 @@ class TripService : Service() {
     fun onRang() {
         val now = System.currentTimeMillis()
         input(Input.Rang(now))
+        app.traces.write(listOf(TraceEvent(now, "gps", msg = notes.gpsLine())))
         logRingStats(now)
         briefing?.onRang()
     }
@@ -394,8 +428,11 @@ class TripService : Service() {
         val status: StateFlow<TripUi?> = _status
 
         /** Start a route; [fromLeg] = a leg you chose, or -1 to pick it from where you are. */
-        fun startRoute(ctx: Context, routeId: String, fromLeg: Int = -1) = send(ctx, Intent(ctx, TripService::class.java)
-            .setAction(ACTION_START_ROUTE).putExtra(EXTRA_ROUTE_ID, routeId).putExtra(EXTRA_FROM_LEG, fromLeg))
+        fun startRoute(ctx: Context, routeId: String, fromLeg: Int = -1) {
+            App.instance.settings.setLastRouteId(routeId)
+            send(ctx, Intent(ctx, TripService::class.java)
+                .setAction(ACTION_START_ROUTE).putExtra(EXTRA_ROUTE_ID, routeId).putExtra(EXTRA_FROM_LEG, fromLeg))
+        }
 
         fun startSim(ctx: Context, km: Double, kmh: Double) = send(ctx, Intent(ctx, TripService::class.java)
             .setAction(ACTION_START_SIM).putExtra(EXTRA_SIM_KM, km).putExtra(EXTRA_SIM_KMH, kmh))
