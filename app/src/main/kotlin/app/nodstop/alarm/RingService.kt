@@ -333,6 +333,9 @@ class RingService : Service() {
         var instance: RingService? = null
             private set
 
+        /** A ring is on, from its very start (before its first update reaches [state]). */
+        val isRinging: Boolean get() = instance?.ringing == true
+
         /** What this ring is for: the stop, why, and whether it's a test (no trip saved or running). */
         data class Info(val legName: String?, val reason: AlarmReason?, val test: Boolean)
 

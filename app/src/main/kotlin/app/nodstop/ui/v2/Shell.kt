@@ -23,6 +23,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -90,7 +93,10 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     val persisted = remember(resumeTick, stopTick) { app.trips.load() }
     val notReady = remember(resumeTick) { Readiness.needsAttention(Readiness.checks(ctx)).size }
     var verdictTick by remember { mutableIntStateOf(0) }
-    val lastTrip = remember(resumeTick, stopTick, verdictTick) { lastTripVerdict() }
+    // Read off the main thread: a long ride's log is thousands of lines.
+    val lastTrip by produceState<Pair<String, List<VerdictLine>>?>(null, resumeTick, stopTick, verdictTick) {
+        value = withContext(Dispatchers.IO) { lastTripVerdict() }
+    }
     val startNow: (String) -> Unit = { id ->
         if (Readiness.canStartTrip(ctx)) TripService.startRoute(ctx, id) else go(Screen.Setup)
     }

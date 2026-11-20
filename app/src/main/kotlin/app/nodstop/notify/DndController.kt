@@ -19,7 +19,7 @@ object DndController {
         ctx: Context,
         tripRunning: Boolean = app.nodstop.trip.TripService.instance != null,
         screenOn: Boolean = ctx.getSystemService(PowerManager::class.java).isInteractive,
-        ringing: Boolean = app.nodstop.alarm.RingService.state.value != null,
+        ringing: Boolean = app.nodstop.alarm.RingService.isRinging || app.nodstop.alarm.RingService.state.value != null,
     ) {
         val settings = App.instance.settings
         val enabled = settings.dndDuringTrips.value
