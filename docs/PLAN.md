@@ -492,8 +492,194 @@ from a fresh install (Setup) and an update over the old app (data kept, Setup on
 Start them like the earlier runs:
 
 ```
-/goal Finish Run 9 in docs/PLAN.md and merge its PR
+/goal Finish Run 10 in docs/PLAN.md and merge its PR
 ```
+
+Then Run 11, then Run 12, the same way.
+
+## Feedback round 3 (owner, 2026-11-20, after Run 9)
+
+Read `docs/OWNER.md` first: it holds the owner's standing preferences, so he doesn't have to repeat them.
+
+| # | Owner said | What the code says | Milestone |
+| --- | --- | --- | --- |
+| 1 | "No buzz again, nor any screen appearing… make sure the buzz comes through, it's not working. Perhaps this is lost in updates?" | Run 6 added Buzz on Mute, but several ways to fail silently remain. (a) Nothing resumes a trip after an app update or a reboot: no `MY_PACKAGE_REPLACED` or `BOOT_COMPLETED` receiver. (b) The alarm channel's `setBypassDnd` is only honoured if Do Not Disturb access existed when the channel was first created, which on this phone was before he allowed it. (c) Quiet trip's own Do Not Disturb stays on during the ring. (d) If `RingService` can't start, nothing is shown or felt. (e) While the phone is in use, Android shows only a banner, never the alarm screen. The app also never says whether the last trip actually rang. | A0, A1, A2 |
+| 2 | "Let me press get off bus through the notification panel. There's only Stop trip." | The trip notification has one action, Stop trip. | A3 |
+| 3 | "Quiet my trips only when the phone is off. When on, notifications still come through. When off, just don't buzz?" | Quiet trip is Do Not Disturb (alarms only) for the whole trip. | A4 |
+| 4 | "Show the map straight away to add bus stops, one or two, and they're set to go. Default names like Stop 1 and 2, changeable. Less barrier. Minimum friction, lots of defaults that are customizable." | + asks for a name, then a route opens empty, then "Add a bus" asks for a stop name, then the map opens. | B1 |
+| 5 | "I don't like how the map looks. Make it look more like Google Maps." | `positron`, recoloured to grey map tokens. | B2 |
+| 6 | "Move the descriptive panel down so I can see more of the map. I like how the map frames me and my stop when it opens." | The trip sheet is always fully open. Framing: `MapModel.frame` (keep it). | B3 |
+| 7 | "Let me change the circle on the map: tap it and a slider pops up, or drag its edge in or out. Per bus stop." | The circle size can only be set in Set a stop (segmented buttons and a slider). | B4 |
+| 8 | "Can people copy Google Maps links to the route? Copy-paste a Google Maps route search, or search routes in the app. It's hard to find stops." | Only coordinates and long links with `@lat,lng` or `q=` parse. Short links, directions links and sharing from Google Maps don't work, and there's no search. | C1, C2, C3 |
+| 9 | "Make a note of the changes I request and the kind of character I am, so I don't repeat myself." | Done in this PR: `docs/OWNER.md`, linked from `CLAUDE.md`. | — |
+
+## Run 10: The alarm gets through, every time
+
+Prerequisite: Run 9 merged. Don't ask the owner for logs (OWNER.md). If the prompt includes a report, use it, add
+it as a replay test and say what it showed. Otherwise fix every known failure, and make the app say after each
+trip what happened.
+
+### A0 The app says whether it rang
+- [ ] After a trip, Now shows one line per stop that had an alarm:
+  - "Rang at Harbour St · buzzed · screen on".
+  - Or, in red, "Didn't ring at Harbour St" or "Rang at Harbour St, but couldn't buzz: phone on Mute", with the
+    reason in plain words.
+  - A red line comes with a one-tap **Send report**: the hidden-location log plus the ring report, through the
+    share sheet.
+  - The verdict comes from a pure `TripVerdict` over the trip log and ring reports, with JVM tests for each outcome.
+- [ ] The ring report also records:
+  - the alarm channel's importance and whether it can bypass Do Not Disturb;
+  - whether notifications are on for that channel;
+  - "Display over other apps";
+  - whether quiet trip's Do Not Disturb was on at the ring;
+  - whether the process was cold-started by the alarm;
+  - whether the alarm screen actually opened, and how long it took.
+
+### A1 Close every silent failure
+- [ ] **Alarm channel health.**
+  - At each app start, if the alarm channel can't bypass Do Not Disturb while access is granted, or its importance
+    is below high, replace it with a fresh channel.
+  - The new channel gets its own vibration pattern, alongside the app's vibrator. Changing channel settings needs
+    a new channel ID.
+  - Setup gets an "Alarm notifications" row when the channel is blocked or turned down.
+- [ ] **The ring lifts quiet trip.** When a ring starts, quiet trip's Do Not Disturb is restored to your own
+  setting before anything else. It comes back after "I'm awake" only if the trip goes on and the screen is off (A4).
+- [ ] **Shown even if the service fails.**
+  - `AlarmReceiver` posts the full-screen ring notification itself, first, then starts `RingService`, which takes
+    over the same notification ID.
+  - A service that can't start still leaves an alarm on screen that buzzes through its channel.
+  - It is still the one ring path (receiver → service, rule 1). Update DESIGN §5 Components.
+- [ ] **Resume after an update or a reboot.**
+  - Add `MY_PACKAGE_REPLACED` and `BOOT_COMPLETED` receivers.
+  - They re-schedule the saved trip's alarm at `min(wakeAt, failsafeAt)`, or ring now if that time has passed,
+    then restart `TripService`.
+  - Test with a saved trip fixture.
+- [ ] **The alarm screen while you're using the phone.**
+  - Setup gets a "Show over other apps" row (`SYSTEM_ALERT_WINDOW`; one-line reason in the PR, rule 5).
+  - With it, the ring opens the alarm screen even while another app is in front, instead of only a banner.
+    Without it, the banner stays, as now.
+
+### A2 Ring-path tests in CI
+- [ ] Robolectric tests drive `AlarmReceiver.onReceive`, then check three things: a full-screen notification is
+  posted on the alarm channel, vibration is requested with `USAGE_ALARM` (or the channel vibrates), and the mode
+  changes are undone after "I'm awake".
+- [ ] The phone states covered: normal; Mute; Do Not Disturb priority; quiet trip on; no Do Not Disturb access; a
+  cold start with no `TripService`; `RingService` failing to start; no earbuds; earbuds in.
+- [ ] A test for "update during a trip": a saved trip plus a `MY_PACKAGE_REPLACED` broadcast leads to the alarm
+  being scheduled and the trip resumed.
+- [ ] These run in `:app:testDebugUnitTest`, so no future change can silently break the ring.
+
+### A3 Get off from the notification
+- [ ] The trip notification gets **I'm off this bus** next to Stop trip. It sends `SkipLeg`; on the last bus it
+  ends the trip. While waiting for the next bus, it reads **Skip this bus**.
+- [ ] It works without unlocking once this stop has rung, or once you're inside its circle. Before that it asks you
+  to unlock, so a pocket can't skip your alarm.
+- [ ] JVM tests for which actions show, and whether each needs unlocking, in every phase.
+
+### A4 Quiet only while the screen is off
+- [ ] During a trip with quiet trip on, Do Not Disturb (alarms only) is on while the screen is off and off while
+  it's on. Notifications come through while you use the phone and stay silent while you doze.
+- [ ] `TripService` listens for screen on and off. The decision is pure, in `DndRestore`, and takes the screen
+  state as an input.
+- [ ] A Do Not Disturb you set yourself is never touched, and your setting comes back when the trip ends.
+- [ ] The Settings subtitle becomes "While the screen is off", and the first-trip offer text matches.
+- [ ] JVM tests: screen off, then on, then off, then the trip ends; DND you set mid-trip; a crash mid-trip.
+
+**Test on phone (Run 10):**
+1. Couch test with the phone on Mute, no earbuds, quiet trip on and the screen off: the screen turns on, it
+   buzzes, and Mute is back after "I'm awake".
+2. The same couch test while using another app: the alarm screen opens (with "Show over other apps").
+3. Install an update during a simulated trip: the trip carries on and still rings.
+4. A real ride: after it, Now says whether it rang and buzzed.
+5. Tap "I'm off this bus" in the notification.
+6. During a trip with the screen on, a chat notification comes through; with the screen off, it doesn't buzz.
+
+## Run 11: Map first, no friction
+
+Prerequisite: Run 10 merged.
+
+### B1 A new route in two taps
+- [ ] The + button on Routes (and Now when there are no routes) opens the map straight away to set Stop 1.
+  - Save goes to the route, which has "Add stop 2" and Start.
+  - A route with one set stop is ready.
+  - No name dialogs anywhere.
+- [ ] Default names:
+  - "Route 1" and "Route 2"; "Stop 1" and "Stop 2".
+  - A stop chosen by tapping a bus-stop marker (C2) takes that stop's name instead. Say so in the PR; it's one
+    line to revert if the owner wants plain "Stop N".
+  - Tap a name to change it. A new route's name can also come from the time of day ("Morning", "Evening") if
+    that reads better; decide and say so in the PR.
+- [ ] Count taps in the PR, before and after, for: a new route with two stops, and changing a circle.
+
+### B2 The map looks like Google Maps
+- [ ] Base map: OpenFreeMap's `liberty` style, tuned to Google Maps' palette, replacing the grey recoloured
+  `positron`:
+  - grey-beige land, white streets, and yellow-orange main roads;
+  - green parks and blue water;
+  - place, POI and transit labels, with bus stops visible;
+  - a dark variant at night, like Google's night map.
+- [ ] Markers:
+  - you are Google's blue dot with a heading beam;
+  - your stop is a red Google-style pin;
+  - the learned route is Google's route blue.
+- [ ] The style is built in code. A JVM test checks the layer colours and that bus stops show. The cloud session
+  can't load the tiles (network allowlist), so the owner checks the real look on the phone. Screenshot tests keep
+  the flat map box.
+
+### B3 More map, less panel
+- [ ] The riding sheet collapses to one line ("Harbour St · 6 min · alarm 7:45", with I'm off this bus) and drags
+  up for the rest. It collapses by itself when you touch the map.
+- [ ] Opening the map still frames you and your stop: the owner likes this, so keep `MapModel.frame`.
+- [ ] Screenshot tests for the collapsed and open sheets.
+
+### B4 Change the circle on the map, per stop
+- [ ] Tap inside a stop's circle: a small sheet with that stop's size (Auto, 150, 250, 400 m, plus the slider).
+- [ ] Drag the handle on the circle's edge in or out: the circle follows your finger and saves when you let go.
+- [ ] Both are per stop (the leg's `wakeRadiusM`), work on the riding map and in Set a stop, and apply to a running
+  trip at once (`UpdateLegs`).
+- [ ] The circle only ever makes a ring earlier (DESIGN §2.6). Add an invariant test that shrinking it mid-trip
+  never moves the alarm later than without a circle.
+- [ ] The math is pure and tested: screen drag to metres, clamped to 50 m–2 km, rounded like `ZoneScale`.
+
+**Test on phone (Run 11):**
+1. Make a new two-stop route from scratch, counting taps.
+2. Compare the riding map with Google Maps, day and night.
+3. Collapse and expand the sheet.
+4. Resize a circle by dragging and by tapping, during a simulated trip; the next ring respects it.
+
+## Run 12: Finding stops
+
+Prerequisite: Run 11 merged.
+
+### C1 Google Maps links and sharing
+- [ ] Any Google Maps link works wherever a stop is set:
+  - place and pin links;
+  - `maps.app.goo.gl` short links, resolved by following redirects, to Google hosts only (the link is sent to
+    Google, nothing else; DESIGN §5 Permissions);
+  - directions links, whose origin and destination become the route's first and last stops, named from the link.
+- [ ] Nodstop appears in Google Maps' Share sheet: share a place, then pick "Add to To work" or "New route".
+- [ ] Parser tests with the real link shapes, using public landmarks only, never personal places.
+
+### C2 Search Auckland Transport stops
+- [ ] Auckland Transport's public GTFS stops (name, stop number, position) are bundled into the APK at build time;
+  CI downloads them, and search works offline.
+  - This is a public dataset, not personal data.
+  - The cloud session can't download it (network allowlist), so tests use a small fixture.
+- [ ] The stop field searches by name or number ("3353", "Smales Farm").
+- [ ] Bus-stop markers on the Set a stop map: tap one to choose it, with its name.
+
+### C3 Route search (direct buses)
+- [ ] "To <stop>" from where you are: the Auckland Transport routes that serve a stop near you and the destination
+  directly. Pick one to create the route with its stops.
+  - The routes come from a compact route-to-stops index built from GTFS at build time.
+  - Two-bus journeys come later: the owner can paste a Google Maps directions link for those (C1).
+- [ ] Live data never changes the alarm (rule 6): this only fills in stops.
+
+**Test on phone (Run 12):**
+1. Share a stop from Google Maps to Nodstop.
+2. Paste a directions link.
+3. Search "Smales Farm" and a stop number.
+4. Set up "From work" (three buses) with no typing beyond the search.
 
 ## Later (not for automated runs yet)
 These come after Gate C:
