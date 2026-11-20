@@ -1,34 +1,36 @@
-# Nodstop designs (Run 7, for Gate D)
+# Nodstop designs (v2, for Gate D)
 
-- `../UX.md`: the research, journey audit and information architecture these designs come from.
-- `screens/`: every screen and state at phone size (PNG, 2×), plus the five key flows (`flow-*.png`).
-  Rendered from `mockups.html` with the tokens in `system/tokens.json` (`tokens.gen.css` is generated from them).
-- `system/`: the design system as the files of a Claude **Design System** artifact (`project/` layout:
-  `design-system.json`, `tokens.json`, `README.md` brand book, `components/*/README.md` + `preview.html`,
-  `components/bundle.css`). Published: https://claude.ai/artifact/CEjr1LwtbBKZzcXQeZEKdS
+Redesigned from scratch after the owner's review of v1 ("hate the colours, the lack of simplicity and aesthetic").
+Inspiration only, from what the most-used apps share (maps, ride-hailing, messaging, the phone's clock and settings):
 
-The screens are also on a Claude **Design** canvas, four rows by flow, where you can comment on any one:
-https://claude.ai/artifact/VoVev4CB3YYocztGCXF8Cb
+- black and white, the phone's own typeface (Roboto Flex in the mockups, Roboto on the phone);
+- one black button per screen, at the bottom;
+- plain lists with hairlines, no cards;
+- a full-screen map with one sheet while riding;
+- an alarm that looks like the phone's clock: black, one big line, one round hold button;
+- one accent colour (orange) that means only "a trip is live"; red only for a problem, always in words.
 
-Made-up stops and messages only; no personal locations.
+Links (private to the owner until shared):
+- Screens, on a Claude Design canvas: https://claude.ai/artifact/VoVev4CB3YYocztGCXF8Cb
+- Design system: https://claude.ai/artifact/CEjr1LwtbBKZzcXQeZEKdS (its files: `system/`)
+
+Files:
+- `gen_mockups.py`: the screens and tokens (`tokens.v2.json`), writes `mockups.html`, `screens.json`, `flows.json`.
+- `shoot.js`: renders them to `screens/` (`node docs/design/shoot.js docs/design`).
+- `screens/`: 13 screens and 2 flows. Made-up stops and messages only.
 
 | Screen | File |
 | --- | --- |
-| Setup 1: it can wake you | `screens/setup-wake.png` |
-| Setup 2: it can follow the bus | `screens/setup-follow.png` |
-| Now: ready (morning) | `screens/now-ready.png` |
-| Now: not ready | `screens/now-notready.png` |
-| Now: waiting for the bus | `screens/now-waiting.png` |
-| Now: riding (armed) | `screens/now-riding.png` |
-| Now: riding at night | `screens/now-riding-night.png` |
-| Now: GPS lost | `screens/now-gps-lost.png` |
-| Now: transfer | `screens/now-transfer.png` |
-| Ringing, locked | `screens/ring-locked.png` |
-| Ringing, phone in use | `screens/ring-inuse.png` |
-| Awake: what now | `screens/awake-next.png` |
-| Awake: early safety ring | `screens/awake-stay.png` |
+| Before your first ride | `screens/setup.png` |
+| Now | `screens/now.png` |
+| Riding | `screens/riding.png` |
+| Riding at night | `screens/riding-night.png` |
+| GPS lost | `screens/gps-lost.png` |
+| Ringing | `screens/ring.png` |
+| After I'm awake | `screens/awake.png` |
+| Transfer | `screens/transfer.png` |
 | Routes | `screens/routes.png` |
-| Route | `screens/route-edit.png` |
-| Set a stop and its circle on the map | `screens/stop-map.png` |
+| Route | `screens/route.png` |
+| Set a stop | `screens/stop.png` |
 | Settings | `screens/settings.png` |
-| Lock screen while dozing | `screens/lock.png` |
+| Lock screen | `screens/lock.png` |

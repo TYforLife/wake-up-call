@@ -1,5 +1,16 @@
 # Nodstop UX: research, audit and information architecture (Run 7)
 
+> **v2 (2026-11-20).** The owner rejected v1's look ("the colours, the lack of simplicity and aesthetic") and asked for
+> a fresh start inspired by the most-used apps. The journeys, pain points and the three-place structure below still
+> stand; v2 simplifies them further:
+> - **Setup** is one screen, one list of five rows, one Continue (not two steps).
+> - **Now** picks your likely route with a radio list and one Start; while riding, Now *is* the map with one sheet.
+> - **Not ready** is no longer its own screen: Now shows it as a row when a required check is off.
+> - The **ring** shows only "Wake up", the stop and a round hold button; messages wait until after "I'm awake".
+> - **Routes** are rows; a route is its stops on a line; a stop is set by dragging the map under a fixed pin.
+> - **Settings** has five rows; Debug is hidden.
+> - Visual rules: see `docs/design/README.md`.
+
 Written from the code on `main` (after Run 6) and the owner's feedback in Runs 4–6. This doc is
 the input to the designs. It is not a spec: once Gate D approves the designs, DESIGN.md §5 is updated
 to match them in Run 8.

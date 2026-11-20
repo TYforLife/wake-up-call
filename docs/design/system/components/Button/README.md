@@ -1,8 +1,7 @@
-The one primary action per screen, plus secondary, quiet and destructive actions.
+The one main action on a screen: full width, at the bottom.
 
-- **Primary** (`ns-btn ns-btn-primary`): full width, `action-height`, in the bottom third. One per screen: Start, Save, I'm off this bus.
-- **Secondary** (`ns-btn-secondary`): the second choice (Show on map, Cancel), outlined in `line-strong`.
-- **Quiet** (`ns-btn-quiet`): low-emphasis links in cards (Edit, Start from a later bus…).
-- **Danger** (`ns-btn-danger`): Stop trip, Delete route, Forget. Always confirmed.
-- Labels say exactly what happens. Disabled buttons say why nearby ("Set Hill Ave's stop to start").
-- The consumer provides the label and the handler; the button never wraps onto two lines.
+- `n-btn`: `primary` fill, `on-primary` text, `button` tall, `radius-button`. Exactly one per screen (Start, Continue, Save stop, Done).
+- `n-btn ghost`: the secondary action on a sheet (I'm off this bus), on `fill`.
+- `n-pill`: a small inline action at the end of a row (Allow).
+- `n-link`: an underlined text action (Add a bus).
+- Labels say what happens, one or two words.

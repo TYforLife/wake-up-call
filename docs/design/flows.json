@@ -1,42 +1,19 @@
 [
  {
-  "name": "First run",
-  "screens": [
-   "setup-wake",
-   "setup-follow",
-   "now-ready"
-  ]
- },
- {
   "name": "Start a trip",
   "screens": [
-   "now-ready",
-   "now-waiting",
-   "now-riding"
+   "now",
+   "riding",
+   "ring",
+   "awake"
   ]
  },
  {
-  "name": "The ring and after",
-  "screens": [
-   "ring-locked",
-   "awake-next",
-   "now-transfer"
-  ]
- },
- {
-  "name": "A transfer",
-  "screens": [
-   "now-transfer",
-   "now-waiting",
-   "now-riding"
-  ]
- },
- {
-  "name": "Set a circle on the map",
+  "name": "Set a stop",
   "screens": [
    "routes",
-   "route-edit",
-   "stop-map"
+   "route",
+   "stop"
   ]
  }
 ]

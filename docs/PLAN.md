@@ -347,6 +347,7 @@ Prerequisite: Run 6 merged. This run produces **designs, not code**. Its PR is d
 - [x] **Screens and flows** in Claude's **Design** artifact type: hi-fi mockups of every screen and state at phone size, plus the key flows as sequences (first run, start a trip, the ring and after, a transfer, set a circle on the map). Real copy, not lorem.
   - https://claude.ai/artifact/VoVev4CB3YYocztGCXF8Cb: 18 screens in four rows by flow, the design system installed. Rendered from `docs/design/mockups.html`; PNGs and flow strips in `docs/design/screens/`.
 - [x] Links to both artifacts in the PR. The owner reviews and comments **in the artifacts**; the session answers there and revises.
+- [x] **v2, from scratch** after the owner rejected v1's look: black and white, the system font, one button per screen, lists, map with a sheet, a clock-like alarm, one accent for "live". Same two artifact links, updated; `docs/design/` regenerated (`gen_mockups.py`, 13 screens).
 - [ ] **Gate D** (owner): approves the designs. Then Run 8 builds them screen by screen, each PR with the mockup next to its screenshot.
 
 **Test on phone (Run 7):** none: review the artifacts on the phone instead.
