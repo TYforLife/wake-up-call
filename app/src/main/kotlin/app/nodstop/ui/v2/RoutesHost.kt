@@ -17,11 +17,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.nodstop.App
 import app.nodstop.data.LegDraft
+import app.nodstop.data.MapsLink
+import app.nodstop.data.ShortLinks
 import app.nodstop.data.Route
 import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
@@ -159,6 +163,35 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
     val learned = learnedAll[Route.stopKey(centre)]
     val zoneM = custom ?: MapModel.autoZoneM(centre, learned)
 
+    // A Google Maps link (PLAN Run 12, C1): a place, the last stop of directions, or a short link opened first.
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf<String?>(null) }
+    var linkError by remember { mutableStateOf<String?>(null) }
+    fun place(p: MapsLink.Place) {
+        moveTo = p.pos; moveTick++
+        if (p.name != null && (name.isBlank() || name == RouteText.stopName(leg))) name = p.name
+    }
+    fun read(t: String) {
+        linkError = null
+        when (val r = MapsLink.parse(t)) {
+            is MapsLink.Result.One -> place(r.place)
+            is MapsLink.Result.Directions -> r.stops.lastOrNull()?.let(::place)
+            is MapsLink.Result.Short -> {
+                busy = "Opening the link…"
+                scope.launch {
+                    val long = ShortLinks.resolve(r.url)
+                    busy = null
+                    when (val rr = long?.let(MapsLink::parse)) {
+                        is MapsLink.Result.One -> place(rr.place.copy(name = r.name ?: rr.place.name))
+                        is MapsLink.Result.Directions -> rr.stops.lastOrNull()?.let(::place)
+                        else -> linkError = "Couldn't open that link. Check you're online, or share the stop from Maps."
+                    }
+                }
+            }
+            MapsLink.Result.None -> Unit
+        }
+    }
+
     fun locate(move: Boolean) {
         locating = true
         fused.current { loc ->
@@ -188,15 +221,12 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
         StopPickerUi(
             eyebrow = if (alarm) StopText.eyebrow(stopName, custom?.takeIf { CircleChoice.index(it) < 0 }) else "$stopName · no alarm",
             choice = CircleChoice.index(custom), radiusM = zoneM, alarm = alarm,
-            paste = paste, pasteError = StopText.pasteError(paste), slider = slider,
+            paste = paste, pasteError = linkError ?: StopText.pasteError(paste), busy = busy, slider = slider,
             canRemove = route.legs.size > 1, canForget = learned != null, locating = locating,
         ),
         StopPickerActions(
             back = leave,
-            paste = { t ->
-                paste = t
-                CoordParser.parse(t)?.let { moveTo = it; moveTick++ }
-            },
+            paste = { t -> paste = t; read(t) },
             choose = { custom = CircleChoice.radius(it); slider = false },
             showSlider = { slider = true; if (custom == null) custom = ZoneScale.round(zoneM) },
             slide = { custom = it },
@@ -260,4 +290,58 @@ fun NameDialog(title: String, label: String, initial: String, onDismiss: () -> U
 @Composable
 fun SubScreen(content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize().background(LocalN.current.bg)) { content() }
+}
+
+/** Something shared from Google Maps (PLAN Run 12, C1): a place to add to a route, or directions for a new one. */
+@Composable
+fun ShareHost(text: String, go: (Screen) -> Unit, back: () -> Unit) {
+    val app = App.instance
+    val routes by app.routes.routes.collectAsState()
+    var result by remember(text) { mutableStateOf<MapsLink.Result?>(MapsLink.parse(text)) }
+    LaunchedEffect(text) {
+        val r = result
+        if (r is MapsLink.Result.Short) {
+            val long = ShortLinks.resolve(r.url)
+            result = when (val rr = long?.let(MapsLink::parse)) {
+                is MapsLink.Result.One -> rr.copy(place = rr.place.copy(name = r.name ?: rr.place.name))
+                is MapsLink.Result.Directions -> rr
+                else -> MapsLink.Result.None
+            }
+        }
+    }
+    ShareScreen(
+        ShareText.of(result, routes),
+        onPick = { action ->
+            val res = result
+            when (action) {
+                is ShareOption.Action.AddTo -> {
+                    val r = app.routes.get(action.routeId)
+                    val p = (res as? MapsLink.Result.One)?.place
+                    if (r != null && p != null) {
+                        val i = r.legs.size
+                        app.routes.upsert(r.copy(legs = r.legs + LegDraft(p.name ?: RouteText.stopName(i), StopText.coords(p.pos))))
+                        go(Screen.Stop(r.id, i, fresh = true))
+                    }
+                }
+                ShareOption.Action.NewRoute -> (res as? MapsLink.Result.One)?.place?.let { p ->
+                    val r = Route(
+                        name = RouteText.nextRouteName(routes.map { it.name }),
+                        legs = listOf(LegDraft(p.name ?: RouteText.stopName(0), StopText.coords(p.pos))),
+                    )
+                    app.routes.upsert(r)
+                    go(Screen.Stop(r.id, 0, fresh = true))
+                }
+                ShareOption.Action.NewRouteFromDirections -> (res as? MapsLink.Result.Directions)?.let { d ->
+                    val r = Route(
+                        name = RouteText.nextRouteName(routes.map { it.name }),
+                        legs = d.stops.take(ShareText.MAX_STOPS).mapIndexed { i, p -> LegDraft(p.name ?: RouteText.stopName(i), StopText.coords(p.pos)) },
+                    )
+                    app.routes.upsert(r)
+                    go(Screen.Route(r.id))
+                }
+            }
+        },
+        onBack = back,
+        modifier = Modifier.statusBarsPadding().navigationBarsPadding(),
+    )
 }

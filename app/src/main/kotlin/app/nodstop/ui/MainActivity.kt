@@ -32,6 +32,7 @@ import app.nodstop.ui.v2.NodstopV2Theme
 import app.nodstop.ui.v2.RouteHost
 import app.nodstop.ui.v2.StopHost
 import app.nodstop.ui.v2.SetupHost
+import app.nodstop.ui.v2.ShareHost
 import app.nodstop.ui.v2.ContactsHost
 import app.nodstop.ui.v2.SubScreen
 import app.nodstop.ui.v2.Tab
@@ -44,6 +45,8 @@ sealed interface Screen {
     data class Route(val routeId: String?) : Screen
     /** Set one bus's stop on the map. [fresh]: just added; backing out without saving removes it (PLAN B1). */
     data class Stop(val routeId: String, val leg: Int, val fresh: Boolean = false) : Screen
+    /** Shared from Google Maps (PLAN Run 12, C1). */
+    data class Share(val text: String) : Screen
     data object Setup : Screen
     data object Contacts : Screen
     data object Debug : Screen
@@ -60,12 +63,13 @@ class MainActivity : ComponentActivity() {
     /** Bumped on every onResume so screens re-read permission and settings state. */
     private val resumeTick = mutableIntStateOf(0)
     private val pendingStart = mutableStateOf<String?>(null)
+    private val pendingShare = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handle(intent)
-        setContent { AppRoot(resumeTick.intValue, pendingStart) }
+        setContent { AppRoot(resumeTick.intValue, pendingStart, pendingShare) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -79,6 +83,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(intent: Intent?) {
+        // A place or directions shared from Google Maps (PLAN Run 12, C1).
+        ShareIn.text(intent)?.let { pendingShare.value = it; intent?.removeExtra(Intent.EXTRA_TEXT) }
         intent?.getStringExtra(Shortcuts.EXTRA_START_ROUTE_ID)?.let {
             pendingStart.value = it
             intent.removeExtra(Shortcuts.EXTRA_START_ROUTE_ID)
@@ -87,7 +93,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
+private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendingShare: MutableState<String?>) {
     val ctx = LocalContext.current
     // v2 (PLAN Run 8, M2): three tabs, plus the old screens as sub-screens until Run 9 replaces them.
     var tab by remember { mutableStateOf(Tab.NOW) }
@@ -103,6 +109,12 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
     // First run (PLAN Run 9, M6): Setup once, if anything the alarm needs is off. Later, Now's red row leads there.
     LaunchedEffect(Unit) {
         if (!App.instance.settings.setupSeen && Readiness.needsAttention(Readiness.checks(ctx)).isNotEmpty()) go(Screen.Setup)
+    }
+
+    LaunchedEffect(pendingShare.value) {
+        val text = pendingShare.value ?: return@LaunchedEffect
+        pendingShare.value = null
+        go(Screen.Share(text))
     }
 
     // Started from a Quick Settings tile or launcher shortcut: start that route (or show the running trip).
@@ -128,6 +140,7 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
         is Screen.Route -> NodstopV2Theme { SubScreen { RouteHost(s.routeId, go, back) } }
         is Screen.Stop -> NodstopV2Theme { SubScreen { StopHost(s.routeId, s.leg, s.fresh, back) } }
         Screen.Setup -> NodstopV2Theme { SubScreen { SetupHost(resumeTick, back) } }
+        is Screen.Share -> NodstopV2Theme { SubScreen { ShareHost(s.text, go, back) } }
         Screen.Contacts -> NodstopV2Theme { SubScreen { ContactsHost(resumeTick, back) } }
         else -> NodstopV2Theme {
             androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {

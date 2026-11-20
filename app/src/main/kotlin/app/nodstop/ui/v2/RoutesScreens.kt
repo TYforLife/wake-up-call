@@ -177,6 +177,8 @@ data class StopPickerUi(
     val alarm: Boolean = true,
     val paste: String = "",
     val pasteError: String? = null,
+    /** "Opening the link…" while a short link is followed (PLAN C1). */
+    val busy: String? = null,
     val slider: Boolean = false,
     val canRemove: Boolean = false,
     val canForget: Boolean = false,
@@ -211,6 +213,7 @@ fun StopPicker(ui: StopPickerUi, a: StopPickerActions, map: @Composable (Modifie
             Column(Modifier.statusBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PasteBar(ui, a)
                 ui.pasteError?.let { Bubble(it, c.danger, Color.White) }
+                ui.busy?.let { Bubble(it, c.fg, c.bg) }
             }
             IconCircle(
                 NIcons.Locate, if (ui.locating) "Finding you" else "Use my location", a.locate, floating = true,
@@ -275,7 +278,7 @@ private fun PasteBar(ui: StopPickerUi, a: StopPickerActions) {
     ) {
         IconButton(onClick = a.back) { Icon(NIcons.Back, "Back", tint = c.fg) }
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            if (ui.paste.isEmpty()) Text("Paste a Maps link or coordinates", style = NType.body, color = c.muted, maxLines = 1)
+            if (ui.paste.isEmpty()) Text("Search stops, or paste a Maps link", style = NType.body, color = c.muted, maxLines = 1)
             BasicTextField(
                 ui.paste, a.paste, singleLine = true, textStyle = NType.body.copy(color = c.fg), cursorBrush = SolidColor(c.fg),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), modifier = Modifier.fillMaxWidth(),

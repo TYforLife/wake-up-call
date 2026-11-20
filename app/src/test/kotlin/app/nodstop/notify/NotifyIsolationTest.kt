@@ -42,10 +42,14 @@ class NotifyIsolationTest {
     @Test
     fun `only the share UI and the trip-log share use ACTION_SEND`() {
         // ShareLine: one briefing line; TraceLogger: the trip log; DataExport: your backup file. All on a tap.
-        val allowed = setOf("ShareLine.kt", "TraceLogger.kt", "DataExport.kt")
+        // ShareIn: RECEIVES a place shared from Google Maps (PLAN Run 12); it must never send (checked below).
+        val allowed = setOf("ShareLine.kt", "TraceLogger.kt", "DataExport.kt", "ShareIn.kt")
         val all = root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
         val users = all.filter { f -> code(f).any { (_, l) -> l.contains("ACTION_SEND") } }.map { it.name }.toSet()
         assertTrue("ShareLine.kt" in users, "share UI not found")
         assertTrue((users - allowed).isEmpty(), "ACTION_SEND outside the share UI: ${users - allowed}")
+        val shareIn = all.first { it.name == "ShareIn.kt" }
+        val sends = code(shareIn).filter { (_, l) -> listOf("Intent(Intent.ACTION_SEND", "createChooser", "startActivity", "sendBroadcast").any { it in l } }
+        assertTrue(sends.isEmpty(), "ShareIn.kt must only receive: $sends")
     }
 }

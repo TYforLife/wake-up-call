@@ -66,8 +66,10 @@ class StopTextTest {
         assertNull(StopText.pasteError(""))
         assertNull(StopText.pasteError("-36.78, 174.75"))
         assertEquals("That's outside New Zealand.", StopText.pasteError("51.5, -0.12"))
-        assertEquals("Can't read that. Paste \"-36.78, 174.75\" or a Maps link.", StopText.pasteError("Hill Ave"))
-        assertEquals(true, StopText.pasteError("https://maps.app.goo.gl/abc")!!.startsWith("Short links"))
+        // Words are a stop search, short links get opened (PLAN Run 12): neither is an error.
+        assertNull(StopText.pasteError("Hill Ave"))
+        assertNull(StopText.pasteError("https://maps.app.goo.gl/abc"))
+        assertEquals("That link isn't a Google Maps place. Share the stop from Maps instead.", StopText.pasteError("https://example.com/x"))
         assertEquals("-36.800000, 174.700000", StopText.coords(app.nodstop.engine.LatLng(-36.8, 174.7)))
         // Only the circle changed: the stop stays exactly as typed; moved, or new: the map's centre.
         assertEquals("-36.80, 174.70", StopText.saved("-36.80, 174.70", app.nodstop.engine.LatLng(-36.8000001, 174.7000001)))

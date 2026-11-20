@@ -652,13 +652,14 @@ Prerequisite: Run 10 merged.
 Prerequisite: Run 11 merged.
 
 ### C1 Google Maps links and sharing
-- [ ] Any Google Maps link works wherever a stop is set:
+- [x] Any Google Maps link works wherever a stop is set:
   - place and pin links;
   - `maps.app.goo.gl` short links, resolved by following redirects, to Google hosts only (the link is sent to
     Google, nothing else; DESIGN §5 Permissions);
-  - directions links, whose origin and destination become the route's first and last stops, named from the link.
-- [ ] Nodstop appears in Google Maps' Share sheet: share a place, then pick "Add to To work" or "New route".
-- [ ] Parser tests with the real link shapes, using public landmarks only, never personal places.
+  - directions links, whose stops become the route's stops, named from the link. (Built: the start is dropped,
+    because it's where you get on, not a stop you get off at; the waypoints and the destination are the stops.)
+- [x] Nodstop appears in Google Maps' Share sheet: share a place, then pick "Add to To work" or "New route".
+- [x] Parser tests with the real link shapes, using public landmarks only, never personal places.
 
 ### C2 Search Auckland Transport stops
 - [ ] Auckland Transport's public GTFS stops (name, stop number, position) are bundled into the APK at build time;
