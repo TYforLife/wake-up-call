@@ -88,7 +88,7 @@ fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modi
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             ScreenTitle("Settings")
             Spacer(Modifier.height(12.dp))
-            SwitchRow("Quiet other notifications", "During trips", ui.quiet, a.quiet)
+            SwitchRow("Quiet other notifications", "While the screen is off, on a trip", ui.quiet, a.quiet)
             SwitchRow("Ring out loud after 60 s", "If vibration didn't wake you", ui.speaker, a.speaker)
             SwitchRow("Ask how the timing was", "After each ring", ui.ask, a.ask)
             ListRow("Important contacts", ui.contacts, onClick = a.contacts, trailing = { Chevron() })

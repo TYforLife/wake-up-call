@@ -86,11 +86,20 @@ class TripService : Service() {
     private val routesScope = MainScope()
     private var routesJob: Job? = null
 
+    /** Quiet trip follows the screen (PLAN Run 10, A4): quiet while it's off, your notifications while it's on. */
+    private val screen = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (trip == null) return
+            runCatching { DndController.update(this@TripService, tripRunning = true, screenOn = intent.action == Intent.ACTION_SCREEN_ON) }
+        }
+    }
+
     private val tick = object : Runnable {
         override fun run() {
             val now = System.currentTimeMillis()
             input(Input.Tick(now))
-            quietIfAsked()
+            // Also every tick: the setting or its access may change mid-trip, and a screen broadcast can be missed.
+            if (trip != null) runCatching { DndController.update(this@TripService, tripRunning = true) }
             briefing?.onTick(now, lastScheduled)
             handler.postDelayed(this, TICK_MS)
         }
@@ -104,6 +113,8 @@ class TripService : Service() {
         lastScheduled = app.scheduler.scheduledAtMs
         // A wake circle changed on the map applies to this trip at once (PLAN U3).
         routesJob = routesScope.launch { app.routes.routes.collect { onRoutesChanged(it) } }
+        val f = android.content.IntentFilter().apply { addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF) }
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(screen, f, RECEIVER_NOT_EXPORTED) else registerReceiver(screen, f)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -197,8 +208,6 @@ class TripService : Service() {
         Notifications.cancelTripPaused(this)
         // While You Slept (DESIGN §10): catch chat notifications while this trip runs, in memory only.
         MessageStore.instance.start()
-        DndController.onTripStart(this)
-        quietTried = DndController.granted(this) && app.settings.dndDuringTrips.value
         briefing?.stop()
         // An urgent VIP message (DESIGN §10): ring now, through the engine and the single ring path (W1).
         briefing = BriefingCoordinator(this, now) { handler.post { input(Input.Urgent(System.currentTimeMillis())) } }
@@ -213,6 +222,8 @@ class TripService : Service() {
         notes = RideNotes()
         src.start { fix -> notes.onFix(fix.tMs); input(Input.FixIn(fix.tMs, fix)) }
         handler.postDelayed(tick, TICK_MS)
+        // Quiet trip: on now only if the screen is already off (a trip started from the tile, PLAN A4).
+        runCatching { DndController.update(this, tripRunning = true) }
     }
 
     private fun input(i: Input) {
@@ -229,14 +240,6 @@ class TripService : Service() {
         val on = app.settings.dndRecord()?.setByUs == true
         val snap = MessageStore.instance.snapshot()
         return Notifications.quietLine(on, if (snap.active) snap.added + snap.otherNotifications else null)
-    }
-
-    /** Quiet trip switched on (or its access granted) after the trip started: apply it once, now. */
-    private var quietTried = false
-    private fun quietIfAsked() {
-        if (quietTried || !app.settings.dndDuringTrips.value || !DndController.granted(this)) return
-        quietTried = true
-        DndController.onTripStart(this)
     }
 
     private fun apply(t: ActiveTrip, out: Output, changed: Boolean) {
@@ -404,6 +407,7 @@ class TripService : Service() {
 
     override fun onDestroy() {
         routesJob?.cancel()
+        runCatching { unregisterReceiver(screen) }
         // Do NOT cancel the alarm here: if the system destroys us, the scheduled alarm is the dead-man's switch.
         briefing?.stop(); briefing = null
         MessageStore.instance.stop()

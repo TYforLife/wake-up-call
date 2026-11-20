@@ -335,9 +335,12 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 |---|---|
 | `TripService` | Foreground service, type `location`. Started from the UI (foreground), so no background-location permission is needed. Gets the last known position, then fused location at HIGH_ACCURACY every 2 s; fix age measured on the monotonic clock. Feeds the engine, applies `alarmAtMs`, buzzes once at the stop, stores learned rides, and runs the live trip notification (§5 Notifications). A `Tick` every 5 s. Writes the trace. Saves the active trip (legs, leg, alarm reason, time left) on every change and every 15 s. |
 | `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. |
-| `AlarmReceiver` | Always starts `RingService`, with no conditions. Sends `Rang` to the engine if the process is alive. |
-| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, the sound mode and Do Not Disturb at the start, whether it could buzz, when the speaker joined, how it was stopped) in the trip log (`ringd`) and as the last-ring report that Settings → Report a missed alarm shares. |
-| `AlarmActivity` | Shows over the lock screen and turns the screen on. **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
+| `AlarmReceiver` | Rings with no conditions. First it posts the ring notification itself: full screen, insistent, on the alarm channel, which vibrates by itself. Then it starts `RingService`, which takes over the same notification ID. If the service can't start, the alarm is still on screen and buzzing, and the receiver re-arms the alarm a minute ahead (PLAN Run 10, A1). Sends `Rang` to the engine if the process is alive. |
+| `RestartReceiver` | After an app update (`MY_PACKAGE_REPLACED`) or a phone restart (`BOOT_COMPLETED`) during a trip (PLAN Run 10, A1): sets the saved alarm again at once (`Restart.plan`), or now if it passed while the phone was off. It then resumes tracking the same stop (`ACTION_RESUME`, not "awake for it"). It also posts "Your trip is still on, tap to keep tracking" in case Android refuses to start location tracking from the background. A stale or finished trip is dropped. |
+| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the alarm channel. The channel has no sound, but it vibrates by itself, and the notification is insistent (PLAN Run 10). The service plays the audio and its own vibration, plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, the sound mode and Do Not Disturb at the start, whether it could buzz, when the speaker joined, how it was stopped, plus the alarm channel's state, "Display over other apps", quiet trip at the ring and a cold start) in the trip log (`ringd`; a ring that cold-started the app writes into the saved trip's log) and as the last-ring report that Settings → Report a missed alarm shares. |
+| `AlarmActivity` | Shows over the lock screen and turns the screen on. While you use another app, Android shows a ring only as a banner. With "Display over other apps", `RingService` puts up a one-pixel invisible window (`AlarmOverlay`) so it may open this screen over the app; the window goes when the screen shows or the ring ends. |
+| Alarm channel | `Notifications.ensureAlarmChannel`, at every app start and every ring (never while a ring shows). The channel must be high importance and vibrating, and must get through Do Not Disturb whenever Nodstop has that access. Android only honours "bypass Do Not Disturb" if the access existed when the channel was made, and keeps a channel's settings, so a channel that falls short is replaced with a new ID (`AlarmChannel`, tested). |
+| `AlarmActivity` (ack) | **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
 | `LocationSource` | Interface. `FusedLocationSource` (real; also last-known and one-shot "Use my location") and `SimulatedLocationSource` (a pretend bus in real time: halts 90 s at stop 1, drives 3 km to stop 2, halts 2 min, then keeps going, for couch tests). |
 | `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (Set a stop ⋯) or all (Debug). |
 | `SafeStore` | How every store loads and saves: each save keeps the previous file as `.bak`; a file that can't be read is kept as `.bad-<time>` and the backup is used, so an update can never wipe routes or learned rides. Fixture tests decode every shipped format. Debug → **Your data** backs everything up to one JSON file (share sheet) and restores it (file picker). |
@@ -362,7 +365,7 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
   Not Disturb access (a required Setup row, "Buzz on Mute"), it switches to vibrate
   (and alarms only) for the ring and puts your setting back after "I'm awake" or Stop; only if it's still
   what we set. The record is saved before anything changes, so the next app start undoes a ring a crash
-  left behind. A trip's own "quiet trip" mode (alarms only) is left alone.
+  left behind. Quiet trip's own Do Not Disturb is lifted first, as the ring starts (PLAN Run 10).
 - **No earbuds and the buzz may not get through** (on Mute without that access, or no vibrator): the
   phone speaker joins at **30 s**, whatever the "speaker last resort" setting.
 
@@ -379,14 +382,18 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notifications say what the screens say.
 
 - **Trip progress** (silent, tinted with the accent; `TripNoteText`, mockup `lock`): "Harbour St in 6 min",
-  "Alarm about 7:45", an accent progress bar, and a **Stop trip** action that needs the phone unlocked (so a
-  pocket can't cancel your alarm). Waiting: "Harbour St · waiting for the bus" / "Alarm set until you're on it";
+  "Alarm about 7:45", an accent progress bar, and two buttons (`TripNoteText.actions`, PLAN Run 10 A3):
+  - **I'm off this bus**, or **Skip this bus** while waiting for the next one. It ends the leg, or the trip on the
+    last bus. It needs no unlock once this stop has rung or you're inside its circle (300 m without one); before
+    that it asks you to unlock, so a pocket can't skip your alarm.
+  - **Stop trip**, which always needs the phone unlocked. Waiting: "Harbour St · waiting for the bus" / "Alarm set until you're on it";
   GPS lost: "Harbour St · GPS lost" / "Alarm at 7:44 at the latest". A quiet trip adds "Quiet trip: 6 held". On
   Android 16 it's a Live Update: promoted to the lock screen and status bar chip with the distance
   (`POST_PROMOTED_NOTIFICATIONS`; Settings shows an Allow row only while it's off).
 - **At your stop**: the one-buzz nudge, "You're at Harbour St", "Get off now".
-- **Wake-up alarm**: full-screen intent, colourised (accent; red when you passed your stop), with an
-  **I'm awake** action. Its two lines are the ring screen's (`RingText`): "Wake up" / "Harbour St is close".
+- **Wake-up alarm**: full-screen intent, colourised (accent; red when you passed your stop), insistent, on a
+  channel that vibrates by itself, with an **I'm awake** action. Posted by `AlarmReceiver` first. Its two lines are the ring screen's (`RingText`): "Wake up" / "Harbour St is close".
+- **Your trip is still on** (after an update or a restart): one tap resumes tracking; the alarm is already set.
 - **Ring timing** (optional, silent, gone after 15 min): "How was the ring timing?", Too early / Good / Too late.
 
 ### Permissions
@@ -395,7 +402,9 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
 `FOREGROUND_SERVICE_LOCATION`, `FOREGROUND_SERVICE_SYSTEM_EXEMPTED`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`,
 `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`, `WAKE_LOCK`, `VIBRATE`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `MODIFY_AUDIO_SETTINGS` (media volume during the ring),
-`POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `INTERNET` (map tiles only, from
+`POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `RECEIVE_BOOT_COMPLETED` (a trip's alarm survives a
+restart), `SYSTEM_ALERT_WINDOW` ("Display over other apps": the alarm screen opens over the app you're using),
+`INTERNET` (map tiles only, from
 OpenFreeMap; the tile server sees roughly which area you're looking at, nothing else is sent).
 
 ### Screens
@@ -414,7 +423,8 @@ doesn't flash another colour while it opens.
 
 - **Setup** (`setup`): "Before your first ride", one list:
   - Notifications; Over the lock screen (full-screen intent); Exact alarms; Buzz on Mute (Do Not Disturb access);
-    Location while riding.
+    Location while riding; Over other apps ("Display over other apps", Run 10).
+  - An Alarm notifications row only when the alarm channel is turned off or down.
   - Each row has an Allow that asks for the permission or opens its settings page.
   - On Samsung, a Keep running (battery Unrestricted) row and the steps no API can check:
     - Settings → Apps → Nodstop → Battery → Unrestricted
@@ -434,6 +444,13 @@ doesn't flash another colour while it opens.
   - Rows for an interrupted trip, with its alarm time and Stop, and for timing ratings not yet given (one tap per
     leg).
   - Starting the first trip offers to quiet other notifications.
+  - **Last trip** (PLAN Run 10, A0, `TripVerdict`): one line per stop that had an alarm, read from the trip log,
+    including rings that cold-started the app.
+    - Calm: "Rang at Harbour St · Buzzed · screen on".
+    - Red, with a one-tap Send (the hidden log and the ring report): "Didn't ring at Harbour St", "May not have
+      buzzed: phone on Mute without access", or "The alarm screen didn't open".
+    - Neutral when you got off or stopped first.
+    - OK hides it.
 - **Now, riding** (`riding`, `riding-night`, `gps-lost`, `transfer`):
   - A full-bleed map: OpenFreeMap `positron`, recoloured to the map tokens, light or dark. It shows only this
     trip's stops, your stop as a black pin with its circle, the learned route, and you as the blue dot. It has
@@ -644,10 +661,15 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
 - `CaptureService` (NotificationListenerService) writes to an in-memory `MessageStore`, only while a
   trip runs. Conversation key = package + conversation title. Newest 200 messages per trip.
 - **Do Not Disturb during trips**: optional, off by default, experimental until Gate B confirms the
-  earbud tone and the at-stop buzz still come through. Sets `INTERRUPTION_FILTER_ALARMS` at Start,
-  restores the previous filter on Stop, DONE or service destroy, and on next app start if a
-  "set by us" flag survived a crash. **Quiet trip** (PLAN R2): the switch ("Quiet other notifications
-  during trips") is the first row of Settings, and the first trip's Start asks once ("Quiet your trips?",
+  earbud tone and the at-stop buzz still come through.
+  - **Only while the screen is off** (PLAN Run 10, A4; the owner: "only when the phone is off; when it's on,
+    notifications still come through"). `INTERRUPTION_FILTER_ALARMS` is on while a trip runs with the screen off,
+    and off while you use the phone or while it rings (`DndRestore.wanted`, `DndController.update` on screen
+    changes, every tick and at the ring).
+  - A Do Not Disturb you set yourself is never touched, and the previous filter comes back on Stop, DONE or
+    service destroy, and on the next app start if a "set by us" flag survived a crash.
+  - **Quiet trip** (PLAN R2): the switch ("Quiet other notifications · While the screen is off, on a trip") is
+    the first row of Settings, and the first trip's Start asks once ("Quiet your trips?",
   Quiet my trips / Not now), asking for Do Not Disturb access in the same tap. Turned on (or allowed)
   mid-trip, it applies once at the next tick. The trip notification says "Quiet trip" ("Quiet trip: 6
   held" when notification access can count them). Still off until the owner turns it on.

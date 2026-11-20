@@ -133,8 +133,9 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
             title = { Text("Quiet your trips?") },
             text = {
                 Text(
-                    "Other notifications stay silent while you ride, so they don't wake you. Alarms still ring, and an " +
-                        "urgent message from an important contact still wakes you. Your setting comes back when the trip ends.",
+                    "While the screen is off on a trip, other notifications stay silent so they don't wake you. When you " +
+                        "use the phone, they come through as usual. The alarm always rings, and an urgent message from an " +
+                        "important contact still wakes you.",
                 )
             },
             confirmButton = {

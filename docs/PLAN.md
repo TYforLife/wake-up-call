@@ -577,13 +577,13 @@ trip what happened.
 - [x] JVM tests for which actions show, and whether each needs unlocking, in every phase.
 
 ### A4 Quiet only while the screen is off
-- [ ] During a trip with quiet trip on, Do Not Disturb (alarms only) is on while the screen is off and off while
+- [x] During a trip with quiet trip on, Do Not Disturb (alarms only) is on while the screen is off and off while
   it's on. Notifications come through while you use the phone and stay silent while you doze.
-- [ ] `TripService` listens for screen on and off. The decision is pure, in `DndRestore`, and takes the screen
+- [x] `TripService` listens for screen on and off. The decision is pure, in `DndRestore`, and takes the screen
   state as an input.
-- [ ] A Do Not Disturb you set yourself is never touched, and your setting comes back when the trip ends.
-- [ ] The Settings subtitle becomes "While the screen is off", and the first-trip offer text matches.
-- [ ] JVM tests: screen off, then on, then off, then the trip ends; DND you set mid-trip; a crash mid-trip.
+- [x] A Do Not Disturb you set yourself is never touched, and your setting comes back when the trip ends.
+- [x] The Settings subtitle becomes "While the screen is off", and the first-trip offer text matches.
+- [x] JVM tests: screen off, then on, then off, then the trip ends; DND you set mid-trip; a crash mid-trip.
 
 **Test on phone (Run 10):**
 1. Couch test with the phone on Mute, no earbuds, quiet trip on and the screen off: the screen turns on, it
