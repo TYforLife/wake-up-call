@@ -1,4 +1,4 @@
-The three places: Now, Routes, Settings. Always at the bottom; the alarm and setup cover it.
+Three places: Now, Routes, Settings. The alarm and setup cover it.
 
-- The active tab sits on `surface` inside the `surface-sunk` bar.
-- During a trip, the Now tab shows the live distance in `mono` under its label, in `armed` (or `backup`).
+- Outline icons; the active tab is `fg`, the others `muted`.
+- While a trip is live, the Now icon carries the `accent` dot.
