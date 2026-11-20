@@ -135,13 +135,15 @@ class RingService : Service() {
                 return START_NOT_STICKY
             }
         }
-        if (!ringing) begin()
         // Re-ring safety net (DESIGN §2): with the trip service alive, the engine keeps the alarm a minute
         // ahead while ringing. After a cold start there is no engine, so keep it here: if this ring dies
-        // before "I'm awake", the system rings again.
+        // before "I'm awake", the system rings again. Set first, so nothing below can skip it (PLAN Run 10).
         if (!test && TripService.instance == null) {
             App.instance.scheduler.set(System.currentTimeMillis() + (Config().reringS * 1000).toLong())
         }
+        // Whatever fails in starting the ring, the service stays up: its notification stays on screen and its
+        // channel keeps buzzing (insistent) until "I'm awake".
+        if (!ringing) try { begin() } catch (e: Exception) { Log.e("Nodstop", "ring start failed; the notification still buzzes", e) }
         // Best effort: also open the alarm screen directly (the full-screen intent covers the locked case).
         val open = { runCatching { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
         open()
@@ -214,30 +216,36 @@ class RingService : Service() {
         val hs = headset()
         val after = speakerAfterMs
         val step = RingPlan.step(elapsed, hs != null, after != null, overshoot, inUse, after ?: RingPlan.SPEAKER_AFTER_MS)
-        when (step.route) {
-            AudioRoute.EARBUDS -> {
-                alarmTrack?.pause()
-                setVolume(AudioManager.STREAM_MUSIC, step.volumePct)
-                val t = mediaTrack ?: Tone.track(AudioAttributes.USAGE_MEDIA).also { tr ->
-                    tr.addOnRoutingChangedListener({ r -> if (isPhoneSpeaker(r.routedDevice)) tr.pause() }, handler)
-                    mediaTrack = tr
+        // The buzz first, and nothing about sound can stop it (PLAN Run 10): a tone that fails to play (an audio
+        // device that won't open, a route change mid-call) must never take the vibration or the ring down with it.
+        runCatching { buzz(step.buzz) }.onFailure { Log.e("Nodstop", "ring vibration failed", it) }
+        try {
+            when (step.route) {
+                AudioRoute.EARBUDS -> {
+                    alarmTrack?.pause()
+                    setVolume(AudioManager.STREAM_MUSIC, step.volumePct)
+                    val t = mediaTrack ?: Tone.track(AudioAttributes.USAGE_MEDIA).also { tr ->
+                        tr.addOnRoutingChangedListener({ r -> if (isPhoneSpeaker(r.routedDevice)) tr.pause() }, handler)
+                        mediaTrack = tr
+                    }
+                    t.preferredDevice = hs
+                    if (isPhoneSpeaker(t.routedDevice) && t.playState == AudioTrack.PLAYSTATE_PLAYING) t.pause()
+                    else if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
                 }
-                t.preferredDevice = hs
-                if (isPhoneSpeaker(t.routedDevice) && t.playState == AudioTrack.PLAYSTATE_PLAYING) t.pause()
-                else if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
+                AudioRoute.SPEAKER -> {
+                    mediaTrack?.pause()
+                    setVolume(AudioManager.STREAM_ALARM, step.volumePct)
+                    val t = alarmTrack ?: Tone.track(AudioAttributes.USAGE_ALARM).also { alarmTrack = it }
+                    if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
+                }
+                AudioRoute.NONE -> {
+                    mediaTrack?.pause()
+                    alarmTrack?.pause()
+                }
             }
-            AudioRoute.SPEAKER -> {
-                mediaTrack?.pause()
-                setVolume(AudioManager.STREAM_ALARM, step.volumePct)
-                val t = alarmTrack ?: Tone.track(AudioAttributes.USAGE_ALARM).also { alarmTrack = it }
-                if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
-            }
-            AudioRoute.NONE -> {
-                mediaTrack?.pause()
-                alarmTrack?.pause()
-            }
+        } catch (e: Exception) {
+            Log.e("Nodstop", "ring tone failed; vibration carries on", e)
         }
-        buzz(step.buzz)
         _state.value = RingUi(legName, overshoot, startedAt, step, hs != null, test, if (overshoot) AlarmReason.OVERSHOOT else reason)
     }
 
