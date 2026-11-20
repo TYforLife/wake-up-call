@@ -73,6 +73,16 @@ class ScreensV2ScreenshotTest {
 
     @Test fun riding() = shot("riding") { withTabs(true) { NowRiding(riding, {}, {}, {}, flatMap) } }
 
+    /** PLAN Run 11, B3: the sheet folded to one line, for more map. */
+    @Test fun riding_collapsed() = shot("riding-collapsed") {
+        withTabs(true) {
+            NowRiding(
+                riding, {}, {}, {}, flatMap,
+                compact = CompactSheetUi("Harbour St · 6 min · alarm 7:45", false, "I'm off this bus"), expanded = false,
+            )
+        }
+    }
+
     @Test fun riding_night() = shot("riding-night", dark = true) {
         withTabs(true) { NowRiding(riding.copy(alarm = "Alarm about 22:45"), {}, {}, {}, flatMap) }
     }

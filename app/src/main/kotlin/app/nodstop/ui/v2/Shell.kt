@@ -27,6 +27,7 @@ import androidx.compose.runtime.produceState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -188,12 +189,17 @@ private fun NowRidingTab(t: TripService.TripUi) {
         MapModel.layers(MapModel.visibleRoutes(all, t.routeName, null, null), { learned[Route.stopKey(it)] }, t.routeName, t.legIndex)
     }
     val colors = LocalN.current
+    // More map, less panel (PLAN B3): touching the map folds the sheet; it remembers while the trip runs.
+    var expanded by rememberSaveable { mutableStateOf(true) }
     NowRiding(
         sheet = TripSheetText.of(t, ::hm),
         onAction = { TripService.instance?.skipLeg() },
         onRecentre = { recentre++ },
         onStopTrip = { confirmStop = true },
-        map = { m -> RideMap(layers, t.status.position, colors, recentre, m) },
+        map = { m -> RideMap(layers, t.status.position, colors, recentre, m, onUserGesture = { expanded = false }) },
+        compact = CompactSheetText.of(t, ::hm),
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
     )
     if (confirmStop) StopTripDialog({ confirmStop = false }) { TripService.stop(ctx) }
 }

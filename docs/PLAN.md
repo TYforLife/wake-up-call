@@ -627,10 +627,10 @@ Prerequisite: Run 10 merged.
   the flat map box.
 
 ### B3 More map, less panel
-- [ ] The riding sheet collapses to one line ("Harbour St · 6 min · alarm 7:45", with I'm off this bus) and drags
+- [x] The riding sheet collapses to one line ("Harbour St · 6 min · alarm 7:45", with I'm off this bus) and drags
   up for the rest. It collapses by itself when you touch the map.
-- [ ] Opening the map still frames you and your stop: the owner likes this, so keep `MapModel.frame`.
-- [ ] Screenshot tests for the collapsed and open sheets.
+- [x] Opening the map still frames you and your stop: the owner likes this, so keep `MapModel.frame`.
+- [x] Screenshot tests for the collapsed and open sheets.
 
 ### B4 Change the circle on the map, per stop
 - [ ] Tap inside a stop's circle: a small sheet with that stop's size (Auto, 150, 250, 400 m, plus the slider).
