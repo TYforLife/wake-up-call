@@ -196,5 +196,18 @@ class ScreensV2ScreenshotTest {
             {}, {},
         )
     }
+
+    @Test fun find_bus() = shot("find-bus") {
+        FindBusScreen(
+            FindBusUi(
+                "", emptyList(), dest = "Harbour St",
+                options = listOf(
+                    BusOptionUi("866 towards Britomart", "Get on at Central Station · 290 m walk · 12 stops"),
+                    BusOptionUi("100 towards Harbour St", "Get on at Park Rd · 450 m walk · 9 stops"),
+                ),
+            ),
+            FindBusActions(),
+        )
+    }
 }
 

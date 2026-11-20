@@ -670,11 +670,11 @@ Prerequisite: Run 11 merged.
 - [x] Bus-stop markers on the Set a stop map: tap one to choose it, with its name.
 
 ### C3 Route search (direct buses)
-- [ ] "To <stop>" from where you are: the Auckland Transport routes that serve a stop near you and the destination
+- [x] "To <stop>" from where you are: the Auckland Transport routes that serve a stop near you and the destination
   directly. Pick one to create the route with its stops.
   - The routes come from a compact route-to-stops index built from GTFS at build time.
   - Two-bus journeys come later: the owner can paste a Google Maps directions link for those (C1).
-- [ ] Live data never changes the alarm (rule 6): this only fills in stops.
+- [x] Live data never changes the alarm (rule 6): this only fills in stops.
 
 **Test on phone (Run 12):**
 1. Share a stop from Google Maps to Nodstop.

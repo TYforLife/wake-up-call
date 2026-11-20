@@ -56,7 +56,7 @@ import app.nodstop.map.ZoneScale
 
 // ---- Routes (mockup `routes`) ----
 
-class RoutesActions(val open: (String) -> Unit = {}, val add: () -> Unit = {})
+class RoutesActions(val open: (String) -> Unit = {}, val add: () -> Unit = {}, val find: () -> Unit = {})
 
 /** Your routes as rows; a problem is the row's red second line (PLAN Run 9, M5). */
 @Composable
@@ -65,6 +65,9 @@ fun RoutesList(rows: List<RouteRowUi>, a: RoutesActions, modifier: Modifier = Mo
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             TitleBar {
                 Box(Modifier.weight(1f)) { ScreenTitle("Routes") }
+                // Find a bus to where you're going (PLAN Run 12, C3).
+                IconCircle(NIcons.Search, "Find a bus", a.find)
+                Spacer(Modifier.width(8.dp))
                 IconCircle(NIcons.Plus, "Add a route", a.add)
             }
             if (rows.isEmpty()) Lead("Add the buses you take, and where you get off.")

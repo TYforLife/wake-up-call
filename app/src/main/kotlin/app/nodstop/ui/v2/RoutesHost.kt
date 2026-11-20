@@ -50,7 +50,7 @@ fun RoutesTab(go: (Screen) -> Unit) {
     val learned by app.learned.all.collectAsState()
     RoutesList(
         routes.map { r -> RouteText.row(r) { learned[Route.stopKey(it)] } },
-        RoutesActions(open = { go(Screen.Route(it)) }, add = { newRoute(go) }),
+        RoutesActions(open = { go(Screen.Route(it)) }, add = { newRoute(go) }, find = { go(Screen.FindBus) }),
         Modifier.statusBarsPadding(),
     )
 }
@@ -361,3 +361,49 @@ fun ShareHost(text: String, go: (Screen) -> Unit, back: () -> Unit) {
         modifier = Modifier.statusBarsPadding().navigationBarsPadding(),
     )
 }
+
+/** Find a bus (PLAN Run 12, C3): search where you're going; pick a direct bus from near you; the route is made. */
+@Composable
+fun FindBusHost(go: (Screen) -> Unit, back: () -> Unit) {
+    val ctx = LocalContext.current
+    val app = App.instance
+    var index by remember { mutableStateOf<TransitIndex?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { index = TransitData.get(ctx); loaded = true }
+    var query by remember { mutableStateOf("") }
+    var dest by remember { mutableStateOf<TransitIndex.Hit?>(null) }
+    var here by remember { mutableStateOf<LatLng?>(null) }
+    var located by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(Unit) {
+        FusedLocationSource(ctx).current { loc -> here = loc?.let { LatLng(it.latitude, it.longitude) }; located = loc != null }
+    }
+    androidx.activity.compose.BackHandler(enabled = dest != null) { dest = null }
+    val ix = index
+    val hits = remember(query, ix, here) { ix?.search(query, here, limit = 8).orEmpty() }
+    val options = remember(ix, dest, here) { val d = dest; val h = here; if (ix == null || d == null || h == null) emptyList() else ix.direct(h, d.index) }
+    FindBusScreen(
+        FindBusUi(
+            query,
+            hits.map { h -> StopResultUi(h.stop.name, listOfNotNull(h.stop.code.takeIf { it.isNotEmpty() }?.let { "Stop $it" }, h.distanceM?.let { TripService.distance(it) }).joinToString(" · ")) },
+            dest?.stop?.name, options.map(FindBusText::option),
+            FindBusText.note(ix != null || !loaded, located, dest?.stop?.name, options.size),
+        ),
+        FindBusActions(
+            back = { if (dest != null) dest = null else back() },
+            query = { query = it },
+            pickDest = { i -> hits.getOrNull(i)?.let { dest = it } },
+            pickOption = { i ->
+                val d = dest
+                val o = options.getOrNull(i)
+                if (d != null && o != null) {
+                    // The stop you get off at is the destination; the bus and where to get on are in the name.
+                    val r = Route(name = FindBusText.routeName(o, d.stop.name), legs = listOf(LegDraft(d.stop.name, StopText.coords(d.stop.pos))))
+                    app.routes.upsert(r)
+                    go(Screen.Route(r.id))
+                }
+            },
+        ),
+        Modifier.statusBarsPadding().navigationBarsPadding(),
+    )
+}
+
