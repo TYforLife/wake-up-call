@@ -28,17 +28,28 @@ import app.nodstop.alarm.RingService
 import app.nodstop.trip.TripService
 import app.nodstop.ui.v2.AlarmRingHost
 import app.nodstop.ui.v2.NodstopV2Theme
+import app.nodstop.ui.v2.RouteHost
+import app.nodstop.ui.v2.StopHost
+import app.nodstop.ui.v2.SubScreen
 import app.nodstop.ui.v2.Tab
 import app.nodstop.ui.v2.TabbedShell
 
 sealed interface Screen {
     data object Home : Screen
-    data class Edit(val routeId: String?) : Screen
     data object Trip : Screen
-    data object Readiness : Screen
+    /** A route (null: a new one, named first). */
+    data class Route(val routeId: String?) : Screen
+    /** Set one bus's stop on the map. */
+    data class Stop(val routeId: String, val leg: Int) : Screen
+    data object Setup : Screen
     data object Debug : Screen
-    data object Map : Screen
     data object BriefingLab : Screen
+
+    /** Where Back goes: a stop goes back to its route; everything else to the tabs. */
+    val parent: Screen? get() = when (this) {
+        is Stop -> Route(routeId)
+        else -> null
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -91,29 +102,29 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
         pendingStart.value = null
         when {
             TripService.status.value != null -> go(Screen.Trip)
-            !Readiness.canStartTrip(ctx) -> go(Screen.Readiness)
+            !Readiness.canStartTrip(ctx) -> go(Screen.Setup)
             else -> { TripService.startRoute(ctx, id); go(Screen.Trip) }
         }
     }
 
-    if (sub != null) BackHandler { sub = null }
+    if (sub != null) BackHandler { sub = sub?.parent }
     else if (tab != Tab.NOW) BackHandler { tab = Tab.NOW }
 
     // Ringing while the app is open: the alarm takes over this screen, no banner to hunt for.
     val ring by RingService.state.collectAsState()
     val s = sub
-    if (s == null) {
-        NodstopV2Theme { TabbedShell(tab, { tab = it }, resumeTick, go) }
-    } else {
-        NodstopTheme {
+    val back = { sub = sub?.parent }
+    when (s) {
+        null -> NodstopV2Theme { TabbedShell(tab, { tab = it }, resumeTick, go) }
+        is Screen.Route -> NodstopV2Theme { SubScreen { RouteHost(s.routeId, go, back) } }
+        is Screen.Stop -> NodstopV2Theme { SubScreen { StopHost(s.routeId, s.leg, back) } }
+        else -> NodstopTheme {
             androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {
                 when (s) {
-                    is Screen.Edit -> RouteEditorScreen(s.routeId, onDone = { sub = null })
-                    Screen.Readiness -> ReadinessScreen(resumeTick, go)
+                    Screen.Setup -> ReadinessScreen(resumeTick, go)
                     Screen.Debug -> DebugScreen(go)
-                    Screen.Map -> app.nodstop.map.MapScreen(go)
                     Screen.BriefingLab -> BriefingLabScreen(go)
-                    Screen.Home, Screen.Trip -> Unit
+                    else -> Unit
                 }
             }
         }

@@ -47,30 +47,10 @@ fun RideMap(
     onUserGesture: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
-    val mapView = remember { MapView(ctx).also { it.onCreate(null) } }
+    val mapView = rememberMapView()
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
     var following by remember { mutableStateOf(true) }
-
-    val lifecycle = (ctx as ComponentActivity).lifecycle
-    DisposableEffect(lifecycle) {
-        val observer = LifecycleEventObserver { _, e ->
-            when (e) {
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                else -> Unit
-            }
-        }
-        lifecycle.addObserver(observer)
-        onDispose {
-            lifecycle.removeObserver(observer)
-            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) mapView.onPause()
-            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) mapView.onStop()
-            mapView.onDestroy()
-        }
-    }
 
     LaunchedEffect(colors.dark) {
         mapView.getMapAsync { m ->
@@ -118,10 +98,37 @@ fun RideMap(
     }
 }
 
-private const val STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
+/** A MapView tied to the activity's lifecycle, destroyed with the composable. */
+@Composable
+internal fun rememberMapView(): MapView {
+    val ctx = LocalContext.current
+    val mapView = remember { MapView(ctx).also { it.onCreate(null) } }
+    val lifecycle = (ctx as ComponentActivity).lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, e ->
+            when (e) {
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) mapView.onPause()
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) mapView.onStop()
+            mapView.onDestroy()
+        }
+    }
+    return mapView
+}
+
+internal const val STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
 
 /** Positron in the design's map colours: land, roads, parks and water; labels in `muted`. Best effort per layer. */
-private fun recolour(s: Style, c: NColors) {
+internal fun recolour(s: Style, c: NColors) {
     val bg = c.mapBg.toArgb()
     val road = c.mapRoad.toArgb()
     val park = c.mapPark.toArgb()

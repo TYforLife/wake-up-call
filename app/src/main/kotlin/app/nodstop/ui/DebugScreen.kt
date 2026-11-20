@@ -107,7 +107,7 @@ fun DebugScreen(go: (Screen) -> Unit) {
             val k = km.toDoubleOrNull()
             val v = kmh.toDoubleOrNull()
             Button(enabled = !tripActive && k != null && k > 0 && v != null && v > 0, onClick = {
-                if (Readiness.canStartTrip(ctx)) { TripService.startSim(ctx, k!!, v!!); go(Screen.Trip) } else go(Screen.Readiness)
+                if (Readiness.canStartTrip(ctx)) { TripService.startSim(ctx, k!!, v!!); go(Screen.Trip) } else go(Screen.Setup)
             }) { Text("Start simulated trip") }
         }
 

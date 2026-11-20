@@ -39,10 +39,10 @@ class ScreensV2ScreenshotTest {
     )
 
     @Composable
-    private fun withTabs(live: Boolean, content: @Composable () -> Unit) {
+    private fun withTabs(live: Boolean, tab: Tab = Tab.NOW, content: @Composable () -> Unit) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxWidth()) { content() }
-            TabBar(Tab.NOW, live, {})
+            TabBar(tab, live, {})
         }
     }
 
@@ -87,5 +87,35 @@ class ScreensV2ScreenshotTest {
             AwakeUi("Stay on the bus", "GPS dropped before Harbour St, so it rang to be safe. It will ring again near your stop."),
             PanelText.AfterWake.NOTHING_NEW, emptyList(), 0, {}, {}, {},
         )
+    }
+
+    // ---- Run 9, M5: Routes, a route, set a stop ----
+
+    @Test fun routes() = shot("routes") {
+        withTabs(false, Tab.ROUTES) {
+            RoutesList(
+                listOf(RouteRowUi("work", "To work", "2 buses · 12 rides", false), RouteRowUi("home", "From work", "Hill Ave needs a stop", true)),
+                RoutesActions(),
+            )
+        }
+    }
+
+    @Test fun route() = shot("route") {
+        RouteDetail(
+            RouteDetailUi(
+                "From work",
+                listOf(
+                    StopRowUi(0, "Central Station", "Alarm 45 s before", StopRowUi.Kind.SET),
+                    StopRowUi(1, "Park Rd", "No alarm", StopRowUi.Kind.NO_ALARM),
+                    StopRowUi(2, "Hill Ave", "Set the stop", StopRowUi.Kind.NOT_SET),
+                ),
+                "Set Hill Ave", canAddBus = true,
+            ),
+            RouteDetailActions(),
+        )
+    }
+
+    @Test fun stop() = shot("stop") {
+        StopPicker(StopPickerUi("Hill Ave · wake me within", choice = 2, radiusM = 250.0), StopPickerActions(), flatMap)
     }
 }
