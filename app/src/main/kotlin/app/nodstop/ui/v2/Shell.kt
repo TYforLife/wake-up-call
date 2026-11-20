@@ -184,37 +184,6 @@ fun StopTripDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     )
 }
 
-/** Settings, for now (Run 9 builds the full mockup): the main switches, setup, report, and Debug behind the build line. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun SettingsTab(go: (Screen) -> Unit) {
-    val ctx = LocalContext.current
-    val s = App.instance.settings
-    val quiet by s.dndDuringTrips.collectAsState()
-    val speaker by s.speakerLastResort.collectAsState()
-    val ask by s.askTiming.collectAsState()
-    Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 24.dp).padding(top = 12.dp).verticalScroll(rememberScrollState())) {
-        ScreenTitle("Settings")
-        Spacer(Modifier.height(12.dp))
-        SwitchRow("Quiet other notifications", "During trips", quiet, { on ->
-            s.setDndDuringTrips(on)
-            if (on && !DndController.granted(ctx)) runCatching { ctx.startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
-        })
-        SwitchRow("Ring out loud after 60 s", "If vibration didn't wake you", speaker, { s.setSpeakerLastResort(it) })
-        SwitchRow("Ask how the timing was", "After each ring", ask, { s.setAskTiming(it) })
-        ListRow("Setup and important contacts", "Permissions, While you slept", onClick = { go(Screen.Setup) }, trailing = { Chevron() })
-        ListRow("Report a missed alarm", "Shares the trip log, locations hidden", divider = false, onClick = {
-            App.instance.traces.shareIntent(hideLocation = true)?.let { runCatching { ctx.startActivity(it) } }
-        }, trailing = { Chevron() })
-        Spacer(Modifier.height(32.dp))
-        Hint(
-            "Build ${BuildConfig.BUILD_NUMBER} · ${BuildConfig.GIT_SHA}",
-            Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = { go(Screen.Debug) }).padding(vertical = 12.dp),
-            center = true,
-        )
-    }
-}
-
 /** The three tabs, with the tab bar at the bottom (PLAN Run 8, M2). */
 @Composable
 fun TabbedShell(tab: Tab, onTab: (Tab) -> Unit, resumeTick: Int, go: (Screen) -> Unit) {
@@ -224,7 +193,7 @@ fun TabbedShell(tab: Tab, onTab: (Tab) -> Unit, resumeTick: Int, go: (Screen) ->
             when (tab) {
                 Tab.NOW -> NowTab(resumeTick, go)
                 Tab.ROUTES -> RoutesTab(go)
-                Tab.SETTINGS -> SettingsTab(go)
+                Tab.SETTINGS -> SettingsTab(resumeTick, go)
             }
         }
         Box(Modifier.navigationBarsPadding()) { TabBar(tab, trip != null, onTab) }

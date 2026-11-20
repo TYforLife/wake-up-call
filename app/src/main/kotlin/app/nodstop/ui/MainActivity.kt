@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import app.nodstop.App
 import app.nodstop.Shortcuts
 import app.nodstop.alarm.AlarmActivity
 import app.nodstop.alarm.RingService
@@ -30,6 +31,8 @@ import app.nodstop.ui.v2.AlarmRingHost
 import app.nodstop.ui.v2.NodstopV2Theme
 import app.nodstop.ui.v2.RouteHost
 import app.nodstop.ui.v2.StopHost
+import app.nodstop.ui.v2.SetupHost
+import app.nodstop.ui.v2.ContactsHost
 import app.nodstop.ui.v2.SubScreen
 import app.nodstop.ui.v2.Tab
 import app.nodstop.ui.v2.TabbedShell
@@ -42,6 +45,7 @@ sealed interface Screen {
     /** Set one bus's stop on the map. */
     data class Stop(val routeId: String, val leg: Int) : Screen
     data object Setup : Screen
+    data object Contacts : Screen
     data object Debug : Screen
     data object BriefingLab : Screen
 
@@ -96,6 +100,11 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
         }
     }
 
+    // First run (PLAN Run 9, M6): Setup once, if anything the alarm needs is off. Later, Now's red row leads there.
+    LaunchedEffect(Unit) {
+        if (!App.instance.settings.setupSeen && Readiness.needsAttention(Readiness.checks(ctx)).isNotEmpty()) go(Screen.Setup)
+    }
+
     // Started from a Quick Settings tile or launcher shortcut: start that route (or show the running trip).
     LaunchedEffect(pendingStart.value) {
         val id = pendingStart.value ?: return@LaunchedEffect
@@ -118,10 +127,11 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
         null -> NodstopV2Theme { TabbedShell(tab, { tab = it }, resumeTick, go) }
         is Screen.Route -> NodstopV2Theme { SubScreen { RouteHost(s.routeId, go, back) } }
         is Screen.Stop -> NodstopV2Theme { SubScreen { StopHost(s.routeId, s.leg, back) } }
-        else -> NodstopTheme {
+        Screen.Setup -> NodstopV2Theme { SubScreen { SetupHost(resumeTick, back) } }
+        Screen.Contacts -> NodstopV2Theme { SubScreen { ContactsHost(resumeTick, back) } }
+        else -> NodstopV2Theme {
             androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {
                 when (s) {
-                    Screen.Setup -> ReadinessScreen(resumeTick, go)
                     Screen.Debug -> DebugScreen(go)
                     Screen.BriefingLab -> BriefingLabScreen(go)
                     else -> Unit

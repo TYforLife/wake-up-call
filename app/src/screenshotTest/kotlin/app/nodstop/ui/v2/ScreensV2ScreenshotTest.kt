@@ -118,4 +118,25 @@ class ScreensV2ScreenshotTest {
     @Test fun stop() = shot("stop") {
         StopPicker(StopPickerUi("Hill Ave · wake me within", choice = 2, radiusM = 250.0), StopPickerActions(), flatMap)
     }
+
+    // ---- Run 9, M6: Setup, Settings ----
+
+    @Test fun setup() = shot("setup") {
+        SetupScreen(
+            listOf(
+                SetupRowUi("notifications", "Notifications", "To show the alarm", true),
+                SetupRowUi("full_screen", "Over the lock screen", "So you can stop it without unlocking", false),
+                SetupRowUi("exact", "Exact alarms", "So it rings on time", false),
+                SetupRowUi("buzz", "Buzz on Mute", "So it vibrates even when muted", false),
+                SetupRowUi("location", "Location while riding", "Only during a trip you start", false),
+            ),
+            samsung = false, SetupActions(),
+        )
+    }
+
+    @Test fun settings() = shot("settings") {
+        withTabs(false, Tab.SETTINGS) {
+            SettingsScreen(SettingsUi(quiet = true, speaker = false, ask = true, contacts = "Mum, Daycare", build = "Build 64"), SettingsActions())
+        }
+    }
 }

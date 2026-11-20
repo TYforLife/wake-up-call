@@ -55,9 +55,13 @@ class TraceLogger(private val context: Context) {
     /**
      * Share the last trip. [hideLocation]: every position moved by a random offset (and the engine re-run),
      * safe to upload to the public repo as a regression test. Otherwise the raw log: keep it private.
+     * [text] goes along as the message (the last-ring summary, for "Report a missed alarm"); with no trip yet,
+     * only the text is shared.
      */
-    fun shareIntent(hideLocation: Boolean = true): Intent? {
-        val raw = lastTripFile() ?: return null
+    fun shareIntent(hideLocation: Boolean = true, text: String? = null): Intent? {
+        val raw = lastTripFile() ?: return text?.let {
+            Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, it), "Report a missed alarm")
+        }
         val f = if (!hideLocation) raw else {
             val rnd = java.util.Random()
             val dLat = (5 + rnd.nextDouble() * 5) * (if (rnd.nextBoolean()) 1 else -1)
@@ -72,6 +76,7 @@ class TraceLogger(private val context: Context) {
             type = "text/plain"
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, f.name)
+            text?.let { putExtra(Intent.EXTRA_TEXT, it) }
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         return Intent.createChooser(send, "Share ${f.name}")
