@@ -1,5 +1,6 @@
 package app.nodstop.ui.v2
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -129,6 +130,8 @@ fun NowRiding(
     Column(modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             map(Modifier.fillMaxSize())
+            // GPS lost (mockup `gps-lost`): the map greys out; the sheet says what still happens.
+            if (sheet.alarmDanger) Box(Modifier.fillMaxSize().background(LocalN.current.bg.copy(alpha = 0.45f)))
             var menu by remember { mutableStateOf(false) }
             Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp)) {
                 IconCircle(NIcons.More, "More", { menu = true }, floating = true)

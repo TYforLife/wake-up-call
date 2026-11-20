@@ -98,7 +98,10 @@ fun AlarmAwake(
                             more.takeIf { it > 0 }?.let { "$it more chat${if (it == 1) "" else "s"}" },
                             others.takeIf { it > 0 }?.let { "$it other notification${if (it == 1) "" else "s"}" },
                         )
-                        ListRow(parts.joinToString(" · ").replaceFirstChar { it.uppercase() }, divider = false)
+                        Text(
+                            parts.joinToString(" · ").replaceFirstChar { it.uppercase() }, style = NType.secondary, color = c.muted,
+                            modifier = Modifier.padding(vertical = 18.dp),
+                        )
                     }
                 }
                 PanelText.AfterWake.NEEDS_ACCESS -> ListRow(
