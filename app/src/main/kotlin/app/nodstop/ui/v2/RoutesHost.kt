@@ -26,6 +26,8 @@ import app.nodstop.App
 import app.nodstop.data.LegDraft
 import app.nodstop.data.MapsLink
 import app.nodstop.data.ShortLinks
+import app.nodstop.data.TransitData
+import app.nodstop.data.TransitIndex
 import app.nodstop.data.Route
 import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
@@ -192,6 +194,14 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
         }
     }
 
+    // Stop search (PLAN Run 12, C2): plain words or a stop number, nearest to you (or the map) first.
+    var index by remember { mutableStateOf<TransitIndex?>(null) }
+    LaunchedEffect(Unit) { index = TransitData.get(ctx) }
+    val hits = remember(paste, index, me) {
+        if ("://" in paste || MapsLink.parse(paste) != MapsLink.Result.None) emptyList()
+        else index?.search(paste, me ?: centre, limit = 6).orEmpty()
+    }
+
     fun locate(move: Boolean) {
         locating = true
         fused.current { loc ->
@@ -222,11 +232,15 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
             eyebrow = if (alarm) StopText.eyebrow(stopName, custom?.takeIf { CircleChoice.index(it) < 0 }) else "$stopName · no alarm",
             choice = CircleChoice.index(custom), radiusM = zoneM, alarm = alarm,
             paste = paste, pasteError = linkError ?: StopText.pasteError(paste), busy = busy, slider = slider,
+            results = hits.map { h ->
+                StopResultUi(h.stop.name, listOfNotNull(h.stop.code.takeIf { it.isNotEmpty() }?.let { "Stop $it" }, h.distanceM?.let { TripService.distance(it) }).joinToString(" · "))
+            },
             canRemove = route.legs.size > 1, canForget = learned != null, locating = locating,
         ),
         StopPickerActions(
             back = leave,
             paste = { t -> paste = t; read(t) },
+            pickResult = { i -> hits.getOrNull(i)?.let { h -> place(MapsLink.Place(h.stop.name, h.stop.pos)); paste = "" } },
             choose = { custom = CircleChoice.radius(it); slider = false },
             showSlider = { slider = true; if (custom == null) custom = ZoneScale.round(zoneM) },
             slide = { custom = it },
@@ -257,6 +271,8 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
                 // Drag the circle's edge (PLAN B4): a size off the presets shows on the slider.
                 onRadius = { r -> custom = r; slider = CircleChoice.index(r) < 0 },
                 onCircleTap = { slider = true; if (custom == null) custom = ZoneScale.round(zoneM) },
+                // Tap a bus stop on the map: it becomes this stop, with its name (PLAN Run 12, C2).
+                onBusStopTap = { n, p -> place(MapsLink.Place(n, p)) },
             )
         },
         modifier = Modifier.navigationBarsPadding(),

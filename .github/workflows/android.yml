@@ -20,6 +20,16 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Stop index script matches its fixture (PLAN Run 12)
+        run: |
+          python3 tools/gtfs_index.py --dir tools/testdata/gtfs --out build/gtfs-fixture
+          diff -r build/gtfs-fixture app/src/test/resources/gtfs
+      - name: Auckland Transport stops and routes (public GTFS, bundled offline; PLAN Run 12)
+        id: gtfs
+        continue-on-error: true
+        run: |
+          python3 tools/gtfs_index.py --out app/src/main/assets/gtfs
+          cat app/src/main/assets/gtfs/meta.txt >> "$GITHUB_STEP_SUMMARY"
       - name: Test and build
         run: ./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug --console=plain
         env:

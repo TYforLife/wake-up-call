@@ -70,7 +70,8 @@ fun SettingsTab(resumeTick: Int, go: (Screen) -> Unit) {
     val live = remember(resumeTick, refresh.intValue) { Readiness.checks(ctx).firstOrNull { it.id == Readiness.LIVE } }
     val fix = rememberFixer { refresh.intValue++ }
     SettingsScreen(
-        SettingsUi(quiet, speaker, ask, SetupText.contacts(vips), "Build ${BuildConfig.BUILD_NUMBER} · ${BuildConfig.GIT_SHA}", live?.ok == false),
+        SettingsUi(quiet, speaker, ask, SetupText.contacts(vips), "Build ${BuildConfig.BUILD_NUMBER} · ${BuildConfig.GIT_SHA}", live?.ok == false,
+            credits = remember { app.nodstop.data.TransitData.attribution(ctx) }),
         SettingsActions(
             quiet = { on ->
                 s.setDndDuringTrips(on)

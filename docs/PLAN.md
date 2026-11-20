@@ -662,12 +662,12 @@ Prerequisite: Run 11 merged.
 - [x] Parser tests with the real link shapes, using public landmarks only, never personal places.
 
 ### C2 Search Auckland Transport stops
-- [ ] Auckland Transport's public GTFS stops (name, stop number, position) are bundled into the APK at build time;
+- [x] Auckland Transport's public GTFS stops (name, stop number, position) are bundled into the APK at build time;
   CI downloads them, and search works offline.
   - This is a public dataset, not personal data.
   - The cloud session can't download it (network allowlist), so tests use a small fixture.
-- [ ] The stop field searches by name or number ("3353", "Smales Farm").
-- [ ] Bus-stop markers on the Set a stop map: tap one to choose it, with its name.
+- [x] The stop field searches by name or number ("3353", "Smales Farm").
+- [x] Bus-stop markers on the Set a stop map: tap one to choose it, with its name.
 
 ### C3 Route search (direct buses)
 - [ ] "To <stop>" from where you are: the Auckland Transport routes that serve a stop near you and the destination

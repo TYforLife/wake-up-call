@@ -1,0 +1,3 @@
+Stop and route data: Auckland Transport, CC BY 4.0
+stops=6
+patterns=3

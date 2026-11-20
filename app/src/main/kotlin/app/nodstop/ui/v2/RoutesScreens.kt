@@ -179,14 +179,20 @@ data class StopPickerUi(
     val pasteError: String? = null,
     /** "Opening the link…" while a short link is followed (PLAN C1). */
     val busy: String? = null,
+    /** Stops matching what you typed (PLAN Run 12, C2). */
+    val results: List<StopResultUi> = emptyList(),
     val slider: Boolean = false,
     val canRemove: Boolean = false,
     val canForget: Boolean = false,
     val locating: Boolean = false,
 )
 
+/** A stop found by search: "Smales Farm Stop D" / "Stop 3353 · 1.2 km". */
+data class StopResultUi(val title: String, val sub: String)
+
 class StopPickerActions(
     val back: () -> Unit = {},
+    val pickResult: (Int) -> Unit = {},
     val paste: (String) -> Unit = {},
     val choose: (Int) -> Unit = {},
     val showSlider: () -> Unit = {},
@@ -214,6 +220,14 @@ fun StopPicker(ui: StopPickerUi, a: StopPickerActions, map: @Composable (Modifie
                 PasteBar(ui, a)
                 ui.pasteError?.let { Bubble(it, c.danger, Color.White) }
                 ui.busy?.let { Bubble(it, c.fg, c.bg) }
+                if (ui.results.isNotEmpty()) {
+                    val shape = RoundedCornerShape(Tokens.RADIUS_BUTTON.dp)
+                    Column(Modifier.fillMaxWidth().shadow(6.dp, shape).clip(shape).background(c.bg).padding(horizontal = 16.dp)) {
+                        ui.results.forEachIndexed { i, r ->
+                            ListRow(r.title, r.sub, divider = i < ui.results.lastIndex, onClick = { a.pickResult(i) })
+                        }
+                    }
+                }
             }
             IconCircle(
                 NIcons.Locate, if (ui.locating) "Finding you" else "Use my location", a.locate, floating = true,
