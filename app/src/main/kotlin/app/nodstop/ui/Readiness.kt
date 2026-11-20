@@ -36,6 +36,8 @@ object Readiness {
             title.startsWith("Live trip") -> LIVE
             title.startsWith("While you slept") -> WYS
             title.startsWith("Alarm volume") -> VOLUME
+            title.startsWith("Display over other apps") -> OVERLAY
+            title.startsWith("Alarm notifications") -> ALARM_CHANNEL
             else -> title
         }
     }
@@ -49,6 +51,8 @@ object Readiness {
     const val LIVE = "live"
     const val WYS = "wys"
     const val VOLUME = "volume"
+    const val OVERLAY = "overlay"
+    const val ALARM_CHANNEL = "alarm_channel"
 
     /** Required checks that aren't green: what Home counts and Readiness lists first. */
     fun needsAttention(checks: List<Check>): List<Check> = checks.filter { !it.ok && !it.optional }
@@ -74,6 +78,20 @@ object Readiness {
         else Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
 
     fun canStartTrip(ctx: Context) = granted(ctx, Manifest.permission.ACCESS_FINE_LOCATION) && notificationsOk(ctx)
+
+    /** The alarm's notification channel is on and high (PLAN A1): the app repairs it, unless you turned it off. */
+    private fun alarmChannelCheck(ctx: Context, nm: NotificationManager): Check {
+        app.nodstop.Notifications.ensureAlarmChannel(ctx)
+        val ch = nm.getNotificationChannel(app.nodstop.Notifications.alarmChannelId(ctx))
+        return Check(
+            "Alarm notifications", ch != null && ch.importance >= NotificationManager.IMPORTANCE_HIGH,
+            "Turned down or off for Nodstop's alarm: turn it back on.",
+            Fix.Open(
+                Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                    .putExtra(Settings.EXTRA_CHANNEL_ID, app.nodstop.Notifications.alarmChannelId(ctx)),
+            ),
+        )
+    }
 
     fun checks(ctx: Context): List<Check> {
         val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -105,6 +123,12 @@ object Readiness {
                     "back after \"I'm awake\". Needs Do Not Disturb access.",
                 Fix.Open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)),
             ),
+            Check(
+                "Display over other apps", Settings.canDrawOverlays(ctx),
+                "So the alarm screen opens even while you're using another app, not only a banner.",
+                Fix.Open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkg(ctx))),
+            ),
+            alarmChannelCheck(ctx, nm),
             Check(
                 "Exact alarms", am.canScheduleExactAlarms(),
                 "The alarm must fire on time, even in Doze.",

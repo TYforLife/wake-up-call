@@ -104,17 +104,38 @@ object Resume {
      * awake), you're awake for it; if it was an early safety ring far out (GPS lost, no GPS), keep tracking
      * it so it rings again near the stop.
      */
-    fun plan(trip: ActiveTrip?, nowMs: Long): ResumePlan? {
+    fun plan(trip: ActiveTrip?, nowMs: Long, afterRing: Boolean = true): ResumePlan? {
         if (trip == null || nowMs - trip.startedMs > MAX_AGE_MS) return null
         if (trip.legIndex >= trip.legs.size) return null
         val remaining = trip.remainingS?.let { it - (nowMs - trip.savedMs) / 1000.0 }
-        val awake = when (trip.alarmReason) {
+        // After an update or a restart nothing rang: keep tracking this stop, so it rings near it (PLAN A1).
+        val awake = afterRing && when (trip.alarmReason) {
             AlarmReason.WAKE, AlarmReason.OVERSHOOT, AlarmReason.NEXT_LEG -> true
             AlarmReason.FAILSAFE -> remaining != null && remaining <= NEAR_S
             // An urgent message is never "awake for this stop" (DESIGN §10): keep tracking it.
             AlarmReason.NO_GPS, AlarmReason.URGENT, null -> false
         }
         return ResumePlan(trip.legs.drop(trip.legIndex), trip.legIndex, awake)
+    }
+}
+
+/** After an app update or a phone restart (PLAN Run 10, A1): the alarm to set again, and whether to resume. */
+data class RestartPlan(val alarmAtMs: Long?, val resume: Boolean, val dropTrip: Boolean)
+
+object Restart {
+    /**
+     * A restart loses the running trip (and, after a reboot, its system alarm). Rule 2 holds again at once: the
+     * saved alarm time is set again, or now if it passed while the phone was off (rings earlier, never later).
+     * Without a saved time, the trip's own estimate; without that, now. A stale or finished trip is dropped.
+     */
+    fun plan(trip: ActiveTrip?, scheduledAtMs: Long?, nowMs: Long): RestartPlan {
+        if (trip == null) return RestartPlan(null, resume = false, dropTrip = false)
+        if (nowMs - trip.startedMs > Resume.MAX_AGE_MS || trip.legIndex >= trip.legs.size) {
+            return RestartPlan(null, resume = false, dropTrip = true)
+        }
+        val estimate = trip.remainingS?.let { trip.savedMs + (it * 1000).toLong() }
+        val at = maxOf(scheduledAtMs ?: estimate ?: nowMs, nowMs)
+        return RestartPlan(at, resume = true, dropTrip = false)
     }
 }
 

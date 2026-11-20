@@ -63,6 +63,20 @@ class RoutesAndResumeTest {
         assertTrue(plan.awake)
     }
 
+    @Test fun `after an update or a restart - set the alarm again, ring now if it passed, keep tracking the stop`() {
+        val t = trip(engineIdx = 1, reason = AlarmReason.WAKE, remaining = 300.0)
+        assertEquals(RestartPlan(5_000, resume = true, dropTrip = false), Restart.plan(t, scheduledAtMs = 5_000, nowMs = 1_000))
+        // It passed while the phone was off: now.
+        assertEquals(9_000L, Restart.plan(t, scheduledAtMs = 5_000, nowMs = 9_000).alarmAtMs)
+        // No saved time: the trip's own estimate (saved at 0 with 300 s left).
+        assertEquals(300_000L, Restart.plan(t, scheduledAtMs = null, nowMs = 1_000).alarmAtMs)
+        assertEquals(1_000L, Restart.plan(t.copy(remainingS = null), scheduledAtMs = null, nowMs = 1_000).alarmAtMs)
+        // Nothing rang: resume still tracking the stop, never "awake for it".
+        assertFalse(Resume.plan(t, nowMs = 1_000, afterRing = false)!!.awake)
+        assertEquals(RestartPlan(null, resume = false, dropTrip = false), Restart.plan(null, 5_000, 1_000))
+        assertEquals(RestartPlan(null, resume = false, dropTrip = true), Restart.plan(trip(0, AlarmReason.WAKE, startedMs = 0), 5_000, Resume.MAX_AGE_MS + 1))
+    }
+
     @Test fun `no resume for a stale trip`() {
         assertNull(Resume.plan(trip(0, AlarmReason.WAKE, startedMs = 0), nowMs = Resume.MAX_AGE_MS + 1))
         assertNull(Resume.plan(null, nowMs = 0))

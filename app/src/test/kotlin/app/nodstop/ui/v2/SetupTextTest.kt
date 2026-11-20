@@ -11,12 +11,16 @@ class SetupTextTest {
     private fun checks(ok: (String) -> Boolean) = listOf(
         "Notifications", "Precise location", "Full-screen alarm", "Let the alarm buzz on Mute", "Exact alarms",
         "Battery: not optimised", "Live trip progress (optional)", "While you slept (optional)", "Alarm volume above 0",
+        "Display over other apps", "Alarm notifications",
     ).map { Readiness.Check(it, ok(it), "", null) }
 
     @Test
-    fun `the mockup's five rows in order - optional checks stay off Setup`() {
+    fun `the mockup's five rows in order, then Over other apps - optional checks stay off Setup`() {
         val rows = SetupText.rows(checks { true }, samsung = false)
-        assertEquals(listOf("Notifications", "Over the lock screen", "Exact alarms", "Buzz on Mute", "Location while riding"), rows.map { it.title })
+        assertEquals(
+            listOf("Notifications", "Over the lock screen", "Exact alarms", "Buzz on Mute", "Location while riding", "Over other apps"),
+            rows.map { it.title },
+        )
         assertTrue(SetupText.canContinue(rows))
     }
 
@@ -26,8 +30,8 @@ class SetupTextTest {
         assertEquals("Keep running", samsung.last().title)
         assertEquals("Battery Unrestricted, and in Never sleeping apps", samsung.last().subtitle)
 
-        val off = SetupText.rows(checks { !it.startsWith("Battery") && !it.startsWith("Alarm volume") }, samsung = false)
-        assertEquals(listOf("Keep running", "Alarm volume"), off.takeLast(2).map { it.title })
+        val off = SetupText.rows(checks { !it.startsWith("Battery") && !it.startsWith("Alarm volume") && !it.startsWith("Alarm notif") }, samsung = false)
+        assertEquals(listOf("Alarm notifications", "Keep running", "Alarm volume"), off.takeLast(3).map { it.title })
         assertFalse(SetupText.canContinue(off))
     }
 

@@ -141,7 +141,8 @@ class TripService : Service() {
             }
             ACTION_RESUME -> {
                 val old = app.trips.load()
-                val plan = Resume.plan(old, now)
+                val afterRing = intent.getBooleanExtra(EXTRA_AFTER_RING, true)
+                val plan = Resume.plan(old, now, afterRing)
                 if (old == null || plan == null) {
                     // Nothing left to protect: drop the cold ring's re-ring safety net too.
                     if (trip == null) app.scheduler.cancel()
@@ -151,7 +152,8 @@ class TripService : Service() {
                 }
                 val sim = if (old.simulated && old.simKm != null && old.simKmh != null)
                     SimulatedLocationSource(SimulatedLocationSource.SIM_DEST, old.simKm, old.simKmh, old.startedMs) else null
-                val note = "resumed after a cold-start ring at leg ${plan.legOffset + 1} (${if (plan.awake) "awake for it" else "still tracking it"})"
+                val note = "resumed ${if (afterRing) "after a cold-start ring" else "after a restart"} at leg ${plan.legOffset + 1} " +
+                    "(${if (plan.awake) "awake for it" else "still tracking it"})"
                 val go = { known: Fix? ->
                     begin(old.routeId, old.routeName, old.legs, plan.legOffset, plan.awake, old.traceFile, old.simulated,
                         System.currentTimeMillis(), known, sim, note, old.simKm, old.simKmh, old.startedMs)
@@ -188,6 +190,7 @@ class TripService : Service() {
     ) {
         source?.stop()
         handler.removeCallbacks(tick)
+        Notifications.cancelTripPaused(this)
         // While You Slept (DESIGN §10): catch chat notifications while this trip runs, in memory only.
         MessageStore.instance.start()
         DndController.onTripStart(this)
@@ -414,6 +417,7 @@ class TripService : Service() {
         private const val ACTION_RESUME = "resume"
         private const val ACTION_STOP = "stop"
         private const val EXTRA_ROUTE_ID = "route_id"
+        private const val EXTRA_AFTER_RING = "after_ring"
         private const val EXTRA_FROM_LEG = "from_leg"
         private const val EXTRA_SIM_KM = "sim_km"
         private const val EXTRA_SIM_KMH = "sim_kmh"
@@ -448,6 +452,12 @@ class TripService : Service() {
 
         /** After "I'm awake" on a ring that came from a cold start: continue the same leg. */
         fun resumeAfterColdRing(ctx: Context) = send(ctx, Intent(ctx, TripService::class.java).setAction(ACTION_RESUME))
+
+        /** After an app update or a phone restart (PLAN A1): continue tracking the same stop; nothing rang. */
+        fun resumeIntent(ctx: Context): Intent =
+            Intent(ctx, TripService::class.java).setAction(ACTION_RESUME).putExtra(EXTRA_AFTER_RING, false)
+
+        fun resumeAfterRestart(ctx: Context) = send(ctx, resumeIntent(ctx))
 
         /** Stop the trip, including one whose process was killed (its alarm is still scheduled). */
         /** Stops the trip (the notification's Stop trip action). */

@@ -51,4 +51,50 @@ class DndRestoreTest {
         assertEquals(NotificationManager.INTERRUPTION_FILTER_ALARMS, FILTER_ALARMS)
         assertEquals(NotificationManager.INTERRUPTION_FILTER_PRIORITY, priority)
     }
+
+    /** One step of quiet trip following the screen and the ring (PLAN Run 10, A1/A4): returns the new filter and record. */
+    private fun step(filter: Int, record: Record?, screenOn: Boolean, ringing: Boolean = false, trip: Boolean = true): Pair<Int, Record?> {
+        val d = DndRestore.update(DndRestore.wanted(true, trip, screenOn, ringing), true, true, filter, record)
+        return (d.setFilter ?: filter) to d.record
+    }
+
+    @Test
+    fun `quiet only while the screen is off - on while you use the phone, lifted for a ring, back after`() {
+        var s: Pair<Int, Record?> = FILTER_ALL to null
+        s = step(s.first, s.second, screenOn = true)           // trip starts while you hold the phone
+        assertEquals(FILTER_ALL to null, s)
+        s = step(s.first, s.second, screenOn = false)          // pocket: quiet
+        assertEquals(FILTER_ALARMS to Record(true, FILTER_ALL), s)
+        s = step(s.first, s.second, screenOn = true)           // you look at the phone: notifications come through
+        assertEquals(FILTER_ALL to null, s)
+        s = step(s.first, s.second, screenOn = false)
+        s = step(s.first, s.second, screenOn = false, ringing = true) // the ring: lifted, screen still off
+        assertEquals(FILTER_ALL to null, s)
+        s = step(s.first, s.second, screenOn = false)          // awake, phone back in the pocket
+        assertEquals(FILTER_ALARMS, s.first)
+        s = step(s.first, s.second, screenOn = false, trip = false) // trip over: yours again
+        assertEquals(FILTER_ALL to null, s)
+    }
+
+    @Test
+    fun `a Do Not Disturb you set yourself during a trip is never touched`() {
+        // Ours was on, you switched to priority yourself: we drop our record and leave yours.
+        var s: Pair<Int, Record?> = priority to Record(true, FILTER_ALL)
+        s = step(s.first, s.second, screenOn = true)
+        assertEquals(priority to null, s)
+        s = step(s.first, s.second, screenOn = false)
+        assertEquals(priority to null, s)
+        s = step(s.first, s.second, screenOn = false, trip = false)
+        assertEquals(priority to null, s)
+    }
+
+    @Test
+    fun `wanted - only with the setting, a trip, the screen off and no ring`() {
+        assertEquals(true, DndRestore.wanted(enabled = true, tripRunning = true, screenOn = false, ringing = false))
+        assertEquals(false, DndRestore.wanted(enabled = false, tripRunning = true, screenOn = false, ringing = false))
+        assertEquals(false, DndRestore.wanted(enabled = true, tripRunning = false, screenOn = false, ringing = false))
+        assertEquals(false, DndRestore.wanted(enabled = true, tripRunning = true, screenOn = true, ringing = false))
+        assertEquals(false, DndRestore.wanted(enabled = true, tripRunning = true, screenOn = false, ringing = true))
+    }
 }
+

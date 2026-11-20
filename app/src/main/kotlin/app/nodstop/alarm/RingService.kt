@@ -32,6 +32,7 @@ import app.nodstop.engine.Buzz
 import app.nodstop.engine.Config
 import app.nodstop.engine.RingPlan
 import app.nodstop.engine.RingStep
+import app.nodstop.notify.DndController
 import app.nodstop.trip.TripService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,10 +114,10 @@ class RingService : Service() {
             stopRinging()
             return START_NOT_STICKY
         }
-        val trip = App.instance.trips.load()
-        test = trip == null && TripService.instance == null
-        legName = TripService.status.value?.legName ?: trip?.currentLeg?.name
-        reason = if (test) null else TripService.status.value?.status?.ringReason ?: trip?.alarmReason
+        val info = info()
+        test = info.test
+        legName = info.legName
+        reason = info.reason
         val n = Notifications.ring(this, legName, reason, test)
         try {
             // systemExempted (allowed for apps holding USE_EXACT_ALARM) exists from Android 14.
@@ -142,7 +143,11 @@ class RingService : Service() {
             App.instance.scheduler.set(System.currentTimeMillis() + (Config().reringS * 1000).toLong())
         }
         // Best effort: also open the alarm screen directly (the full-screen intent covers the locked case).
-        runCatching { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        val open = { runCatching { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+        open()
+        // While you use another app (PLAN A1): with "Display over other apps", a window of ours on screen lets the
+        // alarm screen open over it, not only a banner. Give the window a moment to appear, then try again.
+        if (AlarmOverlay.show(this)) handler.postDelayed({ open() }, 400)
         return START_STICKY
     }
 
@@ -166,6 +171,8 @@ class RingService : Service() {
         val fullScreen = Build.VERSION.SDK_INT < 34 || getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
         // Was quiet trip's Do Not Disturb on when the ring started? (For the report, PLAN A0.)
         val quietAtRing = App.instance.settings.dndRecord()?.setByUs == true
+        // ...and lift it for the ring (PLAN A1): it comes back once you're awake, if the screen goes off again.
+        DndController.onRingStart(this)
         // Buzz on Mute (PLAN R1): read the phone's mode first (for the report), then switch it for the ring.
         val ringer = RingModeController.ringer(this)
         val filter = RingModeController.filter(this)
@@ -178,7 +185,7 @@ class RingService : Service() {
             ringer = RingMode.ringerName(ringer), dnd = RingMode.filterName(filter), buzz = buzz,
             speakerAfterS = speakerAfterMs?.let { (it / 1000).toInt() },
             channel = Notifications.alarmChannelState(this),
-            overlay = android.provider.Settings.canDrawOverlays(this),
+            overlay = AlarmOverlay.allowed(this),
             quiet = quietAtRing,
             cold = TripService.instance == null,
         )
@@ -285,6 +292,9 @@ class RingService : Service() {
             runCatching { unregisterReceiver(noisy) }
             // Back to Mute (or your Do Not Disturb), if the ring switched it.
             runCatching { RingModeController.onRingEnd(this) }
+            // Quiet trip comes back only while a trip runs and the screen is off (PLAN A4).
+            runCatching { DndController.update(this, ringing = false) }
+            AlarmOverlay.hide(this)
             wakeLock?.takeIf { it.isHeld }?.release()
             screenLock?.takeIf { it.isHeld }?.release()
             screenLock = null
@@ -315,6 +325,19 @@ class RingService : Service() {
         var instance: RingService? = null
             private set
 
+        /** What this ring is for: the stop, why, and whether it's a test (no trip saved or running). */
+        data class Info(val legName: String?, val reason: AlarmReason?, val test: Boolean)
+
+        fun info(): Info {
+            val trip = runCatching { App.instance.trips.load() }.getOrNull()
+            val test = trip == null && TripService.instance == null
+            return Info(
+                TripService.status.value?.legName ?: trip?.currentLeg?.name,
+                if (test) null else TripService.status.value?.status?.ringReason ?: trip?.alarmReason,
+                test,
+            )
+        }
+
         private val _state = MutableStateFlow<RingUi?>(null)
         /** Non-null while ringing. */
         val state: StateFlow<RingUi?> = _state
@@ -325,6 +348,8 @@ class RingService : Service() {
 
         fun stop(ctx: Context) {
             instance?.stopRinging() ?: ctx.stopService(Intent(ctx, RingService::class.java))
+            // The receiver posts the ring before the service exists (PLAN A1): it goes too.
+            runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(Notifications.ID_RING) }
         }
 
         fun overshoot() {

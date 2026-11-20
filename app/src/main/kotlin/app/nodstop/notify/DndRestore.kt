@@ -33,4 +33,15 @@ object DndRestore {
         // You changed it yourself meanwhile: leave your choice alone.
         else -> Decision(null, null)
     }
+
+    /**
+     * Quiet trip wants Do Not Disturb now only while a trip runs, the screen is off and nothing rings
+     * (PLAN Run 10, A1 and A4). Screen on: your notifications come through. A ring: everything is lifted for it.
+     */
+    fun wanted(enabled: Boolean, tripRunning: Boolean, screenOn: Boolean, ringing: Boolean): Boolean =
+        enabled && tripRunning && !screenOn && !ringing
+
+    /** Apply [wanted]: switch on (only from "all", never over yours), or put back what we changed. */
+    fun update(wanted: Boolean, enabled: Boolean, granted: Boolean, current: Int, record: Record?): Decision =
+        if (wanted) onTripStart(enabled, granted, current, record) else onTripEnd(current, record)
 }

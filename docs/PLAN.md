@@ -536,25 +536,25 @@ trip what happened.
   - whether the alarm screen actually opened, and how long it took.
 
 ### A1 Close every silent failure
-- [ ] **Alarm channel health.**
+- [x] **Alarm channel health.**
   - At each app start, if the alarm channel can't bypass Do Not Disturb while access is granted, or its importance
     is below high, replace it with a fresh channel.
   - The new channel gets its own vibration pattern, alongside the app's vibrator. Changing channel settings needs
     a new channel ID.
   - Setup gets an "Alarm notifications" row when the channel is blocked or turned down.
-- [ ] **The ring lifts quiet trip.** When a ring starts, quiet trip's Do Not Disturb is restored to your own
+- [x] **The ring lifts quiet trip.** When a ring starts, quiet trip's Do Not Disturb is restored to your own
   setting before anything else. It comes back after "I'm awake" only if the trip goes on and the screen is off (A4).
-- [ ] **Shown even if the service fails.**
+- [x] **Shown even if the service fails.**
   - `AlarmReceiver` posts the full-screen ring notification itself, first, then starts `RingService`, which takes
     over the same notification ID.
   - A service that can't start still leaves an alarm on screen that buzzes through its channel.
   - It is still the one ring path (receiver → service, rule 1). Update DESIGN §5 Components.
-- [ ] **Resume after an update or a reboot.**
+- [x] **Resume after an update or a reboot.**
   - Add `MY_PACKAGE_REPLACED` and `BOOT_COMPLETED` receivers.
   - They re-schedule the saved trip's alarm at `min(wakeAt, failsafeAt)`, or ring now if that time has passed,
     then restart `TripService`.
   - Test with a saved trip fixture.
-- [ ] **The alarm screen while you're using the phone.**
+- [x] **The alarm screen while you're using the phone.**
   - Setup gets a "Show over other apps" row (`SYSTEM_ALERT_WINDOW`; one-line reason in the PR, rule 5).
   - With it, the ring opens the alarm screen even while another app is in front, instead of only a banner.
     Without it, the banner stays, as now.
