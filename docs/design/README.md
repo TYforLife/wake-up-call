@@ -37,3 +37,11 @@ Files:
 | Set a stop | `screens/stop.png` |
 | Settings | `screens/settings.png` |
 | Lock screen | `screens/lock.png` |
+
+## Icon
+
+A map pin, asleep: your stop, and you dozing until it. Black on white, like the screens, with no accent (orange means
+a trip is live). `gen_icon.py` builds the shape once, with the eye cut out, and writes the launcher icon (adaptive:
+white background, black pin at 80 % so it has room inside the launcher's circle), the themed icon (Android 13+) and
+the small white icon for notifications and the Quick Settings tile. `icon/preview.png` shows them at real size.
+To change the icon, edit the script (`pip install shapely`, then `python3 docs/design/gen_icon.py`), not the XML.

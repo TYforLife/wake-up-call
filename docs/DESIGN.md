@@ -408,6 +408,10 @@ from pure functions with unit tests (`TripSheetText`, `AwakeText`, `RingText`, `
 `StopText`, `SetupText`). Each screen has a screenshot test, `v2_<id>.png` (`ScreensV2ScreenshotTest`). CI pairs
 each one with its mockup (`docs/design/compare.py`) and attaches the pairs to `debug-latest`.
 
+The app icon is a map pin, asleep: black on white, also as the themed icon and the small notification and tile icon.
+One script builds them all (`docs/design/gen_icon.py`). The launch window is white, or black at night, so the app
+doesn't flash another colour while it opens.
+
 - **Setup** (`setup`): "Before your first ride", one list:
   - Notifications; Over the lock screen (full-screen intent); Exact alarms; Buzz on Mute (Do Not Disturb access);
     Location while riding.

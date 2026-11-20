@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="night">#FF0E1630</color>
+    <!-- The window behind the app while it starts: the v2 background (tokens.v2.json), so there's no flash. -->
+    <color name="window">#FFFFFFFF</color>
+    <!-- The alarm is black in both themes. -->
+    <color name="alarm">#FF000000</color>
 </resources>
