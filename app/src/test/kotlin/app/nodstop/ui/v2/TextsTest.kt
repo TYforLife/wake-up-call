@@ -1,5 +1,6 @@
 package app.nodstop.ui.v2
 
+import app.nodstop.data.RouteSuggest
 import app.nodstop.engine.AlarmReason
 import app.nodstop.engine.LatLng
 import app.nodstop.engine.Phase
@@ -86,5 +87,16 @@ class TextsTest {
         // A deleted route never comes back; across midnight counts as near.
         assertEquals("home", RouteSuggest.pick(ids, listOf(RouteSuggest.Start("gone", 600, false), RouteSuggest.Start("home", 23 * 60 + 50, false)), 10, false))
         assertFalse(RouteSuggest.pick(emptyList(), h, 0, false) != null)
+    }
+
+    @Test
+    fun `the ring's two lines`() {
+        assertEquals(RingTextUi("Wake up", "Harbour St in about 45 s"), RingText.of("Harbour St", AlarmReason.WAKE, false, false, 45.0))
+        assertEquals(RingTextUi("Wake up", "Harbour St is close"), RingText.of("Harbour St", AlarmReason.WAKE, false, false, null))
+        assertTrue(RingText.of("Harbour St", AlarmReason.WAKE, true, false, 10.0).danger)
+        assertEquals("Urgent message", RingText.of("Harbour St", AlarmReason.URGENT, false, false, null).title)
+        assertEquals("GPS stopped. Harbour St may be close.", RingText.of("Harbour St", AlarmReason.FAILSAFE, false, false, 200.0).line)
+        assertEquals("Test ring", RingText.of(null, null, false, true, null).line)
+        assertEquals("Tracking carries on from here.", AwakeText.of(null, test = false).line)
     }
 }

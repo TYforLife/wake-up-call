@@ -286,6 +286,18 @@ class Settings(context: Context) {
 
     fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
 
+    /** Your last starts (route, time of day, weekday or weekend), oldest first: what Now suggests from (Run 8). */
+    fun startHistory(): List<RouteSuggest.Start> = prefs.getString(KEY_STARTS, "").orEmpty().lines().mapNotNull { l ->
+        val p = l.split('|')
+        val minute = p.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
+        if (p.size != 3 || p[0].isEmpty()) null else RouteSuggest.Start(p[0], minute, p[2] == "1")
+    }
+
+    fun addStart(s: RouteSuggest.Start) {
+        val all = (startHistory() + s).takeLast(40)
+        prefs.edit().putString(KEY_STARTS, all.joinToString("\n") { "${it.routeId}|${it.minuteOfDay}|${if (it.weekend) 1 else 0}" }).apply()
+    }
+
     /** The route you last started: what the map shows when no trip runs (PLAN R4). */
     val lastRouteId: String? get() = prefs.getString(KEY_LAST_ROUTE, null)
     fun setLastRouteId(id: String) { prefs.edit().putString(KEY_LAST_ROUTE, id).apply() }
@@ -311,6 +323,7 @@ class Settings(context: Context) {
         const val KEY_ASK_TIMING = "ask_ring_timing"
         const val KEY_QUIET_OFFERED = "quiet_trip_offered"
         const val KEY_LAST_ROUTE = "last_route_id"
+        const val KEY_STARTS = "route_starts"
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
         const val KEY_GPU = "wys_use_gpu"

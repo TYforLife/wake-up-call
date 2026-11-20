@@ -30,6 +30,7 @@ import app.nodstop.notify.DndController
 import app.nodstop.notify.MessageStore
 import app.nodstop.data.ActiveTrip
 import app.nodstop.data.PendingRating
+import app.nodstop.data.RouteSuggest
 import app.nodstop.data.Resume
 import app.nodstop.engine.AlarmReason
 import app.nodstop.engine.Engine
@@ -430,6 +431,14 @@ class TripService : Service() {
         /** Start a route; [fromLeg] = a leg you chose, or -1 to pick it from where you are. */
         fun startRoute(ctx: Context, routeId: String, fromLeg: Int = -1) {
             App.instance.settings.setLastRouteId(routeId)
+            val cal = java.util.Calendar.getInstance()
+            val dow = cal.get(java.util.Calendar.DAY_OF_WEEK)
+            App.instance.settings.addStart(
+                RouteSuggest.Start(
+                    routeId, cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE),
+                    dow == java.util.Calendar.SATURDAY || dow == java.util.Calendar.SUNDAY,
+                ),
+            )
             send(ctx, Intent(ctx, TripService::class.java)
                 .setAction(ACTION_START_ROUTE).putExtra(EXTRA_ROUTE_ID, routeId).putExtra(EXTRA_FROM_LEG, fromLeg))
         }

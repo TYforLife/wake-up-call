@@ -26,6 +26,10 @@ import app.nodstop.Shortcuts
 import app.nodstop.alarm.AlarmActivity
 import app.nodstop.alarm.RingService
 import app.nodstop.trip.TripService
+import app.nodstop.ui.v2.AlarmRingHost
+import app.nodstop.ui.v2.NodstopV2Theme
+import app.nodstop.ui.v2.Tab
+import app.nodstop.ui.v2.TabbedShell
 
 sealed interface Screen {
     data object Home : Screen
@@ -46,11 +50,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handle(intent)
-        setContent {
-            NodstopTheme {
-                AppRoot(resumeTick.intValue, pendingStart)
-            }
-        }
+        setContent { AppRoot(resumeTick.intValue, pendingStart) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -74,37 +74,52 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
     val ctx = LocalContext.current
-    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
-    val go: (Screen) -> Unit = { screen = it }
+    // v2 (PLAN Run 8, M2): three tabs, plus the old screens as sub-screens until Run 9 replaces them.
+    var tab by remember { mutableStateOf(Tab.NOW) }
+    var sub by remember { mutableStateOf<Screen?>(null) }
+    val go: (Screen) -> Unit = { s ->
+        when (s) {
+            Screen.Home -> sub = null
+            Screen.Trip -> { sub = null; tab = Tab.NOW }
+            else -> sub = s
+        }
+    }
 
     // Started from a Quick Settings tile or launcher shortcut: start that route (or show the running trip).
     LaunchedEffect(pendingStart.value) {
         val id = pendingStart.value ?: return@LaunchedEffect
         pendingStart.value = null
-        screen = when {
-            TripService.status.value != null -> Screen.Trip
-            !Readiness.canStartTrip(ctx) -> Screen.Readiness
-            else -> { TripService.startRoute(ctx, id); Screen.Trip }
+        when {
+            TripService.status.value != null -> go(Screen.Trip)
+            !Readiness.canStartTrip(ctx) -> go(Screen.Readiness)
+            else -> { TripService.startRoute(ctx, id); go(Screen.Trip) }
         }
     }
 
-    if (screen != Screen.Home) BackHandler { screen = Screen.Home }
+    if (sub != null) BackHandler { sub = null }
+    else if (tab != Tab.NOW) BackHandler { tab = Tab.NOW }
 
     // Ringing while the app is open: the alarm takes over this screen, no banner to hunt for.
     val ring by RingService.state.collectAsState()
-    androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {
-        when (val s = screen) {
-            Screen.Home -> HomeScreen(resumeTick, go)
-            is Screen.Edit -> RouteEditorScreen(s.routeId, onDone = { screen = Screen.Home })
-            Screen.Trip -> TripScreen(go)
-            Screen.Readiness -> ReadinessScreen(resumeTick, go)
-            Screen.Debug -> DebugScreen(go)
-            Screen.Map -> app.nodstop.map.MapScreen(go)
-            Screen.BriefingLab -> BriefingLabScreen(go)
+    val s = sub
+    if (s == null) {
+        NodstopV2Theme { TabbedShell(tab, { tab = it }, resumeTick, go) }
+    } else {
+        NodstopTheme {
+            androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {
+                when (s) {
+                    is Screen.Edit -> RouteEditorScreen(s.routeId, onDone = { sub = null })
+                    Screen.Readiness -> ReadinessScreen(resumeTick, go)
+                    Screen.Debug -> DebugScreen(go)
+                    Screen.Map -> app.nodstop.map.MapScreen(go)
+                    Screen.BriefingLab -> BriefingLabScreen(go)
+                    Screen.Home, Screen.Trip -> Unit
+                }
+            }
         }
     }
     ring?.let { r ->
         BackHandler { }
-        AlarmScreen(ring = r, holdMs = 600, onAwake = { AlarmActivity.awake(ctx) }, onClose = { })
+        AlarmRingHost(r, onAwake = { AlarmActivity.awake(ctx) })
     }
 }
