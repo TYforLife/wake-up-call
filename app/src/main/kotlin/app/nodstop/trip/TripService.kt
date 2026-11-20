@@ -107,7 +107,9 @@ class TripService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        try {
+        // A notification button on a running trip: already in the foreground; don't flash "starting" over it.
+        val button = intent?.action == ACTION_OFF || intent?.action == ACTION_STOP
+        if (!(button && trip != null)) try {
             startForeground(Notifications.ID_TRIP, Notifications.tripStarting(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } catch (e: Exception) {
             Log.e("Nodstop", "trip service could not start in the foreground", e)
@@ -161,6 +163,8 @@ class TripService : Service() {
                 if (sim != null) go(null) else withLastKnown(go)
             }
             ACTION_STOP -> stopTrip()
+            // The notification's "I'm off this bus" (PLAN Run 10, A3): as the button in the app.
+            ACTION_OFF -> if (trip != null) skipLeg() else shutdown()
             else -> if (trip == null) shutdown()
         }
         return START_NOT_STICKY
@@ -280,7 +284,7 @@ class TripService : Service() {
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now
-            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine()))
+            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine(), updated.currentLeg?.wakeRadiusM))
         }
 
         if (out.status.phase == Phase.DONE) finishTrip(updated)
@@ -416,6 +420,7 @@ class TripService : Service() {
         private const val ACTION_START_SIM = "start_sim"
         private const val ACTION_RESUME = "resume"
         private const val ACTION_STOP = "stop"
+        private const val ACTION_OFF = "off"
         private const val EXTRA_ROUTE_ID = "route_id"
         private const val EXTRA_AFTER_RING = "after_ring"
         private const val EXTRA_FROM_LEG = "from_leg"
@@ -462,6 +467,9 @@ class TripService : Service() {
         /** Stop the trip, including one whose process was killed (its alarm is still scheduled). */
         /** Stops the trip (the notification's Stop trip action). */
         fun stopIntent(ctx: Context): Intent = Intent(ctx, TripService::class.java).setAction(ACTION_STOP)
+
+        /** "I'm off this bus" from the notification (PLAN Run 10, A3). */
+        fun offIntent(ctx: Context): Intent = Intent(ctx, TripService::class.java).setAction(ACTION_OFF)
 
         fun stop(ctx: Context) {
             val svc = instance

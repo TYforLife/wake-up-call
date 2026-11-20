@@ -113,4 +113,25 @@ class TextsTest {
         assertEquals("Harbour St · 2.3 km", TripNoteText.of(trip(status(eta = null)), clock).title)
         assertEquals("Wake up", TripNoteText.of(trip(status(phase = Phase.RINGING)), clock).title)
     }
+
+    @Test
+    fun `notification buttons - I'm off this bus without unlocking once it rang or you're near, Stop trip always locked`() {
+        fun acts(st: Status, leg: Int = 1, r: Double? = null) = TripNoteText.actions(trip(st, leg = leg), r).map { Triple(it.label, it.kind, it.unlock) }
+        val stop = Triple("Stop trip", TripActionUi.Kind.STOP, true)
+        // Far out, riding: getting off asks you to unlock (a pocket can't skip your alarm).
+        assertEquals(listOf(Triple("I'm off this bus", TripActionUi.Kind.OFF, true), stop), acts(status(d = 2_340.0)))
+        // Near the stop, or inside your own bigger circle: one tap.
+        assertEquals(false, acts(status(d = 250.0))[0].third)
+        assertEquals(false, acts(status(d = 600.0), r = 700.0)[0].third)
+        assertEquals(true, acts(status(d = 600.0), r = 150.0)[0].third)
+        // It rang, or you're awake for it: one tap.
+        assertEquals(false, acts(status(phase = Phase.RINGING, d = 2_000.0))[0].third)
+        assertEquals(false, acts(status(phase = Phase.AWAKE, d = 2_000.0))[0].third)
+        // Waiting for the next bus: Skip this bus, locked.
+        assertEquals(Triple("Skip this bus", TripActionUi.Kind.OFF, true), acts(status(phase = Phase.WAITING))[0])
+        // Waiting for the first bus at its stop: I'm off, as for riding.
+        assertEquals("I'm off this bus", acts(status(phase = Phase.WAITING, leg = 0), leg = 0)[0].first)
+        assertEquals(listOf(stop), acts(status(phase = Phase.DONE)))
+    }
 }
+

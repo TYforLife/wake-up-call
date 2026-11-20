@@ -570,11 +570,11 @@ trip what happened.
 - [x] These run in `:app:testDebugUnitTest`, so no future change can silently break the ring.
 
 ### A3 Get off from the notification
-- [ ] The trip notification gets **I'm off this bus** next to Stop trip. It sends `SkipLeg`; on the last bus it
+- [x] The trip notification gets **I'm off this bus** next to Stop trip. It sends `SkipLeg`; on the last bus it
   ends the trip. While waiting for the next bus, it reads **Skip this bus**.
-- [ ] It works without unlocking once this stop has rung, or once you're inside its circle. Before that it asks you
+- [x] It works without unlocking once this stop has rung, or once you're inside its circle. Before that it asks you
   to unlock, so a pocket can't skip your alarm.
-- [ ] JVM tests for which actions show, and whether each needs unlocking, in every phase.
+- [x] JVM tests for which actions show, and whether each needs unlocking, in every phase.
 
 ### A4 Quiet only while the screen is off
 - [ ] During a trip with quiet trip on, Do Not Disturb (alarms only) is on while the screen is off and off while

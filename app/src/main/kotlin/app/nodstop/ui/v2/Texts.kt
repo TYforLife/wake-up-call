@@ -124,6 +124,11 @@ object RingText {
     }
 }
 
+/** A button on the trip notification (PLAN Run 10, A3). [unlock]: Android asks you to unlock first. */
+data class TripActionUi(val label: String, val kind: Kind, val unlock: Boolean) {
+    enum class Kind { OFF, STOP }
+}
+
 /** The trip notification (mockup `lock`): one line, the alarm time, and how far along the bus is. */
 data class TripNoteUi(val title: String, val text: String, val progress: Int?)
 
@@ -156,4 +161,27 @@ object TripNoteText {
         val progress = if (start != null && d != null && start > 0) ((1 - d / start) * 100).roundToInt().coerceIn(0, 100) else null
         return TripNoteUi(title, listOfNotNull(text, quiet).joinToString(" · "), progress)
     }
+
+    /** Without your own circle, "near the stop" for the notification's I'm off button means this close. */
+    const val NEAR_M = 300.0
+
+    /**
+     * The notification's buttons (PLAN Run 10, A3): I'm off this bus (or Skip this bus while waiting for the next
+     * one), then Stop trip. Getting off needs no unlock once this stop has rung or you're inside its circle;
+     * before that it asks you to unlock, so a pocket can't skip your alarm. Stop trip always asks.
+     */
+    fun actions(t: TripService.TripUi, radiusM: Double?): List<TripActionUi> {
+        val s = t.status
+        val stop = TripActionUi("Stop trip", TripActionUi.Kind.STOP, unlock = true)
+        val off = when (s.phase) {
+            Phase.WAITING -> if (t.legIndex > 0) TripActionUi("Skip this bus", TripActionUi.Kind.OFF, unlock = true)
+            else TripActionUi("I'm off this bus", TripActionUi.Kind.OFF, unlock = !near(s.distanceM, radiusM))
+            Phase.RIDING -> TripActionUi("I'm off this bus", TripActionUi.Kind.OFF, unlock = !near(s.distanceM, radiusM))
+            Phase.RINGING, Phase.AWAKE -> TripActionUi("I'm off this bus", TripActionUi.Kind.OFF, unlock = false)
+            Phase.IDLE, Phase.DONE -> null
+        }
+        return listOfNotNull(off, stop)
+    }
+
+    private fun near(d: Double?, radiusM: Double?) = d != null && d <= maxOf(radiusM ?: 0.0, NEAR_M)
 }
