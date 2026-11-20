@@ -16,8 +16,8 @@ class RouteTextTest {
         assertEquals(RouteRowUi("w", "To work", "2 buses · 12 rides", false), RouteText.row(work) { Learned(it, emptyList(), 12) })
         assertEquals(RouteRowUi("w", "To work", "2 buses", false), RouteText.row(work) { null })
         assertEquals(RouteRowUi("h", "From work", "Hill Ave needs a stop", true), RouteText.row(home) { null })
-        assertEquals("Add a bus", RouteText.problem(Route("n", "New route", emptyList())))
-        assertEquals("Bus 1 needs a stop", RouteText.problem(Route("n", "New", listOf(LegDraft()))))
+        assertEquals("Add a stop", RouteText.problem(Route("n", "New route", emptyList())))
+        assertEquals("Stop 1 needs a stop", RouteText.problem(Route("n", "New", listOf(LegDraft()))))
     }
 
     @Test
@@ -32,6 +32,20 @@ class RouteTextTest {
         // Start from a later bus: only once the route is ready, and never the first bus.
         assertEquals(listOf("Harbour St"), RouteDetailUi("To work", RouteText.stops(work) { null }, RouteText.next(work), true).startFrom.map { it.title })
         assertEquals(emptyList<StopRowUi>(), RouteDetailUi("From work", stops, RouteText.next(home), false).startFrom)
+    }
+
+    @Test
+    fun `new routes need no typing - default names, the lowest free number, Stop 1 ready for the map (PLAN B1)`() {
+        assertEquals("Route 1", RouteText.nextRouteName(emptyList()))
+        assertEquals("Route 2", RouteText.nextRouteName(listOf("To work", "Route 1")))
+        assertEquals("Route 1", RouteText.nextRouteName(listOf("Route 2")))
+        val r = RouteText.newRoute(listOf("Route 1"))
+        assertEquals("Route 2", r.name)
+        assertEquals(listOf(LegDraft(name = "Stop 1")), r.legs)
+        assertEquals("Set Stop 1", RouteText.next(r))
+        assertEquals("Add stop 2", RouteText.addLabel(r))
+        // One stop set: ready to start.
+        assertNull(RouteText.next(r.copy(legs = listOf(LegDraft(name = "Stop 1", coords = "-36.8, 174.7")))))
     }
 
     @Test

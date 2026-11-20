@@ -599,17 +599,17 @@ trip what happened.
 Prerequisite: Run 10 merged.
 
 ### B1 A new route in two taps
-- [ ] The + button on Routes (and Now when there are no routes) opens the map straight away to set Stop 1.
+- [x] The + button on Routes (and Now when there are no routes) opens the map straight away to set Stop 1.
   - Save goes to the route, which has "Add stop 2" and Start.
   - A route with one set stop is ready.
   - No name dialogs anywhere.
-- [ ] Default names:
+- [x] Default names:
   - "Route 1" and "Route 2"; "Stop 1" and "Stop 2".
   - A stop chosen by tapping a bus-stop marker (C2) takes that stop's name instead. Say so in the PR; it's one
     line to revert if the owner wants plain "Stop N".
   - Tap a name to change it. A new route's name can also come from the time of day ("Morning", "Evening") if
     that reads better; decide and say so in the PR.
-- [ ] Count taps in the PR, before and after, for: a new route with two stops, and changing a circle.
+- [x] Count taps in the PR, before and after, for: a new route with two stops, and changing a circle.
 
 ### B2 The map looks like Google Maps
 - [ ] Base map: OpenFreeMap's `liberty` style, tuned to Google Maps' palette, replacing the grey recoloured

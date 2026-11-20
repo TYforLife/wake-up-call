@@ -102,7 +102,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     }
     val ui = NowIdleUi(
         greeting = Greeting.of(cal.get(Calendar.HOUR_OF_DAY)),
-        routes = routes.map { RouteOption(it.id, it.name, routeSubtitle(it), it.problem()) },
+        routes = routes.map { RouteOption(it.id, it.name, routeSubtitle(it), RouteText.problem(it)) },
         selectedId = picked,
         notReady = notReady,
         interruptedAlarm = persisted?.let { app.scheduler.scheduledAtMs?.let(::hm) ?: "" },
@@ -127,7 +127,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
                 }
             },
             skipRating = { app.settings.setPendingRating(null) },
-            addRoute = { go(Screen.Route(null)) },
+            addRoute = { newRoute(go) },
             sendReport = { reportMissedAlarm(ctx) },
             dismissLastTrip = { lastTrip?.first?.let { app.settings.setVerdictSeen(it) }; verdictTick++ },
         ),

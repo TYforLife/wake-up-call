@@ -1,5 +1,6 @@
 package app.nodstop.ui.v2
 
+import app.nodstop.data.LegDraft
 import app.nodstop.data.Route
 import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
@@ -16,13 +17,26 @@ data class StopRowUi(val leg: Int, val title: String, val detail: String, val ki
 
 /** The words on Routes and a route (PLAN Run 9, M5). Pure. */
 object RouteText {
-    fun stopTitle(r: Route, leg: Int): String = r.legs[leg].name.ifBlank { "Bus ${leg + 1}" }
+    fun stopTitle(r: Route, leg: Int): String = r.legs[leg].name.ifBlank { stopName(leg) }
+
+    /** Default names (PLAN Run 11, B1): no typing; tap a name to change it. */
+    fun stopName(leg: Int): String = "Stop ${leg + 1}"
+
+    /** "Route 1", or the lowest number not taken. */
+    fun nextRouteName(taken: List<String>): String =
+        generateSequence(1) { it + 1 }.map { "Route $it" }.first { it !in taken }
+
+    /** A new route: a default name and Stop 1, ready to be set on the map. */
+    fun newRoute(taken: List<String>): Route = Route(name = nextRouteName(taken), legs = listOf(LegDraft(name = stopName(0))))
+
+    /** The route's add link: "Add stop 2". */
+    fun addLabel(r: Route): String = "Add stop ${r.legs.size + 1}"
 
     fun stopSet(r: Route, leg: Int): Boolean = CoordParser.parse(r.legs[leg].coords) != null
 
     /** "Hill Ave needs a stop", "Add a bus", or null when it can start. */
     fun problem(r: Route): String? {
-        if (r.legs.isEmpty()) return "Add a bus"
+        if (r.legs.isEmpty()) return "Add a stop"
         val i = r.legs.indices.firstOrNull { !stopSet(r, it) } ?: return null
         return "${stopTitle(r, i)} needs a stop"
     }
@@ -55,7 +69,7 @@ object RouteText {
 
     /** The route's one primary action: the next thing it needs, or null when it's ready. */
     fun next(r: Route): String? {
-        if (r.legs.isEmpty()) return "Add a bus"
+        if (r.legs.isEmpty()) return "Add a stop"
         val i = r.legs.indices.firstOrNull { !stopSet(r, it) } ?: return null
         return "Set ${stopTitle(r, i)}"
     }

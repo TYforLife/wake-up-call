@@ -79,7 +79,14 @@ fun RoutesList(rows: List<RouteRowUi>, a: RoutesActions, modifier: Modifier = Mo
 
 // ---- A route (mockup `route`) ----
 
-data class RouteDetailUi(val name: String, val stops: List<StopRowUi>, val next: String?, val canAddBus: Boolean) {
+data class RouteDetailUi(
+    val name: String,
+    val stops: List<StopRowUi>,
+    val next: String?,
+    val canAddBus: Boolean,
+    /** "Add stop 2" (PLAN B1). */
+    val addLabel: String = "Add a stop",
+) {
     /** "Start from <stop>" for a later bus, when the route is ready (you're already past the first). */
     val startFrom: List<StopRowUi> get() = if (next == null) stops.drop(1) else emptyList()
 }
@@ -117,7 +124,7 @@ fun RouteDetail(ui: RouteDetailUi, a: RouteDetailActions, modifier: Modifier = M
             Box(Modifier.clickable(onClickLabel = "Rename", onClick = a.rename)) { ScreenTitle(ui.name) }
             Spacer(Modifier.height(20.dp))
             ui.stops.forEachIndexed { i, s -> StopStep(s, last = i == ui.stops.lastIndex) { a.openStop(s.leg) } }
-            if (ui.canAddBus) LinkButton("Add a bus", a.addBus)
+            if (ui.canAddBus) LinkButton(ui.addLabel, a.addBus)
         }
         PrimaryButton(ui.next ?: "Start", a.next)
     }
@@ -210,7 +217,8 @@ fun StopPicker(ui: StopPickerUi, a: StopPickerActions, map: @Composable (Modifie
             Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)) { Bubble("Drag the map to place your stop", c.fg, c.bg) }
         }
         Sheet(Modifier.offsetUp(28)) {
-            Eyebrow(ui.eyebrow)
+            // Tap the stop's name to change it (PLAN B1: defaults first, changes on request).
+            Box(Modifier.clickable(onClickLabel = "Rename stop", onClick = a.rename)) { Eyebrow(ui.eyebrow) }
             if (ui.alarm) {
                 Spacer(Modifier.height(2.dp))
                 Segmented(CircleChoice.LABELS, ui.choice, a.choose)
