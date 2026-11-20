@@ -4,7 +4,7 @@ import android.os.SystemClock
 import app.nodstop.App
 import app.nodstop.engine.TraceEvent
 
-/** Records each ring as a [RingReport]: in the trip log ("ringd") and as Readiness's "Last ring" line. */
+/** Records each ring as a [RingReport]: in the trip log ("ringd") and as the "Last ring" summary that Settings → Report a missed alarm shares. */
 object RingDiag {
     @Volatile private var current: RingReport? = null
     @Volatile private var startedElapsed = 0L

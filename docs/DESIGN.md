@@ -114,7 +114,7 @@ the cold path cancels it.
   two consecutive stops → the leg ending at the second; else the first leg (an extra leg only rings
   early). So starting late, already on the second bus, or forgetting leg 1 all work. Boarding needs only
   8 s of movement, so starting while already on a moving bus shows "On the bus" within seconds.
-  Home also has **Start from…** to choose the leg yourself.
+  A route's ⋯ menu also has **Start from <stop>** to choose the leg yourself.
 
 ### 2.2 What this buys
 
@@ -145,7 +145,7 @@ stores the newest 5 tracks per pin (`learned.json`, on the phone only), with you
 On later rides each fix is matched onto the tracks (nearest segment within 60 m). The distance left is
 the smallest over the matching tracks, × 0.95, so GPS noise or a cut corner never makes it too long.
 `v_route` uses the fastest past time from that point. Off the learned route, the engine falls back to
-the straight line. Changing a stop's coordinates starts learning afresh; "Forget" is in the route editor.
+the straight line. Changing a stop's coordinates starts learning afresh; "Forget learned rides" is in Set a stop's ⋯ menu.
 
 ### 2.4 ETA (display)
 
@@ -336,10 +336,10 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | `TripService` | Foreground service, type `location`. Started from the UI (foreground), so no background-location permission is needed. Gets the last known position, then fused location at HIGH_ACCURACY every 2 s; fix age measured on the monotonic clock. Feeds the engine, applies `alarmAtMs`, buzzes once at the stop, stores learned rides, and runs the live trip notification (§5 Notifications). A `Tick` every 5 s. Writes the trace. Saves the active trip (legs, leg, alarm reason, time left) on every change and every 15 s. |
 | `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. |
 | `AlarmReceiver` | Always starts `RingService`, with no conditions. Sends `Rang` to the engine if the process is alive. |
-| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, the sound mode and Do Not Disturb at the start, whether it could buzz, when the speaker joined, how it was stopped) in the trip log (`ringd`) and as Readiness's "Last ring" line. |
+| `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the `alarm` channel (the channel itself is silent; the service plays the audio and vibration), plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, the sound mode and Do Not Disturb at the start, whether it could buzz, when the speaker joined, how it was stopped) in the trip log (`ringd`) and as the last-ring report that Settings → Report a missed alarm shares. |
 | `AlarmActivity` | Shows over the lock screen and turns the screen on. **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
 | `LocationSource` | Interface. `FusedLocationSource` (real; also last-known and one-shot "Use my location") and `SimulatedLocationSource` (a pretend bus in real time: halts 90 s at stop 1, drives 3 km to stop 2, halts 2 min, then keeps going, for couch tests). |
-| `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (route editor) or all (Debug). |
+| `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (Set a stop ⋯) or all (Debug). |
 | `SafeStore` | How every store loads and saves: each save keeps the previous file as `.bak`; a file that can't be read is kept as `.bad-<time>` and the backup is used, so an update can never wipe routes or learned rides. Fixture tests decode every shipped format. Debug → **Your data** backs everything up to one JSON file (share sheet) and restores it (file picker). |
 | `TraceLogger` | Writes JSONL per trip to app files, flushed per line. Share uses the system share sheet: **location hidden** (every position moved by one random offset, engine re-run, `Trace.anonymize`) for the public repo, or raw (private). |
 | Quick Settings tiles, launcher shortcuts | One tile per first two routes ("To work", "From work"): one tap opens the app and starts the route. Tapping while a trip runs just shows it. Long-press the app icon for the same. |
@@ -359,7 +359,7 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
   vibration is at full strength from the first second and the earbuds start at 70%, then 100% at 30 s.
 - **Buzz on Mute** (PLAN R1, `RingMode`, `RingModeController`): if the phone is on Mute, or in a Do Not
   Disturb mode that may block alarms (total silence or priority), when a ring starts and Nodstop has Do
-  Not Disturb access (a required Readiness check, "Let the alarm buzz on Mute"), it switches to vibrate
+  Not Disturb access (a required Setup row, "Buzz on Mute"), it switches to vibrate
   (and alarms only) for the ring and puts your setting back after "I'm awake" or Stop; only if it's still
   what we set. The record is saved before anything changes, so the next app start undoes a ring a crash
   left behind. A trip's own "quiet trip" mode (alarms only) is left alone.
@@ -376,11 +376,18 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 
 ### Notifications
 
-- **Trip progress** (silent): "On the bus → Smales Farm", "1.2 km · ~3 min · learned route", a progress
-  bar, and a **Stop trip** action that needs the phone unlocked (so a pocket can't cancel your alarm). On Android 16 it's a Live Update: promoted to the lock screen and status bar chip with the
-  distance (`POST_PROMOTED_NOTIFICATIONS`; Readiness shows whether it's allowed).
-- **At your stop**: the one-buzz nudge, "You're at Smales Farm, get off now".
-- **Wake-up alarm**: full-screen intent, colourised, with an **I'm awake** action.
+The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notifications say what the screens say.
+
+- **Trip progress** (silent, tinted with the accent; `TripNoteText`, mockup `lock`): "Harbour St in 6 min",
+  "Alarm about 7:45", an accent progress bar, and a **Stop trip** action that needs the phone unlocked (so a
+  pocket can't cancel your alarm). Waiting: "Harbour St · waiting for the bus" / "Alarm set until you're on it";
+  GPS lost: "Harbour St · GPS lost" / "Alarm at 7:44 at the latest". A quiet trip adds "Quiet trip: 6 held". On
+  Android 16 it's a Live Update: promoted to the lock screen and status bar chip with the distance
+  (`POST_PROMOTED_NOTIFICATIONS`; Settings shows an Allow row only while it's off).
+- **At your stop**: the one-buzz nudge, "You're at Harbour St", "Get off now".
+- **Wake-up alarm**: full-screen intent, colourised (accent; red when you passed your stop), with an
+  **I'm awake** action. Its two lines are the ring screen's (`RingText`): "Wake up" / "Harbour St is close".
+- **Ring timing** (optional, silent, gone after 15 min): "How was the ring timing?", Too early / Good / Too late.
 
 ### Permissions
 
@@ -393,79 +400,89 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 
 ### Screens
 
-> **v2 (PLAN Run 8), on screen now:** the app opens on three tabs, **Now**, **Routes**, **Settings**
-> (`ui/v2/`; the design in `docs/design/`, colours checked against `docs/design/tokens.v2.json` by `TokensTest`).
-> - **Now, idle:** a greeting, "Where are you riding?", your routes as a radio list with the likely one selected
->   (`RouteSuggest`: the route you start most at about this time, ±2 h, on this kind of day; else the last started;
->   else the first), one Start. A red row when a required setup check is off; rows for an interrupted trip and for
->   timing ratings not yet given.
-> - **Now, riding:** a full-bleed map (OpenFreeMap `positron`, recoloured to the map tokens, light or dark; only
->   this trip's stops; your stop as a black pin with its circle; the learned route; you as the blue dot; recentre;
->   rotation and compass) under one sheet: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45", and
->   I'm off this bus. Waiting: "4.1 km · waiting for the bus". After changing buses: "Off at X · next stop",
->   "Waiting for bus 2", Skip this bus. GPS lost: the map greys out, the figures show their age, and a red line
->   says when it rings at the latest (the failsafe). Stop trip is in the ⋯ menu (confirmed). (`TripSheetText`)
-> - **The ring:** black in both themes, "Wake up" (or "Urgent message"), one line (`RingText`: "Harbour St in
->   about 45 s", "is close", passed, GPS, test), a round button you hold for 1 s (the ring fills in orange), "or
->   hold volume down". Messages wait for the next screen.
-> - **After "I'm awake":** "Now" / what to do (`AwakeText`: get off and what's next, or stay on after an early
->   ring and why), then While you slept as plain rows (tap one to share it), then Done.
-> - Routes and Settings are simple v2 lists that open the screens below until Run 9 rebuilds them; Debug opens
->   from a long-press on the build line in Settings.
->
-> The sections below describe the remaining v1 screens (route editor, map circles, Readiness, Debug).
+v2 (PLAN Runs 8 and 9): three tabs, **Now**, **Routes**, **Settings** (`ui/v2/`). The design is in `docs/design/`;
+the colours are checked against `docs/design/tokens.v2.json` by `TokensTest`. It is black and white in the system
+font, with one black primary button per screen and plain lists with hairlines. The only colour is the orange accent
+(a trip is live) and red (a problem). Every screen is a stateless composable fed by plain data, and its words come
+from pure functions with unit tests (`TripSheetText`, `AwakeText`, `RingText`, `TripNoteText`, `RouteText`,
+`StopText`, `SetupText`). Each screen has a screenshot test, `v2_<id>.png` (`ScreensV2ScreenshotTest`). CI pairs
+each one with its mockup (`docs/design/compare.py`) and attaches the pairs to `debug-latest`.
 
-**Design system** (`ui/Design.kt`, PLAN U6): Nodstop's own palette in light and dark (night-bus navy
-with an amber accent, the alarm screen's family; no wallpaper colours), a type scale readable at arm's
-length, a spacing scale, cards (tinted by tone for alerts), primary / secondary / quiet buttons (56 dp
-primary), status chips (ok / warn / bad / info / neutral), big stats for distance and ETA, setting
-rows. Every screen's content is a stateless composable with a screenshot test (`ScreensScreenshotTest`,
-`AlarmScreenshotTest`); CI attaches the PNGs to `debug-latest`. Before/after shots of Run 5 are in
-`docs/screens/`.
-
-- **Home**: a Ready / Check setup chip at the top. If full-screen alarms are off, a red card ("The
-  alarm can't turn your screen on") with the button to allow them; if a required check is off, a card
-  with Fix. A running trip is a highlighted card on top: where you get off, distance and ETA in big
-  type, progress, Open trip and Stop (confirmed); an "interrupted" card if the app was killed mid-trip,
-  with the alarm time still set. A "How was the ring timing?" card after each trip, one tap per leg
-  (too early / good / too late, written to the trip log), only for legs not already asked about.
-  Optional: after "I'm awake" on a stop's own ring (Wake or Failsafe, not simulated), a silent
-  notification asks the same for that leg, with three buttons (gone after 15 min). Readiness → "Ask
-  about ring timing" turns both off. Then one big card per route with **Start** (and "Start from a
-  later leg…", Edit), Add a route, Map / Readiness / Debug, and the build number and short SHA.
-- **Route editor**: the name, then one card per bus (1–3). Each has the stop name, **I'm at the stop:
-  use my location** first, or paste a point or a Maps link, a status chip for the pin, what's learned
-  (rides, your ratings' lead, Forget), and "Wake me for this stop". **No times.** One primary action:
-  Save. The parser accepts `-36.78123, 174.75123`, `-36.78123 174.75123`, and Google Maps URLs
-  containing `@lat,lng` or `q=lat,lng` / `query=lat,lng`. Warn if the point is outside New Zealand.
-- **Trip**: glanceable at arm's length: phase and GPS chips, the stop name large, distance (along the
-  route or straight) and a realistic ETA in big type, a progress bar, the alarm time and why, then
-  **I'm off this bus** (SkipLeg), Show on map, details (ETA source, speed, rides learned) and Stop trip.
-- **Readiness**: collapses to **All set** when every required check is green (Show all checks);
-  otherwise the checks to fix come first, each with Fix (opens the right settings page): notifications,
-  fine location, `canUseFullScreenIntent()`, `canScheduleExactAlarms()`, ignoring battery
-  optimisations, alarm-stream volume above 0 (only when the speaker is on). Optional checks apart.
-  The last ring's report. Grouped settings (Alarm; While you slept), plain language, plus the static
-  Samsung steps:
-  - Settings → Apps → Nodstop → Battery → Unrestricted
-  - Settings → Battery → Background usage limits → make sure it's not in Sleeping / Deep sleeping apps;
-    add it to Never sleeping apps
-  - Never Force stop the app; Android cancels its alarms when you do.
-- **Map** (from Home, and "Show on map" on the Trip screen): MapLibre with OpenFreeMap's "liberty"
-  style. Shows you as a blue dot (waiting, no trip, or off the bus) or a bus icon (on the bus: RIDING,
-  or still at bus speed while ringing/awake), and **only one route's stops** (PLAN R4): during a trip,
-  that trip's (current stop highlighted); otherwise the route you picked with the chips at the top,
-  else the one you last started (`MapModel.visibleRoutes`). With their wake zones and faint learned routes. **Turn and tilt with two fingers** like Google Maps; the compass
-  shows once turned and puts north back up. Frames you and the current stop, then **follows you by
-  default** every time it opens. Any gesture pauses following; it resumes 10 s after your last one
-  (`FollowPolicy`). The follow button: **Follow me** when paused; while following it switches **North
-  up** / **Heading up** (`FollowMode`: the map turns so the way you're going is up, tilted 45°;
-  heading from your positions, held while standing still, `Heading`). Tap a stop pin for its wake-zone
-  sheet (presets, the size in big type, a slider; Save applies to a running trip too). With no trip
-  running it gets your position only while open.
-- **Debug**: Test ring in 30 s (the real AlarmManager path; disabled during a trip), Simulated trip
-  (§5 LocationSource), **Kill app now** (`Process.killProcess`), Forget all learned stops, Share last
-  trip log, a view of the last 200 trace events.
+- **Setup** (`setup`): "Before your first ride", one list:
+  - Notifications; Over the lock screen (full-screen intent); Exact alarms; Buzz on Mute (Do Not Disturb access);
+    Location while riding.
+  - Each row has an Allow that asks for the permission or opens its settings page.
+  - On Samsung, a Keep running (battery Unrestricted) row and the steps no API can check:
+    - Settings → Apps → Nodstop → Battery → Unrestricted
+    - Settings → Battery → Background usage limits → Never sleeping apps → add Nodstop
+    - Never Force stop Nodstop: Android cancels its alarms when you do.
+  - An Alarm volume row only while the speaker is on and the alarm volume is 0.
+  - Continue is enabled once every row is allowed; Not now otherwise. It is shown once on first run, if anything
+    is off. After that it opens from Now's red row, or when a trip can't start.
+  - The optional checks are not here: Live trip progress is in Settings, and chat notification access is in
+    Important contacts.
+- **Now, idle** (`now`):
+  - A greeting, then "Where are you riding?".
+  - Your routes as a radio list, with the likely one selected (`RouteSuggest`: the route you start most at about
+    this time, ±2 h, on this kind of day; else the last started; else the first).
+  - One Start.
+  - A red row ("1 thing to set up") when a required check is off.
+  - Rows for an interrupted trip, with its alarm time and Stop, and for timing ratings not yet given (one tap per
+    leg).
+  - Starting the first trip offers to quiet other notifications.
+- **Now, riding** (`riding`, `riding-night`, `gps-lost`, `transfer`):
+  - A full-bleed map: OpenFreeMap `positron`, recoloured to the map tokens, light or dark. It shows only this
+    trip's stops, your stop as a black pin with its circle, the learned route, and you as the blue dot. It has
+    recentre, rotation and the compass.
+  - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45", and I'm off this bus.
+    - Waiting: "4.1 km · waiting for the bus".
+    - After changing buses: "Off at X · next stop", "Waiting for bus 2", and Skip this bus.
+    - GPS lost: the map greys out, the figures show their age, and a red line says when it rings at the latest
+      (the failsafe).
+  - Stop trip is in the ⋯ menu, and is confirmed.
+- **The ring** (`ring`):
+  - Black in both themes. "Wake up" (or "Urgent message"), then one line ("Harbour St in about 45 s", is close,
+    passed, GPS, test).
+  - A round button you hold for 1 s; the ring fills in orange. Or hold volume down.
+  - Messages wait for the next screen.
+- **After "I'm awake"** (`awake`):
+  - "Now", then what to do: get off and what comes next, or stay on after an early ring, and why.
+  - Then While you slept as plain rows (tap one to share it), then Done.
+- **Routes** (`routes`):
+  - One row per route: "2 buses · 12 rides", or its problem as a red line ("Hill Ave needs a stop").
+  - + names a new route.
+- **A route** (`route`):
+  - The name (tap to rename), then the stops on a line: a ring for an alarm, dashed for no alarm, red for not set,
+    each with "Alarm 45 s before · within 250 m".
+  - Add a bus (up to 3) asks where you get off, then opens the map.
+  - One primary button for the next thing it needs ("Set Hill Ave"), or Start when it's ready.
+  - Rename and Delete route (confirmed) are in the ⋯ menu. **No times.**
+- **Set a stop** (`stop`):
+  - The map moves under a fixed pin, and the wake circle follows it.
+  - The field at the top takes a pasted point or Maps link (`CoordParser`: `-36.78123, 174.75123`,
+    `-36.78123 174.75123`, and URLs with `@lat,lng` or `q=`/`query=lat,lng`). It warns outside New Zealand, or
+    for a short link it can't read.
+  - Use my location; the compass once turned.
+  - The sheet: "Hill Ave · wake me within", then Auto / 150 / 250 / 400 m, with Other size for the 50 m–2 km
+    slider (`ZoneScale`), then Save stop.
+  - The ⋯ menu: Rename stop, Turn alarm off, Forget learned rides, Remove this bus.
+  - It opens on the stop, else the bus before it, else where you are.
+  - Saving when only the circle changed keeps the stop exactly where it was. A running trip takes the new circle
+    straight away (`TripService.onRoutesChanged`).
+- **Settings** (`settings`):
+  - Quiet other notifications (during trips); Ring out loud after 60 s; Ask how the timing was.
+  - Important contacts: the names, plus chat notification access for While you slept.
+  - Report a missed alarm: shares the last trip log with locations hidden, and the last ring's report as the
+    message.
+  - The build line. A long press opens Debug.
+- **Debug** (a tool, plain):
+  - Test ring in 30 s: the real AlarmManager path, disabled during a trip.
+  - Simulated trip (§5 LocationSource), and sample chats for While you slept.
+  - Tea tone and GPU (While you slept), and the Briefing lab.
+  - Back up and restore.
+  - **Kill app now** (`Process.killProcess`).
+  - Forget all learned stops; share the last trip log, hidden or raw.
+  - The last 200 trace events.
 
 ---
 
@@ -489,7 +506,7 @@ rows. Every screen's content is a stateless composable with a screenshot test (`
     branch, SHA and build number.
 - Phone install URL: `https://github.com/tyforlife/wake-up-call/releases/download/debug-latest/app-debug.apk`
   (signed in to GitHub in the phone browser; allow "Install unknown apps" for that browser once).
-  The newest push on any branch wins: check the build number on Home.
+  The newest push on any branch wins: check the build number at the bottom of Settings.
 
 Cloud sessions have no emulator and no device. Verify via JVM tests, lint and `assembleDebug`.
 Anything device-only goes on the couch-test checklist in the PR description.
@@ -500,7 +517,7 @@ Anything device-only goes on the couch-test checklist in the PR description.
 
 ### Couch test (about 20 min)
 
-1. Readiness all green (the Live trip progress row is optional); Samsung steps done.
+1. Setup: every row allowed (Continue lights up); Samsung steps done.
 2. Test ring in 30 s → lock the phone → it rings. Try each way to stop it: hold the bottom half (1 s);
    hold volume down (1.5 s); with the phone unlocked in another app, the banner's **I'm awake** button;
    with Nodstop open, the in-app alarm. A tap or a quick volume press must not stop it.
@@ -512,7 +529,7 @@ Anything device-only goes on the couch-test checklist in the PR description.
 4. Don't ack a sim ring: when the pretend bus leaves the stop, "You passed your stop" appears and the ring maxes out.
 5. Kill test: simulated trip, **Kill app now** after 1 min → it must still ring (note when). Hold
    "I'm awake" → the Trip screen shows the trip again and it carries on to stop 2.
-6. Route editor: stand somewhere and tap **Use my location**: a ✓ point appears.
+6. Set a stop: stand somewhere and tap **Use my location**: the map moves to you; Save stop.
 7. Map: your blue dot is where you are; your pins sit on the right stops; during a simulated trip the
    dot turns into a bus once it moves.
 8. Share the log and confirm the file opens.
@@ -626,7 +643,7 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   earbud tone and the at-stop buzz still come through. Sets `INTERRUPTION_FILTER_ALARMS` at Start,
   restores the previous filter on Stop, DONE or service destroy, and on next app start if a
   "set by us" flag survived a crash. **Quiet trip** (PLAN R2): the switch ("Quiet other notifications
-  during trips") sits at the top of Readiness, and the first trip's Start asks once ("Quiet your trips?",
+  during trips") is the first row of Settings, and the first trip's Start asks once ("Quiet your trips?",
   Quiet my trips / Not now), asking for Do Not Disturb access in the same tap. Turned on (or allowed)
   mid-trip, it applies once at the next tick. The trip notification says "Quiet trip" ("Quiet trip: 6
   held" when notification access can count them). Still off until the owner turns it on.
@@ -649,12 +666,12 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
   this process, and under memory pressure (you're using the phone) Android kills the biggest process.
   The lead is short (§3), so the final pass may not finish before the ring: W2 shows the newest
   finished batch plus digest lines for anything newer.
-- Urgent: only for important contacts the rider types in on Readiness (matched as whole words against
+- Urgent: only for important contacts the rider adds in Settings → Important contacts (matched as whole words against
   sender or conversation title; no contacts permission). Each new VIP message, newest first and at most
   5 per check, goes to the model alone ("YES or NO"); anything but a clear YES is not urgent. Urgent
   checks run before briefing passes, one model job at a time. Urgent sends `Input.Urgent` (W1) and
   marks that chat, which the alarm screen shows first ("urgent: this woke you").
-- Tones: plain (default) or "tea" (Readiness switch). Tea is a second model call over the checked lines;
+- Tones: plain (default) or "tea" (Debug switch). Tea is a second model call over the checked lines;
   W5 is checked again on each rewrite, and a failing or missing rewrite keeps the plain line.
 - After "I'm awake" (PLAN U5): a hold on the alarm screen **always** opens "You're awake", then
   **Done**. With nothing to read it says "Nothing new while you slept"; with notification access off,
@@ -672,7 +689,7 @@ The work order and acceptance criteria are in `docs/PLAN.md` (Runs 1–3).
 
 Default Gemma 4 E2B (`.litertlm`), fallback Gemma 3 1B. Runtime: LiteRT-LM
 (`com.google.ai.edge.litertlm:litertlm-android` **0.16.1**, the newest built with this project's
-Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend by default. Readiness → **Use the GPU (experimental)**
+Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend by default. Debug → **Use the GPU (experimental)**
 tries the GPU first and falls back to the CPU if the phone or model can't use it; the lab shows which
 one ran, so both can be compared. A GPU driver can crash natively, past any `try`, so trips use the GPU
 only after the lab has loaded the model on it successfully on this phone (`gpuVerified`). The rider downloads the file on the phone and

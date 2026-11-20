@@ -61,6 +61,13 @@ fun RouteHost(routeId: String?, go: (Screen) -> Unit, back: () -> Unit) {
     var addingBus by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val r = id?.let { i -> routes.firstOrNull { it.id == i } }
+    val start: (String, Int) -> Unit = { rid, fromLeg ->
+        when {
+            TripService.status.value != null -> go(Screen.Trip)
+            !Readiness.canStartTrip(ctx) -> go(Screen.Setup)
+            else -> { TripService.startRoute(ctx, rid, fromLeg); go(Screen.Trip) }
+        }
+    }
 
     if (r != null) {
         val ui = RouteDetailUi(r.name, RouteText.stops(r) { learned[Route.stopKey(it)] }, RouteText.next(r), r.legs.size < MAX_BUSES)
@@ -77,11 +84,10 @@ fun RouteHost(routeId: String?, go: (Screen) -> Unit, back: () -> Unit) {
                     when {
                         r.legs.isEmpty() -> addBus()
                         unset != null -> go(Screen.Stop(r.id, unset))
-                        TripService.status.value != null -> go(Screen.Trip)
-                        !Readiness.canStartTrip(ctx) -> go(Screen.Setup)
-                        else -> { TripService.startRoute(ctx, r.id); go(Screen.Trip) }
+                        else -> start(r.id, -1)
                     }
                 },
+                startFrom = { leg -> start(r.id, leg) },
                 delete = { confirmDelete = true },
             ),
             Modifier.statusBarsPadding().navigationBarsPadding(),
@@ -179,7 +185,7 @@ fun StopHost(routeId: String, leg: Int, back: () -> Unit) {
                 val now = app.routes.get(routeId) ?: return@save back()
                 val legs = now.legs.toMutableList()
                 if (leg in legs.indices) {
-                    legs[leg] = legs[leg].copy(name = name.trim(), coords = StopText.coords(centre), alarmEnabled = alarm, wakeRadiusM = custom)
+                    legs[leg] = legs[leg].copy(name = name.trim(), coords = StopText.saved(draft0.coords, centre), alarmEnabled = alarm, wakeRadiusM = custom)
                     app.routes.upsert(now.copy(legs = legs))
                 }
                 back()

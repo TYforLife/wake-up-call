@@ -139,4 +139,10 @@ class ScreensV2ScreenshotTest {
             SettingsScreen(SettingsUi(quiet = true, speaker = false, ask = true, contacts = "Mum, Daycare", build = "Build 64"), SettingsActions())
         }
     }
+
+    // ---- Run 9, M7: the trip notification on the lock screen ----
+
+    @Test fun lock() = shot("lock", dark = true) {
+        LockPreview(TripNoteUi("Harbour St in 6 min", "Alarm about 7:45", 68), "7:41", "Friday 20 November")
+    }
 }

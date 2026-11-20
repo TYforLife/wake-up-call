@@ -29,6 +29,9 @@ class RouteTextTest {
         assertEquals("Alarm 45 s before · within 250 m", RouteText.stops(work) { null }[1].detail)
         assertEquals("Set Hill Ave", RouteText.next(home))
         assertNull(RouteText.next(work))
+        // Start from a later bus: only once the route is ready, and never the first bus.
+        assertEquals(listOf("Harbour St"), RouteDetailUi("To work", RouteText.stops(work) { null }, RouteText.next(work), true).startFrom.map { it.title })
+        assertEquals(emptyList<StopRowUi>(), RouteDetailUi("From work", stops, RouteText.next(home), false).startFrom)
     }
 
     @Test
@@ -52,6 +55,10 @@ class StopTextTest {
         assertEquals("Can't read that. Paste \"-36.78, 174.75\" or a Maps link.", StopText.pasteError("Hill Ave"))
         assertEquals(true, StopText.pasteError("https://maps.app.goo.gl/abc")!!.startsWith("Short links"))
         assertEquals("-36.800000, 174.700000", StopText.coords(app.nodstop.engine.LatLng(-36.8, 174.7)))
+        // Only the circle changed: the stop stays exactly as typed; moved, or new: the map's centre.
+        assertEquals("-36.80, 174.70", StopText.saved("-36.80, 174.70", app.nodstop.engine.LatLng(-36.8000001, 174.7000001)))
+        assertEquals("-36.801000, 174.700000", StopText.saved("-36.80, 174.70", app.nodstop.engine.LatLng(-36.801, 174.7)))
+        assertEquals("-36.801000, 174.700000", StopText.saved("", app.nodstop.engine.LatLng(-36.801, 174.7)))
 
         val r = Route("r", "R", listOf(LegDraft("A", "-36.80, 174.70"), LegDraft("B", "")))
         val here = app.nodstop.engine.LatLng(-36.9, 174.8)

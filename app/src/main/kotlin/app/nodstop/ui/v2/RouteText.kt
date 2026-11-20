@@ -94,6 +94,15 @@ object StopText {
 
     fun coords(p: LatLng): String = String.format(java.util.Locale.US, "%.6f, %.6f", p.lat, p.lng)
 
+    /**
+     * What Save writes: the old text when the pin hasn't really moved (under 2 m: the map's own rounding), so
+     * changing only the circle keeps the stop exactly where it was, for what's learned and a running trip.
+     */
+    fun saved(old: String, centre: LatLng): String {
+        val o = CoordParser.parse(old)
+        return if (o != null && app.nodstop.engine.Geo.distanceM(o, centre) < 2.0) old else coords(centre)
+    }
+
     /** Open on this stop, else the bus before it, else where you are, else [FALLBACK]. */
     fun centre(r: Route, leg: Int, here: LatLng?): LatLng =
         CoordParser.parse(r.legs.getOrNull(leg)?.coords.orEmpty())

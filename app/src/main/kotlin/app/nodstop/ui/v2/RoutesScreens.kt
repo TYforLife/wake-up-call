@@ -79,7 +79,10 @@ fun RoutesList(rows: List<RouteRowUi>, a: RoutesActions, modifier: Modifier = Mo
 
 // ---- A route (mockup `route`) ----
 
-data class RouteDetailUi(val name: String, val stops: List<StopRowUi>, val next: String?, val canAddBus: Boolean)
+data class RouteDetailUi(val name: String, val stops: List<StopRowUi>, val next: String?, val canAddBus: Boolean) {
+    /** "Start from <stop>" for a later bus, when the route is ready (you're already past the first). */
+    val startFrom: List<StopRowUi> get() = if (next == null) stops.drop(1) else emptyList()
+}
 
 class RouteDetailActions(
     val back: () -> Unit = {},
@@ -89,6 +92,7 @@ class RouteDetailActions(
     /** The primary button: the next thing it needs, or Start when it's ready. */
     val next: () -> Unit = {},
     val delete: () -> Unit = {},
+    val startFrom: (Int) -> Unit = {},
 )
 
 /** A route as its stops on a line; one button for the next thing it needs (PLAN Run 9, M5). */
@@ -104,6 +108,7 @@ fun RouteDetail(ui: RouteDetailUi, a: RouteDetailActions, modifier: Modifier = M
                 Box {
                     IconCircle(NIcons.More, "More", { menu = true })
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        for (st in ui.startFrom) DropdownMenuItem(text = { Text("Start from ${st.title}") }, onClick = { menu = false; a.startFrom(st.leg) })
                         DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; a.rename() })
                         DropdownMenuItem(text = { Text("Delete route", color = c.danger) }, onClick = { menu = false; a.delete() })
                     }
