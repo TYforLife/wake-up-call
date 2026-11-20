@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Nodstop" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/night</item>
+    <style name="Theme.Nodstop" parent="android:Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/window</item>
+        <!-- Android 12+ launch screen: the icon on the app's own background (white, or black at night). -->
+        <item name="android:windowSplashScreenBackground">@color/window</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
-    <style name="Theme.Nodstop.Alarm">
-        <item name="android:windowBackground">@color/night</item>
+    <!-- The alarm is black in both themes (DESIGN §5). -->
+    <style name="Theme.Nodstop.Alarm" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/alarm</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 </resources>
