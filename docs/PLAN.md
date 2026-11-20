@@ -612,17 +612,17 @@ Prerequisite: Run 10 merged.
 - [x] Count taps in the PR, before and after, for: a new route with two stops, and changing a circle.
 
 ### B2 The map looks like Google Maps
-- [ ] Base map: OpenFreeMap's `liberty` style, tuned to Google Maps' palette, replacing the grey recoloured
+- [x] Base map: OpenFreeMap's `liberty` style, tuned to Google Maps' palette, replacing the grey recoloured
   `positron`:
   - grey-beige land, white streets, and yellow-orange main roads;
   - green parks and blue water;
   - place, POI and transit labels, with bus stops visible;
   - a dark variant at night, like Google's night map.
-- [ ] Markers:
+- [x] Markers:
   - you are Google's blue dot with a heading beam;
   - your stop is a red Google-style pin;
   - the learned route is Google's route blue.
-- [ ] The style is built in code. A JVM test checks the layer colours and that bus stops show. The cloud session
+- [x] The style is built in code. A JVM test checks the layer colours and that bus stops show. The cloud session
   can't load the tiles (network allowlist), so the owner checks the real look on the phone. Screenshot tests keep
   the flat map box.
 

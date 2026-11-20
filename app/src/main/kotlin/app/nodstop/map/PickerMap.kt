@@ -8,7 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import app.nodstop.engine.LatLng
@@ -20,7 +19,6 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
-import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
@@ -74,8 +72,11 @@ fun PickerMap(
                 }
             }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
-                recolour(s, colors)
-                addPickerLayers(s, colors)
+                val pal = MapPalette.colors(colors.dark)
+                MapStyle.applyGoogleLook(s, pal)
+                MapStyle.addBusStops(s, pal)
+                MapStyle.addImages(s, pal, px)
+                addPickerLayers(s, pal)
                 style = s
                 drawZone(m, s)
             }
@@ -103,18 +104,11 @@ private fun circleJson(c: LatLng, radiusM: Double): String {
     return """{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[$ring]}}]}"""
 }
 
-private fun addPickerLayers(s: Style, c: NColors) {
+private fun addPickerLayers(s: Style, c: MapPalette.Colors) {
     val empty = """{"type":"FeatureCollection","features":[]}"""
     for (id in listOf("pick-zone", "pick-me")) s.addSource(GeoJsonSource(id, empty))
-    val fg = c.fg.toArgb()
-    s.addLayer(FillLayer("pick-zone-f", "pick-zone").withProperties(PropertyFactory.fillColor(fg), PropertyFactory.fillOpacity(0.06f)))
-    s.addLayer(LineLayer("pick-zone-l", "pick-zone").withProperties(PropertyFactory.lineColor(fg), PropertyFactory.lineOpacity(0.35f), PropertyFactory.lineWidth(1.5f)))
-    val blue = 0xFF1A73E8.toInt()
-    s.addLayer(CircleLayer("pick-me-halo", "pick-me").withProperties(PropertyFactory.circleRadius(18f), PropertyFactory.circleColor(blue), PropertyFactory.circleOpacity(0.18f)))
-    s.addLayer(
-        CircleLayer("pick-me-dot", "pick-me").withProperties(
-            PropertyFactory.circleRadius(8f), PropertyFactory.circleColor(blue),
-            PropertyFactory.circleStrokeWidth(3f), PropertyFactory.circleStrokeColor(0xFFFFFFFF.toInt()),
-        ),
-    )
+    val blue = c.me.toInt()
+    s.addLayer(FillLayer("nod-pick-zone-f", "pick-zone").withProperties(PropertyFactory.fillColor(blue), PropertyFactory.fillOpacity(0.10f)))
+    s.addLayer(LineLayer("nod-pick-zone-l", "pick-zone").withProperties(PropertyFactory.lineColor(blue), PropertyFactory.lineOpacity(0.6f), PropertyFactory.lineWidth(2f)))
+    MapStyle.addMe(s, "pick-me", c)
 }

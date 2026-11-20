@@ -31,7 +31,11 @@ class ScreensV2ScreenshotTest {
     private fun shot(id: String, dark: Boolean = false, content: @Composable () -> Unit) =
         captureRoboImage("src/test/snapshots/v2_$id.png") { NodstopV2Theme(dark = dark) { content() } }
 
-    private val flatMap: @Composable (Modifier) -> Unit = { m -> Box(m.background(LocalN.current.mapBg)) }
+    /** MapLibre can't render on the JVM: the map is a flat box in Google's land colour (PLAN B2). */
+    private val flatMap: @Composable (Modifier) -> Unit = { m ->
+        val land = app.nodstop.map.MapPalette.colors(LocalN.current.dark).base.getValue(app.nodstop.map.MapPalette.Role.LAND)
+        Box(m.background(androidx.compose.ui.graphics.Color(land.toInt())))
+    }
 
     private val routes = listOf(
         RouteOption("work", "To work", "Central Station, then Harbour St"),

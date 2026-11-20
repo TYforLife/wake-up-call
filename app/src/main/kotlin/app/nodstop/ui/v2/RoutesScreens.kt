@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -45,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -244,11 +246,21 @@ fun StopPicker(ui: StopPickerUi, a: StopPickerActions, map: @Composable (Modifie
 /** The fixed pin at the map's centre: the place that gets saved. */
 @Composable
 private fun CentrePin(modifier: Modifier) {
-    val c = LocalN.current
-    Canvas(modifier.size(28.dp).semantics { contentDescription = "Your stop" }) {
-        drawCircle(Color.Black.copy(alpha = .18f), size.minDimension / 2, center = center + Offset(0f, 1.5.dp.toPx()))
-        drawCircle(c.fg, 11.dp.toPx())
-        drawCircle(c.bg, 4.dp.toPx())
+    // Google's red pin (PLAN Run 11, B2), its point exactly on the map's centre: the place that gets saved.
+    val pal = app.nodstop.map.MapPalette.colors(LocalN.current.dark)
+    Canvas(modifier.offset(y = (-21.5).dp).size(width = 27.dp, height = 43.dp).semantics { contentDescription = "Your stop" }) {
+        val w = size.width
+        val r = w / 2
+        val path = androidx.compose.ui.graphics.Path().apply {
+            arcTo(androidx.compose.ui.geometry.Rect(0f, 0f, w, w), 150f, 240f, false)
+            lineTo(r, size.height)
+            close()
+        }
+        drawPath(path, Color.Black.copy(alpha = .18f), alpha = 1f)
+        translate(top = -1.dp.toPx()) {
+            drawPath(path, Color(pal.pin.toInt()))
+            drawCircle(Color(pal.pinDot.toInt()), r * 0.36f, center = Offset(r, r))
+        }
     }
 }
 

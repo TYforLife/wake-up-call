@@ -9,11 +9,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import app.nodstop.engine.Geo
 import app.nodstop.engine.LatLng
 import app.nodstop.ui.v2.NColors
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -22,19 +22,19 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
-import org.maplibre.android.style.layers.BackgroundLayer
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.geometry.LatLng as MLatLng
 
 /**
- * The v2 riding map (PLAN Run 8, M3): OpenFreeMap's plain "positron" style, recoloured at runtime to the
- * design's map tokens (light or dark), with only this trip's stops: your stop as an `fg` pin with its circle as
- * a faint `fg` ring, the learned route as an `fg` line, you as the standard blue dot. Follows you; a gesture
+ * The riding map (PLAN Run 8, M3; Run 11, B2): OpenFreeMap's `liberty` in Google Maps' colours (light or dark), bus
+ * stops, and only this trip's stops: your stop as Google's red pin with its circle shaded blue, the learned route in
+ * route blue, you as the blue dot with a heading beam. It frames you and your stop, then follows you; a gesture
  * pauses following until [recentreTick] changes (the recentre button). Rotation and the compass stay.
  */
 @Composable
@@ -66,8 +66,11 @@ fun RideMap(
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) { following = false; onUserGesture() }
             }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
-                recolour(s, colors)
-                addRideLayers(s, colors)
+                val pal = MapPalette.colors(colors.dark)
+                MapStyle.applyGoogleLook(s, pal)
+                MapStyle.addBusStops(s, pal)
+                MapStyle.addImages(s, pal, px)
+                addRideLayers(s, pal)
                 style = s
             }
         }
@@ -81,8 +84,17 @@ fun RideMap(
         s.getSourceAs<GeoJsonSource>("ride-zone")?.setGeoJson(MapModel.zonesJson(layers.copy(pins = layers.pins.filter { it.current })))
         s.getSourceAs<GeoJsonSource>("ride-pins")?.setGeoJson(MapModel.pinsJson(layers))
     }
-    LaunchedEffect(style, me) {
-        style?.getSourceAs<GeoJsonSource>("ride-me")?.setGeoJson(MapModel.meJson(me, MapModel.Me.PERSON))
+    // Your heading, from where you've been (the blue dot's beam, like Google's): only once you've moved a little.
+    var lastPos by remember { mutableStateOf<LatLng?>(null) }
+    var bearing by remember { mutableStateOf<Double?>(null) }
+    LaunchedEffect(me) {
+        val p = me ?: return@LaunchedEffect
+        val prev = lastPos
+        if (prev == null) lastPos = p
+        else if (Geo.distanceM(prev, p) >= 8.0) { bearing = Heading.bearing(prev, p); lastPos = p }
+    }
+    LaunchedEffect(style, me, bearing) {
+        style?.getSourceAs<GeoJsonSource>("ride-me")?.setGeoJson(MapModel.meJson(me, MapModel.Me.PERSON, bearing))
     }
     LaunchedEffect(recentreTick) { following = true }
     LaunchedEffect(style, me, following, recentreTick) {
@@ -125,78 +137,37 @@ internal fun rememberMapView(): MapView {
     return mapView
 }
 
-internal const val STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
+/** OpenFreeMap's `liberty`: streets, parks, water, places and transit, recoloured to Google's map (PLAN B2). */
+internal const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 
-/** Positron in the design's map colours: land, roads, parks and water; labels in `muted`. Best effort per layer. */
-internal fun recolour(s: Style, c: NColors) {
-    val bg = c.mapBg.toArgb()
-    val road = c.mapRoad.toArgb()
-    val park = c.mapPark.toArgb()
-    val water = c.mapWater.toArgb()
-    val label = c.muted.toArgb()
-    val halo = c.bg.toArgb()
-    for (layer in s.layers) runCatching {
-        val id = layer.id.lowercase()
-        when (layer) {
-            is BackgroundLayer -> layer.setProperties(PropertyFactory.backgroundColor(bg))
-            is FillLayer -> layer.setProperties(
-                PropertyFactory.fillColor(
-                    when {
-                        "water" in id -> water
-                        listOf("park", "wood", "grass", "forest", "green").any { it in id } -> park
-                        else -> bg
-                    },
-                ),
-            )
-            is LineLayer -> when {
-                "water" in id -> layer.setProperties(PropertyFactory.lineColor(water))
-                "casing" in id -> layer.setProperties(PropertyFactory.lineColor(bg))
-                listOf("road", "highway", "street", "bridge", "tunnel", "path", "rail").any { it in id } ->
-                    layer.setProperties(PropertyFactory.lineColor(road))
-                "boundary" in id -> layer.setProperties(PropertyFactory.lineColor(label), PropertyFactory.lineOpacity(0.3f))
-            }
-            is SymbolLayer -> layer.setProperties(PropertyFactory.textColor(label), PropertyFactory.textHaloColor(halo))
-        }
-    }
-}
-
-private fun addRideLayers(s: Style, c: NColors) {
+private fun addRideLayers(s: Style, c: MapPalette.Colors) {
     val empty = """{"type":"FeatureCollection","features":[]}"""
     for (id in listOf("ride-zone", "ride-tracks", "ride-pins", "ride-me")) s.addSource(GeoJsonSource(id, empty))
-    val fg = c.fg.toArgb()
-    val bg = c.bg.toArgb()
-    s.addLayer(FillLayer("ride-zone-f", "ride-zone").withProperties(PropertyFactory.fillColor(fg), PropertyFactory.fillOpacity(0.045f)))
-    s.addLayer(LineLayer("ride-zone-l", "ride-zone").withProperties(PropertyFactory.lineColor(fg), PropertyFactory.lineOpacity(0.28f), PropertyFactory.lineWidth(1.5f)))
+    val blue = c.me.toInt()
+    // Your stop's circle: a light blue disc, as Google shades an area.
+    s.addLayer(FillLayer("nod-zone-f", "ride-zone").withProperties(PropertyFactory.fillColor(blue), PropertyFactory.fillOpacity(0.10f)))
+    s.addLayer(LineLayer("nod-zone-l", "ride-zone").withProperties(PropertyFactory.lineColor(blue), PropertyFactory.lineOpacity(0.6f), PropertyFactory.lineWidth(2f)))
+    // The learned route: Google's route blue on a darker edge.
+    for ((id, col, w) in listOf(Triple("nod-track-casing", c.routeCasing, 8f), Triple("nod-track", c.route, 5.5f))) {
+        s.addLayer(
+            LineLayer(id, "ride-tracks").withProperties(
+                PropertyFactory.lineColor(col.toInt()), PropertyFactory.lineWidth(w),
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            ),
+        )
+    }
+    // Other stops of this trip: small white discs. Your stop: the red pin.
     s.addLayer(
-        LineLayer("ride-track", "ride-tracks").withProperties(
-            PropertyFactory.lineColor(fg), PropertyFactory.lineWidth(5f),
-            PropertyFactory.lineCap(org.maplibre.android.style.layers.Property.LINE_CAP_ROUND),
-            PropertyFactory.lineJoin(org.maplibre.android.style.layers.Property.LINE_JOIN_ROUND),
-        ),
-    )
-    // Other stops of this trip: small and faint. Your stop: the pin.
-    s.addLayer(
-        CircleLayer("ride-pins-other", "ride-pins").withProperties(
-            PropertyFactory.circleRadius(5f), PropertyFactory.circleColor(c.faint.toArgb()),
-            PropertyFactory.circleStrokeWidth(2f), PropertyFactory.circleStrokeColor(bg),
+        CircleLayer("nod-pins-other", "ride-pins").withProperties(
+            PropertyFactory.circleRadius(5f), PropertyFactory.circleColor(android.graphics.Color.WHITE),
+            PropertyFactory.circleStrokeWidth(2.5f), PropertyFactory.circleStrokeColor(c.otherStop.toInt()),
         ).withFilter(Expression.eq(Expression.get("current"), false)),
     )
     s.addLayer(
-        CircleLayer("ride-pin", "ride-pins").withProperties(
-            PropertyFactory.circleRadius(11f), PropertyFactory.circleColor(fg),
+        SymbolLayer("nod-pin", "ride-pins").withProperties(
+            PropertyFactory.iconImage(MapStyle.PIN), PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+            PropertyFactory.iconAllowOverlap(true), PropertyFactory.iconIgnorePlacement(true),
         ).withFilter(Expression.eq(Expression.get("current"), true)),
     )
-    s.addLayer(
-        CircleLayer("ride-pin-hole", "ride-pins").withProperties(
-            PropertyFactory.circleRadius(4f), PropertyFactory.circleColor(bg),
-        ).withFilter(Expression.eq(Expression.get("current"), true)),
-    )
-    val blue = 0xFF1A73E8.toInt()
-    s.addLayer(CircleLayer("ride-me-halo", "ride-me").withProperties(PropertyFactory.circleRadius(18f), PropertyFactory.circleColor(blue), PropertyFactory.circleOpacity(0.18f)))
-    s.addLayer(
-        CircleLayer("ride-me-dot", "ride-me").withProperties(
-            PropertyFactory.circleRadius(8f), PropertyFactory.circleColor(blue),
-            PropertyFactory.circleStrokeWidth(3f), PropertyFactory.circleStrokeColor(0xFFFFFFFF.toInt()),
-        ),
-    )
+    MapStyle.addMe(s, "ride-me", c)
 }
