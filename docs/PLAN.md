@@ -520,14 +520,14 @@ it as a replay test and say what it showed. Otherwise fix every known failure, a
 trip what happened.
 
 ### A0 The app says whether it rang
-- [ ] After a trip, Now shows one line per stop that had an alarm:
+- [x] After a trip, Now shows one line per stop that had an alarm:
   - "Rang at Harbour St · buzzed · screen on".
   - Or, in red, "Didn't ring at Harbour St" or "Rang at Harbour St, but couldn't buzz: phone on Mute", with the
     reason in plain words.
   - A red line comes with a one-tap **Send report**: the hidden-location log plus the ring report, through the
     share sheet.
   - The verdict comes from a pure `TripVerdict` over the trip log and ring reports, with JVM tests for each outcome.
-- [ ] The ring report also records:
+- [x] The ring report also records:
   - the alarm channel's importance and whether it can bypass Do Not Disturb;
   - whether notifications are on for that channel;
   - "Display over other apps";
@@ -536,54 +536,54 @@ trip what happened.
   - whether the alarm screen actually opened, and how long it took.
 
 ### A1 Close every silent failure
-- [ ] **Alarm channel health.**
+- [x] **Alarm channel health.**
   - At each app start, if the alarm channel can't bypass Do Not Disturb while access is granted, or its importance
     is below high, replace it with a fresh channel.
   - The new channel gets its own vibration pattern, alongside the app's vibrator. Changing channel settings needs
     a new channel ID.
   - Setup gets an "Alarm notifications" row when the channel is blocked or turned down.
-- [ ] **The ring lifts quiet trip.** When a ring starts, quiet trip's Do Not Disturb is restored to your own
+- [x] **The ring lifts quiet trip.** When a ring starts, quiet trip's Do Not Disturb is restored to your own
   setting before anything else. It comes back after "I'm awake" only if the trip goes on and the screen is off (A4).
-- [ ] **Shown even if the service fails.**
+- [x] **Shown even if the service fails.**
   - `AlarmReceiver` posts the full-screen ring notification itself, first, then starts `RingService`, which takes
     over the same notification ID.
   - A service that can't start still leaves an alarm on screen that buzzes through its channel.
   - It is still the one ring path (receiver → service, rule 1). Update DESIGN §5 Components.
-- [ ] **Resume after an update or a reboot.**
+- [x] **Resume after an update or a reboot.**
   - Add `MY_PACKAGE_REPLACED` and `BOOT_COMPLETED` receivers.
   - They re-schedule the saved trip's alarm at `min(wakeAt, failsafeAt)`, or ring now if that time has passed,
     then restart `TripService`.
   - Test with a saved trip fixture.
-- [ ] **The alarm screen while you're using the phone.**
+- [x] **The alarm screen while you're using the phone.**
   - Setup gets a "Show over other apps" row (`SYSTEM_ALERT_WINDOW`; one-line reason in the PR, rule 5).
   - With it, the ring opens the alarm screen even while another app is in front, instead of only a banner.
     Without it, the banner stays, as now.
 
 ### A2 Ring-path tests in CI
-- [ ] Robolectric tests drive `AlarmReceiver.onReceive`, then check three things: a full-screen notification is
+- [x] Robolectric tests drive `AlarmReceiver.onReceive`, then check three things: a full-screen notification is
   posted on the alarm channel, vibration is requested with `USAGE_ALARM` (or the channel vibrates), and the mode
   changes are undone after "I'm awake".
-- [ ] The phone states covered: normal; Mute; Do Not Disturb priority; quiet trip on; no Do Not Disturb access; a
+- [x] The phone states covered: normal; Mute; Do Not Disturb priority; quiet trip on; no Do Not Disturb access; a
   cold start with no `TripService`; `RingService` failing to start; no earbuds; earbuds in.
-- [ ] A test for "update during a trip": a saved trip plus a `MY_PACKAGE_REPLACED` broadcast leads to the alarm
+- [x] A test for "update during a trip": a saved trip plus a `MY_PACKAGE_REPLACED` broadcast leads to the alarm
   being scheduled and the trip resumed.
-- [ ] These run in `:app:testDebugUnitTest`, so no future change can silently break the ring.
+- [x] These run in `:app:testDebugUnitTest`, so no future change can silently break the ring.
 
 ### A3 Get off from the notification
-- [ ] The trip notification gets **I'm off this bus** next to Stop trip. It sends `SkipLeg`; on the last bus it
+- [x] The trip notification gets **I'm off this bus** next to Stop trip. It sends `SkipLeg`; on the last bus it
   ends the trip. While waiting for the next bus, it reads **Skip this bus**.
-- [ ] It works without unlocking once this stop has rung, or once you're inside its circle. Before that it asks you
+- [x] It works without unlocking once this stop has rung, or once you're inside its circle. Before that it asks you
   to unlock, so a pocket can't skip your alarm.
-- [ ] JVM tests for which actions show, and whether each needs unlocking, in every phase.
+- [x] JVM tests for which actions show, and whether each needs unlocking, in every phase.
 
 ### A4 Quiet only while the screen is off
-- [ ] During a trip with quiet trip on, Do Not Disturb (alarms only) is on while the screen is off and off while
+- [x] During a trip with quiet trip on, Do Not Disturb (alarms only) is on while the screen is off and off while
   it's on. Notifications come through while you use the phone and stay silent while you doze.
-- [ ] `TripService` listens for screen on and off. The decision is pure, in `DndRestore`, and takes the screen
+- [x] `TripService` listens for screen on and off. The decision is pure, in `DndRestore`, and takes the screen
   state as an input.
-- [ ] A Do Not Disturb you set yourself is never touched, and your setting comes back when the trip ends.
-- [ ] The Settings subtitle becomes "While the screen is off", and the first-trip offer text matches.
-- [ ] JVM tests: screen off, then on, then off, then the trip ends; DND you set mid-trip; a crash mid-trip.
+- [x] A Do Not Disturb you set yourself is never touched, and your setting comes back when the trip ends.
+- [x] The Settings subtitle becomes "While the screen is off", and the first-trip offer text matches.
+- [x] JVM tests: screen off, then on, then off, then the trip ends; DND you set mid-trip; a crash mid-trip.
 
 **Test on phone (Run 10):**
 1. Couch test with the phone on Mute, no earbuds, quiet trip on and the screen off: the screen turns on, it

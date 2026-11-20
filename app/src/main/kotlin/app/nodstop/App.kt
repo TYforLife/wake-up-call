@@ -23,7 +23,8 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        org.maplibre.android.MapLibre.getInstance(this)
+        // The map's native library; never let it stop the app (or the ring path's tests on the JVM) from starting.
+        runCatching { org.maplibre.android.MapLibre.getInstance(this) }
         routes = RouteStore(this)
         learned = LearnedStore(this)
         trips = TripStore(this)

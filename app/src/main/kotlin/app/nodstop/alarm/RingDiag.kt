@@ -12,11 +12,13 @@ object RingDiag {
     fun start(
         screenWasOn: Boolean, fullScreenAllowed: Boolean, earbuds: Boolean, screenWoken: Boolean, test: Boolean,
         ringer: String? = null, dnd: String? = null, buzz: RingMode.Buzz? = null, speakerAfterS: Int? = null,
+        channel: String? = null, overlay: Boolean? = null, quiet: Boolean? = null, cold: Boolean? = null,
     ) {
         startedElapsed = SystemClock.elapsedRealtime()
         current = RingReport(
             System.currentTimeMillis(), screenWasOn, fullScreenAllowed, earbuds, screenWoken, test,
             ringer = ringer, dnd = dnd, buzz = buzz, speakerAfterS = speakerAfterS,
+            channel = channel, overlay = overlay, quiet = quiet, cold = cold,
         )
         save()
     }
@@ -40,7 +42,10 @@ object RingDiag {
     private fun save() {
         val r = current ?: return
         runCatching {
-            App.instance.settings.setLastRing(r.summary())
+            val app = App.instance
+            app.settings.setLastRing(r.summary())
+            // A ring that cold-started the app: write into the saved trip's log, so the verdict sees it (PLAN A0).
+            if (!app.traces.hasCurrent) app.trips.load()?.let { app.traces.continueTrip(it.traceFile) }
             App.instance.traces.write(listOf(TraceEvent(System.currentTimeMillis(), "ringd", msg = r.encode())))
         }
     }

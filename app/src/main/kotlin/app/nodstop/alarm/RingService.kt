@@ -32,6 +32,7 @@ import app.nodstop.engine.Buzz
 import app.nodstop.engine.Config
 import app.nodstop.engine.RingPlan
 import app.nodstop.engine.RingStep
+import app.nodstop.notify.DndController
 import app.nodstop.trip.TripService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,10 +114,10 @@ class RingService : Service() {
             stopRinging()
             return START_NOT_STICKY
         }
-        val trip = App.instance.trips.load()
-        test = trip == null && TripService.instance == null
-        legName = TripService.status.value?.legName ?: trip?.currentLeg?.name
-        reason = if (test) null else TripService.status.value?.status?.ringReason ?: trip?.alarmReason
+        val info = info()
+        test = info.test
+        legName = info.legName
+        reason = info.reason
         val n = Notifications.ring(this, legName, reason, test)
         try {
             // systemExempted (allowed for apps holding USE_EXACT_ALARM) exists from Android 14.
@@ -134,15 +135,21 @@ class RingService : Service() {
                 return START_NOT_STICKY
             }
         }
-        if (!ringing) begin()
         // Re-ring safety net (DESIGN §2): with the trip service alive, the engine keeps the alarm a minute
         // ahead while ringing. After a cold start there is no engine, so keep it here: if this ring dies
-        // before "I'm awake", the system rings again.
+        // before "I'm awake", the system rings again. Set first, so nothing below can skip it (PLAN Run 10).
         if (!test && TripService.instance == null) {
             App.instance.scheduler.set(System.currentTimeMillis() + (Config().reringS * 1000).toLong())
         }
+        // Whatever fails in starting the ring, the service stays up: its notification stays on screen and its
+        // channel keeps buzzing (insistent) until "I'm awake".
+        if (!ringing) try { begin() } catch (e: Exception) { Log.e("Nodstop", "ring start failed; the notification still buzzes", e) }
         // Best effort: also open the alarm screen directly (the full-screen intent covers the locked case).
-        runCatching { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        val open = { runCatching { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+        open()
+        // While you use another app (PLAN A1): with "Display over other apps", a window of ours on screen lets the
+        // alarm screen open over it, not only a banner. Give the window a moment to appear, then try again.
+        if (AlarmOverlay.show(this)) handler.postDelayed({ open() }, 400)
         return START_STICKY
     }
 
@@ -164,6 +171,10 @@ class RingService : Service() {
             }.getOrNull()
         }
         val fullScreen = Build.VERSION.SDK_INT < 34 || getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+        // Was quiet trip's Do Not Disturb on when the ring started? (For the report, PLAN A0.)
+        val quietAtRing = App.instance.settings.dndRecord()?.setByUs == true
+        // ...and lift it for the ring (PLAN A1): it comes back once you're awake, if the screen goes off again.
+        DndController.onRingStart(this)
         // Buzz on Mute (PLAN R1): read the phone's mode first (for the report), then switch it for the ring.
         val ringer = RingModeController.ringer(this)
         val filter = RingModeController.filter(this)
@@ -175,6 +186,10 @@ class RingService : Service() {
             screenWasOn, fullScreen, headset() != null, screenWoken = screenLock != null || pm.isInteractive, test = test,
             ringer = RingMode.ringerName(ringer), dnd = RingMode.filterName(filter), buzz = buzz,
             speakerAfterS = speakerAfterMs?.let { (it / 1000).toInt() },
+            channel = Notifications.alarmChannelState(this),
+            overlay = AlarmOverlay.allowed(this),
+            quiet = quietAtRing,
+            cold = TripService.instance == null,
         )
         savedMusicVol = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
         savedAlarmVol = audio.getStreamVolume(AudioManager.STREAM_ALARM)
@@ -201,30 +216,36 @@ class RingService : Service() {
         val hs = headset()
         val after = speakerAfterMs
         val step = RingPlan.step(elapsed, hs != null, after != null, overshoot, inUse, after ?: RingPlan.SPEAKER_AFTER_MS)
-        when (step.route) {
-            AudioRoute.EARBUDS -> {
-                alarmTrack?.pause()
-                setVolume(AudioManager.STREAM_MUSIC, step.volumePct)
-                val t = mediaTrack ?: Tone.track(AudioAttributes.USAGE_MEDIA).also { tr ->
-                    tr.addOnRoutingChangedListener({ r -> if (isPhoneSpeaker(r.routedDevice)) tr.pause() }, handler)
-                    mediaTrack = tr
+        // The buzz first, and nothing about sound can stop it (PLAN Run 10): a tone that fails to play (an audio
+        // device that won't open, a route change mid-call) must never take the vibration or the ring down with it.
+        runCatching { buzz(step.buzz) }.onFailure { Log.e("Nodstop", "ring vibration failed", it) }
+        try {
+            when (step.route) {
+                AudioRoute.EARBUDS -> {
+                    alarmTrack?.pause()
+                    setVolume(AudioManager.STREAM_MUSIC, step.volumePct)
+                    val t = mediaTrack ?: Tone.track(AudioAttributes.USAGE_MEDIA).also { tr ->
+                        tr.addOnRoutingChangedListener({ r -> if (isPhoneSpeaker(r.routedDevice)) tr.pause() }, handler)
+                        mediaTrack = tr
+                    }
+                    t.preferredDevice = hs
+                    if (isPhoneSpeaker(t.routedDevice) && t.playState == AudioTrack.PLAYSTATE_PLAYING) t.pause()
+                    else if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
                 }
-                t.preferredDevice = hs
-                if (isPhoneSpeaker(t.routedDevice) && t.playState == AudioTrack.PLAYSTATE_PLAYING) t.pause()
-                else if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
+                AudioRoute.SPEAKER -> {
+                    mediaTrack?.pause()
+                    setVolume(AudioManager.STREAM_ALARM, step.volumePct)
+                    val t = alarmTrack ?: Tone.track(AudioAttributes.USAGE_ALARM).also { alarmTrack = it }
+                    if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
+                }
+                AudioRoute.NONE -> {
+                    mediaTrack?.pause()
+                    alarmTrack?.pause()
+                }
             }
-            AudioRoute.SPEAKER -> {
-                mediaTrack?.pause()
-                setVolume(AudioManager.STREAM_ALARM, step.volumePct)
-                val t = alarmTrack ?: Tone.track(AudioAttributes.USAGE_ALARM).also { alarmTrack = it }
-                if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
-            }
-            AudioRoute.NONE -> {
-                mediaTrack?.pause()
-                alarmTrack?.pause()
-            }
+        } catch (e: Exception) {
+            Log.e("Nodstop", "ring tone failed; vibration carries on", e)
         }
-        buzz(step.buzz)
         _state.value = RingUi(legName, overshoot, startedAt, step, hs != null, test, if (overshoot) AlarmReason.OVERSHOOT else reason)
     }
 
@@ -279,6 +300,9 @@ class RingService : Service() {
             runCatching { unregisterReceiver(noisy) }
             // Back to Mute (or your Do Not Disturb), if the ring switched it.
             runCatching { RingModeController.onRingEnd(this) }
+            // Quiet trip comes back only while a trip runs and the screen is off (PLAN A4).
+            runCatching { DndController.update(this, ringing = false) }
+            AlarmOverlay.hide(this)
             wakeLock?.takeIf { it.isHeld }?.release()
             screenLock?.takeIf { it.isHeld }?.release()
             screenLock = null
@@ -309,6 +333,22 @@ class RingService : Service() {
         var instance: RingService? = null
             private set
 
+        /** A ring is on, from its very start (before its first update reaches [state]). */
+        val isRinging: Boolean get() = instance?.ringing == true
+
+        /** What this ring is for: the stop, why, and whether it's a test (no trip saved or running). */
+        data class Info(val legName: String?, val reason: AlarmReason?, val test: Boolean)
+
+        fun info(): Info {
+            val trip = runCatching { App.instance.trips.load() }.getOrNull()
+            val test = trip == null && TripService.instance == null
+            return Info(
+                TripService.status.value?.legName ?: trip?.currentLeg?.name,
+                if (test) null else TripService.status.value?.status?.ringReason ?: trip?.alarmReason,
+                test,
+            )
+        }
+
         private val _state = MutableStateFlow<RingUi?>(null)
         /** Non-null while ringing. */
         val state: StateFlow<RingUi?> = _state
@@ -319,6 +359,8 @@ class RingService : Service() {
 
         fun stop(ctx: Context) {
             instance?.stopRinging() ?: ctx.stopService(Intent(ctx, RingService::class.java))
+            // The receiver posts the ring before the service exists (PLAN A1): it goes too.
+            runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(Notifications.ID_RING) }
         }
 
         fun overshoot() {

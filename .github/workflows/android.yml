@@ -25,6 +25,8 @@ jobs:
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GIT_SHA: ${{ github.sha }}
+      - name: Ring path on the JVM (PLAN Run 10, A2; a failure blocks the merge)
+        run: ./gradlew :app:testDebugUnitTest -Pscreenshots --tests '*RingPathTest' --console=plain
       - name: Screenshots (PLAN U0; never blocks the APK)
         id: shots
         continue-on-error: true

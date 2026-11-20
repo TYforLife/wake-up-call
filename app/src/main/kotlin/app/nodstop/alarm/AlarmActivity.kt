@@ -97,6 +97,8 @@ class AlarmActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (RingService.state.value != null) RingDiag.shown()
+        // The alarm screen is up: the helper window that let it open over another app can go (PLAN A1).
+        AlarmOverlay.hide(this)
     }
 
     override fun onNewIntent(intent: Intent) {

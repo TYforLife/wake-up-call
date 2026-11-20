@@ -20,9 +20,18 @@ data class RingReport(
     val buzz: RingMode.Buzz? = null,
     /** When the speaker joined this ring, or null for never. */
     val speakerAfterS: Int? = null,
+    /** The alarm channel at the ring (PLAN A0): "high bypass", "high", "low", "off"… */
+    val channel: String? = null,
+    /** "Display over other apps" allowed: the alarm screen can open over another app. */
+    val overlay: Boolean? = null,
+    /** Quiet trip's Do Not Disturb was on when the ring started (it's lifted for the ring, PLAN A1). */
+    val quiet: Boolean? = null,
+    /** The alarm started the app from scratch (no trip running in memory). */
+    val cold: Boolean? = null,
 ) {
     /** One line for the trip log (kind "ringd": no positions, no message text). */
     fun encode(): String = listOf(
+        if (test) "test=true" else null,
         "screen=${if (screenWasOn) "on" else "off"}",
         "fullScreen=${if (fullScreenAllowed) "allowed" else "denied"}",
         "woke=$screenWoken",
@@ -33,7 +42,41 @@ data class RingReport(
         dnd?.let { "dnd=$it" },
         buzz?.let { "buzz=${it.name.lowercase()}" },
         speakerAfterS?.let { "speaker=${it}s" },
+        channel?.let { "channel=${it.replace(' ', '+')}" },
+        overlay?.let { "overlay=$it" },
+        quiet?.let { "quiet=$it" },
+        cold?.let { "cold=$it" },
     ).filterNotNull().joinToString(" ")
+
+    /** It vibrated, or can be trusted to have (earbuds also count as reaching you). */
+    val buzzed: Boolean get() = buzz == RingMode.Buzz.OK || buzz == RingMode.Buzz.SWITCHED
+
+    companion object {
+        /** Reads an [encode]d line back (the trip log's "ringd"). Unknown keys are ignored; [atMs] comes from the event. */
+        fun decode(line: String, atMs: Long): RingReport {
+            val kv = line.split(' ').mapNotNull { p -> p.indexOf('=').takeIf { it > 0 }?.let { p.substring(0, it) to p.substring(it + 1) } }.toMap()
+            val ack = kv["ack"]
+            return RingReport(
+                atMs = atMs,
+                screenWasOn = kv["screen"] == "on",
+                fullScreenAllowed = kv["fullScreen"] == "allowed",
+                earbuds = kv["audio"] == "earbuds",
+                screenWoken = kv["woke"] == "true",
+                test = kv["test"] == "true",
+                shownAfterMs = kv["shown"]?.removeSuffix("ms")?.toLongOrNull(),
+                ackSource = ack?.substringBefore('@')?.takeIf { it != "none" },
+                ackAfterMs = ack?.substringAfter('@', "")?.removeSuffix("s")?.toLongOrNull()?.times(1000),
+                ringer = kv["ringer"],
+                dnd = kv["dnd"],
+                buzz = kv["buzz"]?.let { b -> RingMode.Buzz.entries.firstOrNull { it.name.lowercase() == b } },
+                speakerAfterS = kv["speaker"]?.removeSuffix("s")?.toIntOrNull(),
+                channel = kv["channel"]?.replace('+', ' '),
+                overlay = kv["overlay"]?.toBooleanStrictOrNull(),
+                quiet = kv["quiet"]?.toBooleanStrictOrNull(),
+                cold = kv["cold"]?.toBooleanStrictOrNull(),
+            )
+        }
+    }
 
     /** For Readiness: did the last ring reach you, and if not, why. */
     fun summary(): String = buildString {

@@ -52,6 +52,21 @@ class ScreensV2ScreenshotTest {
 
     @Test fun now_not_ready() = shot("now-not-ready") { withTabs(false) { NowIdle(NowIdleUi("Good morning", routes, "work", notReady = 1), NowActions()) } }
 
+    @Test fun now_last_trip() = shot("now-last-trip") {
+        withTabs(false) {
+            NowIdle(
+                NowIdleUi(
+                    "Good evening", routes, "home",
+                    lastTrip = listOf(
+                        app.nodstop.alarm.VerdictLine("Central Station", "Rang at Central Station", "Buzzed · screen on", false),
+                        app.nodstop.alarm.VerdictLine("Harbour St", "Rang at Harbour St", "May not have buzzed: phone on Mute without access", true),
+                    ),
+                ),
+                NowActions(),
+            )
+        }
+    }
+
     @Test fun riding() = shot("riding") { withTabs(true) { NowRiding(riding, {}, {}, {}, flatMap) } }
 
     @Test fun riding_night() = shot("riding-night", dark = true) {

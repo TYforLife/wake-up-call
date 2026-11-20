@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
 import app.nodstop.alarm.AlarmActivity
+import app.nodstop.alarm.AlarmChannel
 import app.nodstop.engine.AlarmReason
 import app.nodstop.engine.LatLng
 import app.nodstop.trip.RateReceiver
@@ -18,6 +19,7 @@ import app.nodstop.ui.MainActivity
 import app.nodstop.ui.v2.RingText
 import app.nodstop.ui.v2.RingTextUi
 import app.nodstop.ui.v2.Tokens
+import app.nodstop.ui.v2.TripActionUi
 import app.nodstop.ui.v2.TripNoteText
 import app.nodstop.ui.v2.hm
 import kotlin.math.roundToInt
@@ -32,6 +34,7 @@ object Notifications {
     const val ID_AT_STOP = 3
     const val ID_RATE = 4
     const val ID_MISSED = 5
+    const val ID_PAUSED = 6
 
     /** Android 16 Live Updates: promoted to the lock screen and status bar. */
     private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
@@ -60,16 +63,66 @@ object Notifications {
                 enableVibration(false) // the app buzzes once itself, through Do Not Disturb
             },
         )
-        nm.createNotificationChannel(
-            NotificationChannel(CH_ALARM, "Wake-up alarm", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "The alarm itself. Silent channel: the app plays the sound and vibration."
-                setSound(null, null)
-                enableVibration(false)
-                setBypassDnd(true)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            },
-        )
+        ensureAlarmChannel(ctx)
     }
+
+    // ---- the alarm channel (PLAN Run 10, A1) ----
+
+    private fun channelPrefs(ctx: Context) = ctx.getSharedPreferences("channels", Context.MODE_PRIVATE)
+
+    /** The alarm channel in use. It gets a new ID when it has to be replaced: Android keeps a channel's settings. */
+    fun alarmChannelId(ctx: Context): String = channelPrefs(ctx).getString(KEY_ALARM_CHANNEL, null) ?: CH_ALARM
+
+    /** Vibration the channel itself plays (repeated: the ring notification is insistent), as well as the app's own. */
+    val ALARM_VIBRATION = longArrayOf(0, 900, 500)
+
+    private fun newAlarmChannel(id: String) =
+        NotificationChannel(id, "Wake-up alarm", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "The alarm itself. It buzzes, and shows over the lock screen."
+            setSound(null, android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ALARM).build())
+            enableVibration(true)
+            vibrationPattern = ALARM_VIBRATION
+            setBypassDnd(true)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+
+    /**
+     * Makes sure the alarm channel can reach you: high importance, vibrating, and through Do Not Disturb when
+     * Nodstop has that access. Android keeps a channel's settings (and only honours "bypass Do Not Disturb" if
+     * the access existed when it was made), so a channel that falls short is replaced with a fresh one.
+     * Never while a ring is showing: its notification lives on the channel.
+     */
+    fun ensureAlarmChannel(ctx: Context) {
+        runCatching {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            val id = alarmChannelId(ctx)
+            val ch = nm.getNotificationChannel(id)
+            val ok = AlarmChannel.healthy(
+                exists = ch != null, importance = ch?.importance ?: 0, canBypassDnd = ch?.canBypassDnd() == true,
+                dndAccess = nm.isNotificationPolicyAccessGranted, vibrates = ch?.shouldVibrate() == true,
+            )
+            if (ok) return
+            if (ch == null) { nm.createNotificationChannel(newAlarmChannel(id)); return }
+            if (app.nodstop.alarm.RingService.instance != null) return
+            val next = AlarmChannel.nextId(id)
+            nm.createNotificationChannel(newAlarmChannel(next))
+            channelPrefs(ctx).edit().putString(KEY_ALARM_CHANNEL, next).commit()
+            nm.deleteNotificationChannel(id)
+        }
+    }
+
+    private const val KEY_ALARM_CHANNEL = "alarm_channel"
+
+    /** The alarm channel in a few words, for the ring report (PLAN A0): "high bypass", "high", "low", "off", "missing". */
+    fun alarmChannelState(ctx: Context): String = runCatching {
+        val ch = ctx.getSystemService(NotificationManager::class.java).getNotificationChannel(alarmChannelId(ctx)) ?: return "missing"
+        val level = when {
+            ch.importance == NotificationManager.IMPORTANCE_NONE -> "off"
+            ch.importance >= NotificationManager.IMPORTANCE_HIGH -> "high"
+            else -> "low"
+        }
+        if (ch.canBypassDnd()) "$level bypass" else level
+    }.getOrDefault("?")
 
     fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(
         ctx, 10, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -93,7 +146,7 @@ object Notifications {
     }
 
     /** The glanceable trip notification (mockup `lock`): "<stop> in 6 min", the alarm time, an accent bar. */
-    fun trip(ctx: Context, ui: TripService.TripUi, quiet: String? = null): Notification {
+    fun trip(ctx: Context, ui: TripService.TripUi, quiet: String? = null, radiusM: Double? = null): Notification {
         val s = ui.status
         val note = TripNoteText.of(ui, ::hm, quiet)
         val d = s.distanceM
@@ -107,14 +160,21 @@ object Notifications {
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_NAVIGATION)
             .setContentIntent(openApp(ctx))
-            // The "island" (PLAN U2): stop the trip from the notification or the status-bar chip. Needs the
-            // phone unlocked, so a pocket or a stranger can't cancel your alarm.
-            .addAction(
+        // The "island" (PLAN U2, Run 10 A3): get off, or stop the trip, from the notification or the status-bar
+        // chip. Stop trip, and getting off before it rang or you're near, need the phone unlocked.
+        for (a in TripNoteText.actions(ui, radiusM)) {
+            val intent = when (a.kind) {
+                TripActionUi.Kind.OFF -> TripService.offIntent(ctx)
+                TripActionUi.Kind.STOP -> TripService.stopIntent(ctx)
+            }
+            val code = if (a.kind == TripActionUi.Kind.OFF) 22 else 21
+            b.addAction(
                 Notification.Action.Builder(
-                    Icon.createWithResource(ctx, R.drawable.ic_tile), TRIP_STOP_LABEL,
-                    PendingIntent.getService(ctx, 21, TripService.stopIntent(ctx), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
-                ).setAuthenticationRequired(true).build(),
+                    Icon.createWithResource(ctx, R.drawable.ic_tile), a.label,
+                    PendingIntent.getService(ctx, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+                ).setAuthenticationRequired(a.unlock).build(),
             )
+        }
         if (Build.VERSION.SDK_INT >= 36) {
             d?.let { b.setShortCriticalText(TripService.distance(it)) }
             val style = Notification.ProgressStyle()
@@ -189,6 +249,29 @@ object Notifications {
         runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_MISSED, n) }
     }
 
+    /**
+     * After an update or a restart (PLAN A1): the alarm is already set again; this resumes tracking in one tap,
+     * in case Android didn't let the app restart it by itself.
+     */
+    fun tripPaused(ctx: Context, legName: String?) {
+        val pi = PendingIntent.getForegroundService(
+            ctx, 4400, TripService.resumeIntent(ctx), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = Notification.Builder(ctx, CH_AT_STOP)
+            .setSmallIcon(R.drawable.ic_tile)
+            .setContentTitle("Your trip is still on")
+            .setContentText("Alarm set${legName?.let { " for $it" } ?: ""}. Tap to keep tracking where you are.")
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .setColor(ACCENT)
+            .build()
+        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_PAUSED, n) }
+    }
+
+    fun cancelTripPaused(ctx: Context) {
+        runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(ID_PAUSED) }
+    }
+
     fun cancelMissed(ctx: Context) {
         runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(ID_MISSED) }
     }
@@ -211,7 +294,7 @@ object Notifications {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val t = ringText(legName, reason, test)
-        return Notification.Builder(ctx, CH_ALARM)
+        return Notification.Builder(ctx, alarmChannelId(ctx))
             .setSmallIcon(R.drawable.ic_tile)
             .setContentTitle(t.title)
             .setContentText(t.line)
@@ -224,5 +307,7 @@ object Notifications {
             .setContentIntent(full)
             .addAction(Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_tile), "I'm awake", awake).build())
             .build()
+            // Insistent: the channel's vibration repeats until the ring is stopped, even if the app's own can't run.
+            .apply { flags = flags or Notification.FLAG_INSISTENT }
     }
 }

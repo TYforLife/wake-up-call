@@ -43,6 +43,8 @@ data class NowIdleUi(
     /** A trip whose process died while its alarm is still set: "07:49", or "" for no alarm time. */
     val interruptedAlarm: String? = null,
     val rate: List<RateLeg> = emptyList(),
+    /** Did each alarm of the last trip reach you (PLAN Run 10, A0)? Empty: nothing to say. */
+    val lastTrip: List<app.nodstop.alarm.VerdictLine> = emptyList(),
 )
 
 class NowActions(
@@ -53,6 +55,8 @@ class NowActions(
     val rate: (leg: Int, value: String) -> Unit = { _, _ -> },
     val skipRating: () -> Unit = {},
     val addRoute: () -> Unit = {},
+    val sendReport: () -> Unit = {},
+    val dismissLastTrip: () -> Unit = {},
 )
 
 /** Now, idle: your likely route already picked, one Start (PLAN Run 8, M3). */
@@ -78,6 +82,18 @@ fun NowIdle(ui: NowIdleUi, a: NowActions, modifier: Modifier = Modifier) {
                     "A trip is still on", if (at.isEmpty()) "The app was closed during it" else "Its alarm is set for $at",
                     trailing = { Pill("Stop", a.stopInterrupted) },
                 )
+            }
+            if (ui.lastTrip.isNotEmpty()) {
+                Eyebrow("Last trip")
+                ui.lastTrip.forEach { v ->
+                    ListRow(
+                        v.title, v.detail, subtitleDanger = v.bad,
+                        leading = if (v.bad) ({ Icon(NIcons.Warn, null, tint = c.danger) }) else null,
+                        trailing = if (v.bad) ({ Pill("Send", a.sendReport) }) else null,
+                    )
+                }
+                TextLinkButton("OK", a.dismissLastTrip)
+                Spacer(Modifier.height(8.dp))
             }
             ui.routes.forEachIndexed { i, r ->
                 RadioRow(r.title, r.problem ?: r.subtitle, r.id == selected?.id, { a.select(r.id) }, divider = i < ui.routes.lastIndex)

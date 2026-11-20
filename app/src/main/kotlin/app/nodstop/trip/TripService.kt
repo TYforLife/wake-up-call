@@ -86,11 +86,20 @@ class TripService : Service() {
     private val routesScope = MainScope()
     private var routesJob: Job? = null
 
+    /** Quiet trip follows the screen (PLAN Run 10, A4): quiet while it's off, your notifications while it's on. */
+    private val screen = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (trip == null) return
+            runCatching { DndController.update(this@TripService, tripRunning = true, screenOn = intent.action == Intent.ACTION_SCREEN_ON) }
+        }
+    }
+
     private val tick = object : Runnable {
         override fun run() {
             val now = System.currentTimeMillis()
             input(Input.Tick(now))
-            quietIfAsked()
+            // Also every tick: the setting or its access may change mid-trip, and a screen broadcast can be missed.
+            if (trip != null) runCatching { DndController.update(this@TripService, tripRunning = true) }
             briefing?.onTick(now, lastScheduled)
             handler.postDelayed(this, TICK_MS)
         }
@@ -104,10 +113,14 @@ class TripService : Service() {
         lastScheduled = app.scheduler.scheduledAtMs
         // A wake circle changed on the map applies to this trip at once (PLAN U3).
         routesJob = routesScope.launch { app.routes.routes.collect { onRoutesChanged(it) } }
+        val f = android.content.IntentFilter().apply { addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF) }
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(screen, f, RECEIVER_NOT_EXPORTED) else registerReceiver(screen, f)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        try {
+        // A notification button on a running trip: already in the foreground; don't flash "starting" over it.
+        val button = intent?.action == ACTION_OFF || intent?.action == ACTION_STOP
+        if (!(button && trip != null)) try {
             startForeground(Notifications.ID_TRIP, Notifications.tripStarting(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } catch (e: Exception) {
             Log.e("Nodstop", "trip service could not start in the foreground", e)
@@ -141,7 +154,8 @@ class TripService : Service() {
             }
             ACTION_RESUME -> {
                 val old = app.trips.load()
-                val plan = Resume.plan(old, now)
+                val afterRing = intent.getBooleanExtra(EXTRA_AFTER_RING, true)
+                val plan = Resume.plan(old, now, afterRing)
                 if (old == null || plan == null) {
                     // Nothing left to protect: drop the cold ring's re-ring safety net too.
                     if (trip == null) app.scheduler.cancel()
@@ -151,7 +165,8 @@ class TripService : Service() {
                 }
                 val sim = if (old.simulated && old.simKm != null && old.simKmh != null)
                     SimulatedLocationSource(SimulatedLocationSource.SIM_DEST, old.simKm, old.simKmh, old.startedMs) else null
-                val note = "resumed after a cold-start ring at leg ${plan.legOffset + 1} (${if (plan.awake) "awake for it" else "still tracking it"})"
+                val note = "resumed ${if (afterRing) "after a cold-start ring" else "after a restart"} at leg ${plan.legOffset + 1} " +
+                    "(${if (plan.awake) "awake for it" else "still tracking it"})"
                 val go = { known: Fix? ->
                     begin(old.routeId, old.routeName, old.legs, plan.legOffset, plan.awake, old.traceFile, old.simulated,
                         System.currentTimeMillis(), known, sim, note, old.simKm, old.simKmh, old.startedMs)
@@ -159,6 +174,8 @@ class TripService : Service() {
                 if (sim != null) go(null) else withLastKnown(go)
             }
             ACTION_STOP -> stopTrip()
+            // The notification's "I'm off this bus" (PLAN Run 10, A3): as the button in the app.
+            ACTION_OFF -> if (trip != null) skipLeg() else shutdown()
             else -> if (trip == null) shutdown()
         }
         return START_NOT_STICKY
@@ -188,10 +205,9 @@ class TripService : Service() {
     ) {
         source?.stop()
         handler.removeCallbacks(tick)
+        Notifications.cancelTripPaused(this)
         // While You Slept (DESIGN §10): catch chat notifications while this trip runs, in memory only.
         MessageStore.instance.start()
-        DndController.onTripStart(this)
-        quietTried = DndController.granted(this) && app.settings.dndDuringTrips.value
         briefing?.stop()
         // An urgent VIP message (DESIGN §10): ring now, through the engine and the single ring path (W1).
         briefing = BriefingCoordinator(this, now) { handler.post { input(Input.Urgent(System.currentTimeMillis())) } }
@@ -206,6 +222,8 @@ class TripService : Service() {
         notes = RideNotes()
         src.start { fix -> notes.onFix(fix.tMs); input(Input.FixIn(fix.tMs, fix)) }
         handler.postDelayed(tick, TICK_MS)
+        // Quiet trip: on now only if the screen is already off (a trip started from the tile, PLAN A4).
+        runCatching { DndController.update(this, tripRunning = true) }
     }
 
     private fun input(i: Input) {
@@ -222,14 +240,6 @@ class TripService : Service() {
         val on = app.settings.dndRecord()?.setByUs == true
         val snap = MessageStore.instance.snapshot()
         return Notifications.quietLine(on, if (snap.active) snap.added + snap.otherNotifications else null)
-    }
-
-    /** Quiet trip switched on (or its access granted) after the trip started: apply it once, now. */
-    private var quietTried = false
-    private fun quietIfAsked() {
-        if (quietTried || !app.settings.dndDuringTrips.value || !DndController.granted(this)) return
-        quietTried = true
-        DndController.onTripStart(this)
     }
 
     private fun apply(t: ActiveTrip, out: Output, changed: Boolean) {
@@ -277,7 +287,7 @@ class TripService : Service() {
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now
-            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine()))
+            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine(), updated.currentLeg?.wakeRadiusM))
         }
 
         if (out.status.phase == Phase.DONE) finishTrip(updated)
@@ -397,6 +407,7 @@ class TripService : Service() {
 
     override fun onDestroy() {
         routesJob?.cancel()
+        runCatching { unregisterReceiver(screen) }
         // Do NOT cancel the alarm here: if the system destroys us, the scheduled alarm is the dead-man's switch.
         briefing?.stop(); briefing = null
         MessageStore.instance.stop()
@@ -413,7 +424,9 @@ class TripService : Service() {
         private const val ACTION_START_SIM = "start_sim"
         private const val ACTION_RESUME = "resume"
         private const val ACTION_STOP = "stop"
+        private const val ACTION_OFF = "off"
         private const val EXTRA_ROUTE_ID = "route_id"
+        private const val EXTRA_AFTER_RING = "after_ring"
         private const val EXTRA_FROM_LEG = "from_leg"
         private const val EXTRA_SIM_KM = "sim_km"
         private const val EXTRA_SIM_KMH = "sim_kmh"
@@ -449,9 +462,18 @@ class TripService : Service() {
         /** After "I'm awake" on a ring that came from a cold start: continue the same leg. */
         fun resumeAfterColdRing(ctx: Context) = send(ctx, Intent(ctx, TripService::class.java).setAction(ACTION_RESUME))
 
+        /** After an app update or a phone restart (PLAN A1): continue tracking the same stop; nothing rang. */
+        fun resumeIntent(ctx: Context): Intent =
+            Intent(ctx, TripService::class.java).setAction(ACTION_RESUME).putExtra(EXTRA_AFTER_RING, false)
+
+        fun resumeAfterRestart(ctx: Context) = send(ctx, resumeIntent(ctx))
+
         /** Stop the trip, including one whose process was killed (its alarm is still scheduled). */
         /** Stops the trip (the notification's Stop trip action). */
         fun stopIntent(ctx: Context): Intent = Intent(ctx, TripService::class.java).setAction(ACTION_STOP)
+
+        /** "I'm off this bus" from the notification (PLAN Run 10, A3). */
+        fun offIntent(ctx: Context): Intent = Intent(ctx, TripService::class.java).setAction(ACTION_OFF)
 
         fun stop(ctx: Context) {
             val svc = instance

@@ -23,12 +23,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.nodstop.App
+import app.nodstop.alarm.TripVerdict
+import app.nodstop.alarm.VerdictLine
+import app.nodstop.engine.Trace
 import app.nodstop.BuildConfig
 import app.nodstop.Shortcuts
 import app.nodstop.data.LegDraft
@@ -86,6 +92,11 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     var picked by remember(suggested) { mutableStateOf(suggested) }
     val persisted = remember(resumeTick, stopTick) { app.trips.load() }
     val notReady = remember(resumeTick) { Readiness.needsAttention(Readiness.checks(ctx)).size }
+    var verdictTick by remember { mutableIntStateOf(0) }
+    // Read off the main thread: a long ride's log is thousands of lines.
+    val lastTrip by produceState<Pair<String, List<VerdictLine>>?>(null, resumeTick, stopTick, verdictTick) {
+        value = withContext(Dispatchers.IO) { lastTripVerdict() }
+    }
     val startNow: (String) -> Unit = { id ->
         if (Readiness.canStartTrip(ctx)) TripService.startRoute(ctx, id) else go(Screen.Setup)
     }
@@ -96,6 +107,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
         notReady = notReady,
         interruptedAlarm = persisted?.let { app.scheduler.scheduledAtMs?.let(::hm) ?: "" },
         rate = rating?.legs?.map { (leg, name) -> RateLeg(leg, name) }.orEmpty(),
+        lastTrip = lastTrip?.second.orEmpty(),
     )
     NowIdle(
         ui,
@@ -116,6 +128,8 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
             },
             skipRating = { app.settings.setPendingRating(null) },
             addRoute = { go(Screen.Route(null)) },
+            sendReport = { reportMissedAlarm(ctx) },
+            dismissLastTrip = { lastTrip?.first?.let { app.settings.setVerdictSeen(it) }; verdictTick++ },
         ),
         Modifier.statusBarsPadding(),
     )
@@ -125,8 +139,9 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
             title = { Text("Quiet your trips?") },
             text = {
                 Text(
-                    "Other notifications stay silent while you ride, so they don't wake you. Alarms still ring, and an " +
-                        "urgent message from an important contact still wakes you. Your setting comes back when the trip ends.",
+                    "While the screen is off on a trip, other notifications stay silent so they don't wake you. When you " +
+                        "use the phone, they come through as usual. The alarm always rings, and an urgent message from an " +
+                        "important contact still wakes you.",
                 )
             },
             confirmButton = {
@@ -145,6 +160,16 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     }
     if (confirmStop) StopTripDialog({ confirmStop = false }) { TripService.stop(ctx); stopTick++ }
     LaunchedEffect(routes) { Shortcuts.update(ctx, routes) }
+}
+
+/** The last trip's log and what it says about each alarm, unless dismissed or a trip is still saved (PLAN A0). */
+private fun lastTripVerdict(): Pair<String, List<VerdictLine>>? {
+    val app = App.instance
+    if (TripService.status.value != null || app.trips.load() != null) return null
+    val f = app.traces.lastTripFile() ?: return null
+    if (f.name == app.settings.verdictSeen) return null
+    val events = runCatching { f.readLines().mapNotNull { l -> runCatching { Trace.decode(l) }.getOrNull() } }.getOrNull() ?: return null
+    return f.name to TripVerdict.of(events).takeIf { it.isNotEmpty() }.orEmpty()
 }
 
 @Composable
