@@ -393,6 +393,28 @@ OpenFreeMap; the tile server sees roughly which area you're looking at, nothing 
 
 ### Screens
 
+> **v2 (PLAN Run 8), on screen now:** the app opens on three tabs, **Now**, **Routes**, **Settings**
+> (`ui/v2/`; the design in `docs/design/`, colours checked against `docs/design/tokens.v2.json` by `TokensTest`).
+> - **Now, idle:** a greeting, "Where are you riding?", your routes as a radio list with the likely one selected
+>   (`RouteSuggest`: the route you start most at about this time, ±2 h, on this kind of day; else the last started;
+>   else the first), one Start. A red row when a required setup check is off; rows for an interrupted trip and for
+>   timing ratings not yet given.
+> - **Now, riding:** a full-bleed map (OpenFreeMap `positron`, recoloured to the map tokens, light or dark; only
+>   this trip's stops; your stop as a black pin with its circle; the learned route; you as the blue dot; recentre;
+>   rotation and compass) under one sheet: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45", and
+>   I'm off this bus. Waiting: "4.1 km · waiting for the bus". After changing buses: "Off at X · next stop",
+>   "Waiting for bus 2", Skip this bus. GPS lost: the map greys out, the figures show their age, and a red line
+>   says when it rings at the latest (the failsafe). Stop trip is in the ⋯ menu (confirmed). (`TripSheetText`)
+> - **The ring:** black in both themes, "Wake up" (or "Urgent message"), one line (`RingText`: "Harbour St in
+>   about 45 s", "is close", passed, GPS, test), a round button you hold for 1 s (the ring fills in orange), "or
+>   hold volume down". Messages wait for the next screen.
+> - **After "I'm awake":** "Now" / what to do (`AwakeText`: get off and what's next, or stay on after an early
+>   ring and why), then While you slept as plain rows (tap one to share it), then Done.
+> - Routes and Settings are simple v2 lists that open the screens below until Run 9 rebuilds them; Debug opens
+>   from a long-press on the build line in Settings.
+>
+> The sections below describe the remaining v1 screens (route editor, map circles, Readiness, Debug).
+
 **Design system** (`ui/Design.kt`, PLAN U6): Nodstop's own palette in light and dark (night-bus navy
 with an amber accent, the alarm screen's family; no wallpaper colours), a type scale readable at arm's
 length, a spacing scale, cards (tinted by tone for alerts), primary / secondary / quiet buttons (56 dp

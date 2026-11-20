@@ -392,27 +392,27 @@ logic. Every existing JVM test must pass untouched (screenshot tests are replace
 Prerequisite: Gate D passed (above). Branch from the latest `main`.
 
 ### M1 Tokens, type and components
-- [ ] `ui/v2/Theme.kt`: `NodstopTheme` from `tokens.v2.json` exactly (light and dark), the system font
+- [x] `ui/v2/Theme.kt`: `NodstopTheme` from `tokens.v2.json` exactly (light and dark), the system font
   (`FontFamily.Default`, Roboto on the phone), the type scale and spacing/radius/size tokens from
   `docs/design/system/tokens.json`. A JVM test reads `docs/design/tokens.v2.json` and fails if any colour in
   `Theme.kt` differs (so design and code can't drift).
-- [ ] `ui/v2/Components.kt`: `PrimaryButton`, `GhostButton`, `Pill`, `TextLink`, `ListRow`, `RadioRow`, `SwitchRow`,
+- [x] `ui/v2/Components.kt`: `PrimaryButton`, `GhostButton`, `Pill`, `TextLink`, `ListRow`, `RadioRow`, `SwitchRow`,
   `Segmented`, `TripSheet`, `HoldToStop` (1 s hold, accent ring fills, haptic tick at the end; no tap or brush
   stops it), `TabBar` (live dot), and the outline icons from `gen_mockups.py` as `ImageVector`s (no icon library).
-- [ ] One screenshot test per component, light and dark.
+- [x] One screenshot test per component, light and dark.
 
 ### M2 Navigation shell
-- [ ] Three tabs (Now, Routes, Settings) and two overlays (Setup, Alarm), replacing the `Screen` enum's Home/Trip/
+- [x] Three tabs (Now, Routes, Settings) and two overlays (Setup, Alarm), replacing the `Screen` enum's Home/Trip/
   Readiness/Map. Back from a tab goes to Now; Now's tab shows the live dot while a trip runs.
-- [ ] Debug moves behind a long-press on Settings' build line; nothing else links to it.
-- [ ] Quick Settings tiles and launcher shortcuts still start a route (open Now riding).
+- [x] Debug moves behind a long-press on Settings' build line; nothing else links to it.
+- [x] Quick Settings tiles and launcher shortcuts still start a route (open Now riding).
 
 ### M3 Now
-- [ ] `NowIdle` (`now`): "Good morning/afternoon/evening", "Where are you riding?", a `RadioRow` per route with the
+- [x] `NowIdle` (`now`): "Good morning/afternoon/evening", "Where are you riding?", a `RadioRow` per route with the
   likely one selected, one Start. `RouteSuggest` (pure, `:app` JVM test): the route last started at a similar time
   of day (±2 h) on a weekday/weekend match, else the last started, else the first. A required check that's off shows
   as one red row above the list that opens Setup.
-- [ ] `NowRiding` (`riding`, `riding-night`, `gps-lost`, `transfer`): a full-bleed MapLibre map under one `TripSheet`.
+- [x] `NowRiding` (`riding`, `riding-night`, `gps-lost`, `transfer`): a full-bleed MapLibre map under one `TripSheet`.
   Map: OpenFreeMap's plain style (`positron`; confirm it on the phone, as the cloud session can't reach the tile
   host), recoloured at runtime to the tokens (`map-*`), dark at night; the route line in `fg`, the stop pin, the circle as
   a faint `fg` ring, you as the blue dot; only this trip's stops (R4). Recentre button; rotation and the compass
@@ -420,18 +420,22 @@ Prerequisite: Gate D passed (above). Branch from the latest `main`.
   "Waiting for bus 2"), GPS lost (figures muted with their age, the red line "GPS lost. Alarm at 7:44 at the latest."
   from the engine's failsafe time). "I'm off this bus" is the ghost button; Stop trip moves to the sheet's overflow
   (confirmed).
-- [ ] Screenshot tests: `v2_now`, `v2_riding` (light), `v2_riding-night` (dark), `v2_gps-lost`, `v2_transfer`. The map
+- [x] Screenshot tests: `v2_now`, `v2_riding` (light), `v2_riding-night` (dark), `v2_gps-lost`, `v2_transfer`. The map
   can't render on the JVM: the test draws the sheet over a flat `map-bg` box; the PR says so.
 
 ### M4 The ring and after
-- [ ] `AlarmRing` (`ring`): black in both themes, "Wake up" (light weight, 64 sp), "<stop> in about 45 s",
+- [x] `AlarmRing` (`ring`): black in both themes, "Wake up" (light weight, 64 sp), "<stop> in about 45 s",
   `HoldToStop` low on the screen, "Hold for 1 second to stop / or hold volume down". The briefing is not on this
   screen any more (it's on the next). Volume-down hold, the notification button, `RingDiag` and the
   over-the-lock-screen behaviour stay exactly as they are.
-- [ ] `AlarmAwake` (`awake`): "Now" / "Get off at <stop>" (or "Stay on the bus" for an early ring, with why) /
+- [x] `AlarmAwake` (`awake`): "Now" / "Get off at <stop>" (or "Stay on the bus" for an early ring, with why) /
   one line, then "While you slept" as plain rows (Urgent tag, Share this line), then Done. "What you missed" and
   W3 (cleared on Done) unchanged.
-- [ ] Screenshot tests `v2_ring`, `v2_awake` (+ the early-ring and nothing-new variants).
+- [x] Screenshot tests `v2_ring`, `v2_awake` (+ the early-ring and nothing-new variants).
+
+Deliberate differences from the mockups (in the PR): a ⋯ button on the riding map for Stop trip (the mockup
+has nowhere for it); the transfer sheet's button reads "Skip this bus" (what it does) instead of "I'm on a
+different bus"; Routes and Settings are interim v2 lists until Run 9.
 
 **Test on phone (Run 8):** the Now screen starts the right route in the morning and the evening; a real ride shows
 the map and sheet, readable at arm's length; the couch test rings with the new alarm and the hold works with a
@@ -475,7 +479,7 @@ from a fresh install (Setup) and an update over the old app (data kept, Setup on
 Start them like the earlier runs:
 
 ```
-/goal Finish Run 8 in docs/PLAN.md and merge its PR
+/goal Finish Run 9 in docs/PLAN.md and merge its PR
 ```
 
 ## Later (not for automated runs yet)
