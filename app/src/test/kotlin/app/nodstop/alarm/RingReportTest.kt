@@ -36,4 +36,18 @@ class RingReportTest {
         assertTrue(blocked.summary().contains("may not have buzzed ✗: phone on Mute and no Do Not Disturb access · speaker after 30 s"), blocked.summary())
         assertTrue(base.copy(earbuds = false, buzz = RingMode.Buzz.OK).summary().contains("buzzed ✓"))
     }
+
+    @Test
+    fun `a report reads back from the log line (PLAN A0)`() {
+        val r = base.copy(
+            earbuds = false, shownAfterMs = 900, ackSource = "volume", ackAfterMs = 12_000, ringer = "mute", dnd = "off",
+            buzz = RingMode.Buzz.SWITCHED, speakerAfterS = 30, channel = "high bypass", overlay = true, quiet = false, cold = true,
+        )
+        assertEquals(r, RingReport.decode(r.encode(), 1))
+        val t = base.copy(test = true)
+        assertEquals(t, RingReport.decode(t.encode(), 1))
+        // Old lines (before Run 10) still read.
+        assertEquals(base, RingReport.decode("screen=off fullScreen=allowed woke=true shown=no audio=earbuds ack=none", 1))
+    }
 }
+

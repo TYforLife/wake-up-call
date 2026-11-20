@@ -164,6 +164,8 @@ class RingService : Service() {
             }.getOrNull()
         }
         val fullScreen = Build.VERSION.SDK_INT < 34 || getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+        // Was quiet trip's Do Not Disturb on when the ring started? (For the report, PLAN A0.)
+        val quietAtRing = App.instance.settings.dndRecord()?.setByUs == true
         // Buzz on Mute (PLAN R1): read the phone's mode first (for the report), then switch it for the ring.
         val ringer = RingModeController.ringer(this)
         val filter = RingModeController.filter(this)
@@ -175,6 +177,10 @@ class RingService : Service() {
             screenWasOn, fullScreen, headset() != null, screenWoken = screenLock != null || pm.isInteractive, test = test,
             ringer = RingMode.ringerName(ringer), dnd = RingMode.filterName(filter), buzz = buzz,
             speakerAfterS = speakerAfterMs?.let { (it / 1000).toInt() },
+            channel = Notifications.alarmChannelState(this),
+            overlay = android.provider.Settings.canDrawOverlays(this),
+            quiet = quietAtRing,
+            cold = TripService.instance == null,
         )
         savedMusicVol = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
         savedAlarmVol = audio.getStreamVolume(AudioManager.STREAM_ALARM)

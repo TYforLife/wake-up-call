@@ -303,6 +303,10 @@ class Settings(context: Context) {
     fun setLastRouteId(id: String) { prefs.edit().putString(KEY_LAST_ROUTE, id).apply() }
 
     /** The first trip's start asked about a quiet trip (once, PLAN R2). */
+    /** The trip log whose verdict you dismissed on Now (PLAN A0): its lines aren't shown again. */
+    val verdictSeen: String? get() = prefs.getString(KEY_VERDICT_SEEN, null)
+    fun setVerdictSeen(file: String) { prefs.edit().putString(KEY_VERDICT_SEEN, file).apply() }
+
     /** Setup was shown once (Continue or Not now): it isn't pushed again; Now's red row still leads there. */
     val setupSeen: Boolean get() = prefs.getBoolean(KEY_SETUP_SEEN, false)
     fun setSetupSeen() { prefs.edit().putBoolean(KEY_SETUP_SEEN, true).apply() }
@@ -327,6 +331,7 @@ class Settings(context: Context) {
         const val KEY_ASK_TIMING = "ask_ring_timing"
         const val KEY_QUIET_OFFERED = "quiet_trip_offered"
         const val KEY_SETUP_SEEN = "setup_seen"
+        const val KEY_VERDICT_SEEN = "verdict_seen"
         const val KEY_LAST_ROUTE = "last_route_id"
         const val KEY_STARTS = "route_starts"
         const val KEY_VIPS = "wys_vip_names"

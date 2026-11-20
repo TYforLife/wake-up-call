@@ -520,14 +520,14 @@ it as a replay test and say what it showed. Otherwise fix every known failure, a
 trip what happened.
 
 ### A0 The app says whether it rang
-- [ ] After a trip, Now shows one line per stop that had an alarm:
+- [x] After a trip, Now shows one line per stop that had an alarm:
   - "Rang at Harbour St · buzzed · screen on".
   - Or, in red, "Didn't ring at Harbour St" or "Rang at Harbour St, but couldn't buzz: phone on Mute", with the
     reason in plain words.
   - A red line comes with a one-tap **Send report**: the hidden-location log plus the ring report, through the
     share sheet.
   - The verdict comes from a pure `TripVerdict` over the trip log and ring reports, with JVM tests for each outcome.
-- [ ] The ring report also records:
+- [x] The ring report also records:
   - the alarm channel's importance and whether it can bypass Do Not Disturb;
   - whether notifications are on for that channel;
   - "Display over other apps";

@@ -71,6 +71,17 @@ object Notifications {
         )
     }
 
+    /** The alarm channel in a few words, for the ring report (PLAN A0): "high bypass", "high", "low", "off", "missing". */
+    fun alarmChannelState(ctx: Context): String = runCatching {
+        val ch = ctx.getSystemService(NotificationManager::class.java).getNotificationChannel(CH_ALARM) ?: return "missing"
+        val level = when {
+            ch.importance == NotificationManager.IMPORTANCE_NONE -> "off"
+            ch.importance >= NotificationManager.IMPORTANCE_HIGH -> "high"
+            else -> "low"
+        }
+        if (ch.canBypassDnd()) "$level bypass" else level
+    }.getOrDefault("?")
+
     fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(
         ctx, 10, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

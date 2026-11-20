@@ -27,6 +27,9 @@ class TraceLogger(private val context: Context) {
 
     fun continueTrip(name: String): File = File(dir, name).also { current = it }
 
+    /** A trip log is open in this process (a ring that cold-started the app has none until it opens the trip's). */
+    val hasCurrent: Boolean get() = current != null
+
     fun write(events: List<TraceEvent>) {
         val f = current ?: return
         val lines = events.map(Trace::encode)
