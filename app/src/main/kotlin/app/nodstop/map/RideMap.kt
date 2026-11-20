@@ -4,7 +4,11 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,12 +49,22 @@ fun RideMap(
     recentreTick: Int,
     modifier: Modifier = Modifier,
     onUserGesture: () -> Unit = {},
+    /** Tapped inside your stop's circle: show its sizes (PLAN Run 11, B4). */
+    onCircleTap: (MapModel.Pin) -> Unit = {},
+    /** Dragged its edge to a new size, in metres: save it. */
+    onCircleResize: (MapModel.Pin, Double) -> Unit = { _, _ -> },
 ) {
     val ctx = LocalContext.current
     val mapView = rememberMapView()
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
     var following by remember { mutableStateOf(true) }
+    var cameraTick by remember { mutableIntStateOf(0) }
+    // While you drag the circle's edge: its size, until the saved one comes back through [layers].
+    var preview by remember { mutableStateOf<Double?>(null) }
+    val pin = layers.pins.firstOrNull { it.current && it.alarm }
+    val currentPin by rememberUpdatedState(pin)
+    val tap by rememberUpdatedState(onCircleTap)
 
     LaunchedEffect(colors.dark) {
         mapView.getMapAsync { m ->
@@ -65,6 +79,15 @@ fun RideMap(
             m.addOnCameraMoveStartedListener { reason ->
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) { following = false; onUserGesture() }
             }
+            m.addOnCameraMoveListener { cameraTick++ }
+            m.addOnCameraIdleListener { cameraTick++ }
+            // Tap inside your stop's circle (with a thumb's slack): its sizes (PLAN B4).
+            m.addOnMapClickListener { ll ->
+                val p = currentPin ?: return@addOnMapClickListener false
+                val hit = CircleDrag.inside(p.pos, p.zoneM, LatLng(ll.latitude, ll.longitude), slackM = 15.0)
+                if (hit) tap(p)
+                hit
+            }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
                 val pal = MapPalette.colors(colors.dark)
                 MapStyle.applyGoogleLook(s, pal)
@@ -76,13 +99,26 @@ fun RideMap(
         }
     }
 
-    AndroidView(factory = { mapView }, modifier = modifier)
+    Box(modifier) {
+        AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+        // The handle on your stop's circle: drag it in or out (PLAN B4).
+        if (style != null && pin != null) CircleHandle(
+            map, pin.pos, preview ?: pin.zoneM, cameraTick, MapPalette.colors(colors.dark).me,
+            onDrag = { preview = it },
+            onDragEnd = { onCircleResize(pin, it) },
+        )
+    }
 
+    LaunchedEffect(layers) { preview = null }
     LaunchedEffect(style, layers) {
         val s = style ?: return@LaunchedEffect
         s.getSourceAs<GeoJsonSource>("ride-tracks")?.setGeoJson(MapModel.tracksJson(layers))
-        s.getSourceAs<GeoJsonSource>("ride-zone")?.setGeoJson(MapModel.zonesJson(layers.copy(pins = layers.pins.filter { it.current })))
         s.getSourceAs<GeoJsonSource>("ride-pins")?.setGeoJson(MapModel.pinsJson(layers))
+    }
+    LaunchedEffect(style, layers, preview) {
+        val s = style ?: return@LaunchedEffect
+        val current = layers.pins.filter { it.current }.map { p -> preview?.let { p.copy(zoneM = it) } ?: p }
+        s.getSourceAs<GeoJsonSource>("ride-zone")?.setGeoJson(MapModel.zonesJson(layers.copy(pins = current)))
     }
     // Your heading, from where you've been (the blue dot's beam, like Google's): only once you've moved a little.
     var lastPos by remember { mutableStateOf<LatLng?>(null) }

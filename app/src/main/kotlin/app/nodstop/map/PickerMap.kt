@@ -2,7 +2,10 @@ package app.nodstop.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -40,6 +43,10 @@ fun PickerMap(
     me: LatLng?,
     onCentre: (LatLng) -> Unit,
     modifier: Modifier = Modifier,
+    /** The circle's edge dragged to a new size, in metres (PLAN Run 11, B4). */
+    onRadius: (Double) -> Unit = {},
+    /** Tapped inside the circle: show the size slider. */
+    onCircleTap: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val mapView = rememberMapView()
@@ -47,6 +54,9 @@ fun PickerMap(
     var style by remember { mutableStateOf<Style?>(null) }
     val zone by rememberUpdatedState(zoneM)
     val report by rememberUpdatedState(onCentre)
+    val tap by rememberUpdatedState(onCircleTap)
+    var cameraTick by remember { mutableIntStateOf(0) }
+    var target by remember { mutableStateOf(start) }
 
     fun drawZone(m: MapLibreMap, s: Style) {
         val t = m.cameraPosition.target ?: return
@@ -66,9 +76,21 @@ fun PickerMap(
             val px = ctx.resources.displayMetrics.density
             m.uiSettings.setCompassMargins(0, (116 * px).toInt(), (16 * px).toInt(), 0)
             if (first) {
-                m.addOnCameraMoveListener { style?.let { drawZone(m, it) } }
+                m.addOnCameraMoveListener {
+                    style?.let { drawZone(m, it) }
+                    m.cameraPosition.target?.let { target = LatLng(it.latitude, it.longitude) }
+                    cameraTick++
+                }
                 m.addOnCameraIdleListener {
-                    m.cameraPosition.target?.let { report(LatLng(it.latitude, it.longitude)) }
+                    m.cameraPosition.target?.let { report(LatLng(it.latitude, it.longitude)); target = LatLng(it.latitude, it.longitude) }
+                    cameraTick++
+                }
+                // Tap inside the circle: the size slider (PLAN B4).
+                m.addOnMapClickListener { ll ->
+                    val t = m.cameraPosition.target ?: return@addOnMapClickListener false
+                    val hit = CircleDrag.inside(LatLng(t.latitude, t.longitude), zone, LatLng(ll.latitude, ll.longitude), slackM = 15.0)
+                    if (hit) tap()
+                    hit
                 }
             }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
@@ -83,7 +105,11 @@ fun PickerMap(
         }
     }
 
-    AndroidView(factory = { mapView }, modifier = modifier)
+    Box(modifier) {
+        AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+        // The handle on the circle's edge: drag it in or out; the size saves with the stop (PLAN B4).
+        if (style != null) CircleHandle(map, target, zoneM, cameraTick, MapPalette.colors(colors.dark).me, onDrag = onRadius, onDragEnd = onRadius)
+    }
 
     LaunchedEffect(style, zoneM) {
         val m = map ?: return@LaunchedEffect

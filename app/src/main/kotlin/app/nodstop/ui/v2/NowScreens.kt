@@ -155,6 +155,8 @@ fun NowRiding(
     compact: CompactSheetUi? = null,
     expanded: Boolean = true,
     onExpandedChange: (Boolean) -> Unit = {},
+    /** Shown instead of the trip sheet, e.g. a stop's circle sizes (PLAN B4). */
+    overlay: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -183,8 +185,11 @@ fun NowRiding(
         )
         // The sheet overlaps the map by its rounded corners.
         Box(Modifier.offsetUp(28).animateContentSize().then(drag)) {
-            if (expanded || compact == null) TripSheet(sheet, onAction)
-            else CompactTripSheet(compact, onAction, onExpand = { onExpandedChange(true) })
+            when {
+                overlay != null -> overlay()
+                expanded || compact == null -> TripSheet(sheet, onAction)
+                else -> CompactTripSheet(compact, onAction, onExpand = { onExpandedChange(true) })
+            }
         }
     }
 }
@@ -211,3 +216,31 @@ internal fun Modifier.offsetUp(dp: Int): Modifier = this.layout { measurable, co
     val up = dp.dp.roundToPx()
     layout(p.width, (p.height - up).coerceAtLeast(0)) { p.place(0, -up) }
 }
+
+/** A stop's circle, from the riding map (PLAN Run 11, B4): [radiusM] is yours (null: automatic), [shownM] the size drawn. */
+data class CircleSheetUi(val stop: String, val radiusM: Double?, val shownM: Double)
+
+/** Tap your stop's circle on the map: its sizes, saved as you pick (Auto, 150, 250, 400 m, or the slider). */
+@Composable
+fun CircleSheet(ui: CircleSheetUi, onChange: (Double?) -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
+    val c = LocalN.current
+    var slider by remember { mutableStateOf(CircleChoice.index(ui.radiusM) < 0) }
+    var draft by remember(ui.shownM) { mutableFloatStateOf(app.nodstop.map.ZoneScale.toPos(ui.shownM)) }
+    val custom = if (slider) app.nodstop.map.ZoneScale.toMeters(draft) else ui.radiusM?.takeIf { CircleChoice.index(it) < 0 }
+    Sheet(modifier) {
+        Eyebrow(StopText.eyebrow(ui.stop, custom))
+        Spacer(Modifier.height(2.dp))
+        Segmented(CircleChoice.LABELS, if (slider) -1 else CircleChoice.index(ui.radiusM)) { slider = false; onChange(CircleChoice.radius(it)) }
+        if (slider) {
+            androidx.compose.material3.Slider(
+                draft, { draft = it }, onValueChangeFinished = { onChange(app.nodstop.map.ZoneScale.toMeters(draft)) },
+                colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = c.fg, activeTrackColor = c.fg, inactiveTrackColor = c.line),
+            )
+        } else {
+            Text("Other size", style = NType.secondary, color = c.muted, modifier = Modifier.clickable { slider = true }.padding(vertical = 8.dp))
+        }
+        Hint("Or drag the dot on the circle's edge.", Modifier.padding(bottom = 8.dp))
+        PrimaryButton("Done", onDone)
+    }
+}
+

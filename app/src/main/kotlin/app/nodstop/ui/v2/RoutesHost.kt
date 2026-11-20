@@ -221,7 +221,14 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
                 back()
             },
         ),
-        map = { m -> PickerMap(start, zoneM, LocalN.current, moveTo, moveTick, me, { centre = it }, m) },
+        map = { m ->
+            PickerMap(
+                start, zoneM, LocalN.current, moveTo, moveTick, me, { centre = it }, m,
+                // Drag the circle's edge (PLAN B4): a size off the presets shows on the slider.
+                onRadius = { r -> custom = r; slider = CircleChoice.index(r) < 0 },
+                onCircleTap = { slider = true; if (custom == null) custom = ZoneScale.round(zoneM) },
+            )
+        },
         modifier = Modifier.navigationBarsPadding(),
     )
     if (renaming) NameDialog(

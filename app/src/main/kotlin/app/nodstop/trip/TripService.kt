@@ -66,6 +66,8 @@ class TripService : Service() {
         val status: Status,
         val simulated: Boolean,
         val startedMs: Long,
+        /** Each stop's own circle, or null for automatic (so a simulated trip's circles show and change, PLAN B4). */
+        val legRadii: List<Double?> = emptyList(),
     ) {
         val legName: String? get() = legNames.getOrNull(legIndex)
     }
@@ -283,7 +285,10 @@ class TripService : Service() {
             app.trips.save(updated); lastPersistMs = now
         }
 
-        val ui = TripUi(updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, out.status, updated.simulated, updated.startedMs)
+        val ui = TripUi(
+            updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, out.status, updated.simulated,
+            updated.startedMs, updated.legs.map { it.wakeRadiusM },
+        )
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now

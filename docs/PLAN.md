@@ -633,13 +633,13 @@ Prerequisite: Run 10 merged.
 - [x] Screenshot tests for the collapsed and open sheets.
 
 ### B4 Change the circle on the map, per stop
-- [ ] Tap inside a stop's circle: a small sheet with that stop's size (Auto, 150, 250, 400 m, plus the slider).
-- [ ] Drag the handle on the circle's edge in or out: the circle follows your finger and saves when you let go.
-- [ ] Both are per stop (the leg's `wakeRadiusM`), work on the riding map and in Set a stop, and apply to a running
+- [x] Tap inside a stop's circle: a small sheet with that stop's size (Auto, 150, 250, 400 m, plus the slider).
+- [x] Drag the handle on the circle's edge in or out: the circle follows your finger and saves when you let go.
+- [x] Both are per stop (the leg's `wakeRadiusM`), work on the riding map and in Set a stop, and apply to a running
   trip at once (`UpdateLegs`).
-- [ ] The circle only ever makes a ring earlier (DESIGN §2.6). Add an invariant test that shrinking it mid-trip
+- [x] The circle only ever makes a ring earlier (DESIGN §2.6). Add an invariant test that shrinking it mid-trip
   never moves the alarm later than without a circle.
-- [ ] The math is pure and tested: screen drag to metres, clamped to 50 m–2 km, rounded like `ZoneScale`.
+- [x] The math is pure and tested: screen drag to metres, clamped to 50 m–2 km, rounded like `ZoneScale`.
 
 **Test on phone (Run 11):**
 1. Make a new two-stop route from scratch, counting taps.

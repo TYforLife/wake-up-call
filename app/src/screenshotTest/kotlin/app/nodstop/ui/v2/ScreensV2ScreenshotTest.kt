@@ -83,6 +83,13 @@ class ScreensV2ScreenshotTest {
         }
     }
 
+    /** PLAN Run 11, B4: your stop's circle tapped on the map: its sizes. */
+    @Test fun riding_circle() = shot("riding-circle") {
+        withTabs(true) {
+            NowRiding(riding, {}, {}, {}, flatMap, overlay = { CircleSheet(CircleSheetUi("Harbour St", 250.0, 250.0), {}, {}) })
+        }
+    }
+
     @Test fun riding_night() = shot("riding-night", dark = true) {
         withTabs(true) { NowRiding(riding.copy(alarm = "Alarm about 22:45"), {}, {}, {}, flatMap) }
     }
