@@ -150,7 +150,7 @@ fun NowRiding(
 }
 
 /** Pull a view up by [dp] so it overlaps what's above it (the sheet over the map). */
-private fun Modifier.offsetUp(dp: Int): Modifier = this.layout { measurable, constraints ->
+internal fun Modifier.offsetUp(dp: Int): Modifier = this.layout { measurable, constraints ->
     val p = measurable.measure(constraints)
     val up = dp.dp.roundToPx()
     layout(p.width, (p.height - up).coerceAtLeast(0)) { p.place(0, -up) }

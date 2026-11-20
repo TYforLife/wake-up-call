@@ -39,10 +39,10 @@ class ScreensV2ScreenshotTest {
     )
 
     @Composable
-    private fun withTabs(live: Boolean, content: @Composable () -> Unit) {
+    private fun withTabs(live: Boolean, tab: Tab = Tab.NOW, content: @Composable () -> Unit) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxWidth()) { content() }
-            TabBar(Tab.NOW, live, {})
+            TabBar(tab, live, {})
         }
     }
 
@@ -87,5 +87,62 @@ class ScreensV2ScreenshotTest {
             AwakeUi("Stay on the bus", "GPS dropped before Harbour St, so it rang to be safe. It will ring again near your stop."),
             PanelText.AfterWake.NOTHING_NEW, emptyList(), 0, {}, {}, {},
         )
+    }
+
+    // ---- Run 9, M5: Routes, a route, set a stop ----
+
+    @Test fun routes() = shot("routes") {
+        withTabs(false, Tab.ROUTES) {
+            RoutesList(
+                listOf(RouteRowUi("work", "To work", "2 buses · 12 rides", false), RouteRowUi("home", "From work", "Hill Ave needs a stop", true)),
+                RoutesActions(),
+            )
+        }
+    }
+
+    @Test fun route() = shot("route") {
+        RouteDetail(
+            RouteDetailUi(
+                "From work",
+                listOf(
+                    StopRowUi(0, "Central Station", "Alarm 45 s before", StopRowUi.Kind.SET),
+                    StopRowUi(1, "Park Rd", "No alarm", StopRowUi.Kind.NO_ALARM),
+                    StopRowUi(2, "Hill Ave", "Set the stop", StopRowUi.Kind.NOT_SET),
+                ),
+                "Set Hill Ave", canAddBus = true,
+            ),
+            RouteDetailActions(),
+        )
+    }
+
+    @Test fun stop() = shot("stop") {
+        StopPicker(StopPickerUi("Hill Ave · wake me within", choice = 2, radiusM = 250.0), StopPickerActions(), flatMap)
+    }
+
+    // ---- Run 9, M6: Setup, Settings ----
+
+    @Test fun setup() = shot("setup") {
+        SetupScreen(
+            listOf(
+                SetupRowUi("notifications", "Notifications", "To show the alarm", true),
+                SetupRowUi("full_screen", "Over the lock screen", "So you can stop it without unlocking", false),
+                SetupRowUi("exact", "Exact alarms", "So it rings on time", false),
+                SetupRowUi("buzz", "Buzz on Mute", "So it vibrates even when muted", false),
+                SetupRowUi("location", "Location while riding", "Only during a trip you start", false),
+            ),
+            samsung = false, SetupActions(),
+        )
+    }
+
+    @Test fun settings() = shot("settings") {
+        withTabs(false, Tab.SETTINGS) {
+            SettingsScreen(SettingsUi(quiet = true, speaker = false, ask = true, contacts = "Mum, Daycare", build = "Build 64"), SettingsActions())
+        }
+    }
+
+    // ---- Run 9, M7: the trip notification on the lock screen ----
+
+    @Test fun lock() = shot("lock", dark = true) {
+        LockPreview(TripNoteUi("Harbour St in 6 min", "Alarm about 7:45", 68), "7:41", "Friday 20 November")
     }
 }

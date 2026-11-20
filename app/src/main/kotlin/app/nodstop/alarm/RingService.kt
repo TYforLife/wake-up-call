@@ -117,7 +117,7 @@ class RingService : Service() {
         test = trip == null && TripService.instance == null
         legName = TripService.status.value?.legName ?: trip?.currentLeg?.name
         reason = if (test) null else TripService.status.value?.status?.ringReason ?: trip?.alarmReason
-        val n = Notifications.ring(this, if (test) "Test ring" else legName, reason)
+        val n = Notifications.ring(this, legName, reason, test)
         try {
             // systemExempted (allowed for apps holding USE_EXACT_ALARM) exists from Android 14.
             val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED

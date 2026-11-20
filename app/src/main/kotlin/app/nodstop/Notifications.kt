@@ -15,6 +15,11 @@ import app.nodstop.trip.RateReceiver
 import app.nodstop.engine.Phase
 import app.nodstop.trip.TripService
 import app.nodstop.ui.MainActivity
+import app.nodstop.ui.v2.RingText
+import app.nodstop.ui.v2.RingTextUi
+import app.nodstop.ui.v2.Tokens
+import app.nodstop.ui.v2.TripNoteText
+import app.nodstop.ui.v2.hm
 import kotlin.math.roundToInt
 
 object Notifications {
@@ -32,6 +37,10 @@ object Notifications {
     private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
 
     const val TRIP_STOP_LABEL = "Stop trip"
+
+    /** The design's one accent ("trip is live") and its red, for notification tints. */
+    private val ACCENT = Tokens.light.getValue("accent").toInt()
+    private val DANGER = Tokens.light.getValue("danger").toInt()
 
     fun createChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -76,7 +85,6 @@ object Notifications {
             .setContentIntent(openApp(ctx))
             .build()
 
-    /** The glanceable trip notification: phase, distance, progress bar. */
     /** The trip notification's quiet-trip note (PLAN R2): null when off; the count when known. */
     fun quietLine(on: Boolean, held: Int?): String? = when {
         !on -> null
@@ -84,23 +92,17 @@ object Notifications {
         else -> "Quiet trip"
     }
 
+    /** The glanceable trip notification (mockup `lock`): "<stop> in 6 min", the alarm time, an accent bar. */
     fun trip(ctx: Context, ui: TripService.TripUi, quiet: String? = null): Notification {
         val s = ui.status
-        val leg = "Leg ${ui.legIndex + 1}/${ui.legNames.size}"
-        val title = when (s.phase) {
-            Phase.WAITING -> "Waiting for the bus → ${ui.legName}"
-            Phase.RIDING -> "On the bus → ${ui.legName}"
-            Phase.AWAKE -> "Get off at ${ui.legName}"
-            else -> TripService.phaseLabel(ui)
-        }
-        val text = listOfNotNull("$leg · ${TripService.summary(ui)}", quiet).joinToString(" · ")
-        val start = s.startDistanceM
+        val note = TripNoteText.of(ui, ::hm, quiet)
         val d = s.distanceM
-        val progress = if (start != null && d != null && start > 0) ((1 - d / start) * 100).roundToInt().coerceIn(0, 100) else null
+        val progress = note.progress
         val b = Notification.Builder(ctx, CH_TRIP)
             .setSmallIcon(R.drawable.ic_tile)
-            .setContentTitle(title)
-            .setContentText(text)
+            .setContentTitle(note.title)
+            .setContentText(note.text)
+            .setColor(ACCENT)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_NAVIGATION)
@@ -117,6 +119,7 @@ object Notifications {
             d?.let { b.setShortCriticalText(TripService.distance(it)) }
             val style = Notification.ProgressStyle()
                 .setProgressTrackerIcon(Icon.createWithResource(ctx, R.drawable.ic_tile))
+                .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100).setColor(ACCENT)))
             if (progress != null) style.setProgress(progress) else style.setProgressIndeterminate(s.phase != Phase.AWAKE)
             b.setStyle(style)
             b.extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
@@ -151,7 +154,7 @@ object Notifications {
         val n = Notification.Builder(ctx, CH_TRIP)
             .setSmallIcon(R.drawable.ic_tile)
             .setContentTitle(RATE_TITLE)
-            .setContentText(legName?.let { "$it · optional, tunes this stop" } ?: "Optional, tunes this stop")
+            .setContentText(legName?.let { "$it · optional" } ?: "Optional")
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setTimeoutAfter(15 * 60_000L)
@@ -190,25 +193,13 @@ object Notifications {
         runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(ID_MISSED) }
     }
 
-    const val RATE_TITLE = "How was that ring's timing?"
+    const val RATE_TITLE = "How was the ring timing?"
 
-    /** The ring notification's title (also what the heads-up shows while you're using the phone). */
-    fun ringTitle(reason: AlarmReason?): String = when (reason) {
-        AlarmReason.OVERSHOOT -> "You passed your stop!"
-        AlarmReason.URGENT -> "Urgent message"
-        else -> "Wake up! Your stop is close"
-    }
+    /** The ring notification's two lines: the ring screen's words (mockup `ring`). */
+    fun ringText(legName: String?, reason: AlarmReason?, test: Boolean): RingTextUi =
+        RingText.of(legName, reason, overshoot = false, test = test, etaS = null)
 
-    fun reasonText(reason: AlarmReason?): String? = when (reason) {
-        AlarmReason.NO_GPS -> "No GPS yet: the app can't see where you are. Stay awake."
-        AlarmReason.FAILSAFE -> "GPS stopped: your stop may be close. Check where you are."
-        AlarmReason.NEXT_LEG -> "GPS stopped: check where you are."
-        AlarmReason.OVERSHOOT -> "You passed your stop."
-        AlarmReason.URGENT -> "An urgent message from someone you marked important. Your stop alarm is still on."
-        else -> null
-    }
-
-    fun ring(ctx: Context, legName: String?, reason: AlarmReason?): Notification {
+    fun ring(ctx: Context, legName: String?, reason: AlarmReason?, test: Boolean = false): Notification {
         val full = PendingIntent.getActivity(
             ctx, 11, Intent(ctx, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -219,16 +210,16 @@ object Notifications {
             Intent(ctx, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(AlarmActivity.EXTRA_ACK, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = ringTitle(reason)
+        val t = ringText(legName, reason, test)
         return Notification.Builder(ctx, CH_ALARM)
             .setSmallIcon(R.drawable.ic_tile)
-            .setContentTitle(title)
-            .setContentText(reasonText(reason) ?: legName?.let { "Get off at $it" } ?: "Tap I'm awake to stop")
+            .setContentTitle(t.title)
+            .setContentText(t.line)
             .setCategory(Notification.CATEGORY_ALARM)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setColorized(true)
-            .setColor(0xFFFFC94A.toInt())
+            .setColor(if (t.danger) DANGER else ACCENT)
             .setFullScreenIntent(full, true)
             .setContentIntent(full)
             .addAction(Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_tile), "I'm awake", awake).build())

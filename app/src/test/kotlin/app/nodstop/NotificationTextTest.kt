@@ -2,24 +2,21 @@ package app.nodstop
 
 import app.nodstop.engine.AlarmReason
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
+import app.nodstop.ui.v2.RingTextUi
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** PLAN U2: the words on the ring heads-up and the trip "island". */
 class NotificationTextTest {
     @Test
-    fun `ring titles say why`() {
-        assertEquals("Wake up! Your stop is close", Notifications.ringTitle(AlarmReason.WAKE))
-        assertEquals("You passed your stop!", Notifications.ringTitle(AlarmReason.OVERSHOOT))
-        assertEquals("Urgent message", Notifications.ringTitle(AlarmReason.URGENT))
-        assertEquals("Wake up! Your stop is close", Notifications.ringTitle(null))
-    }
-
-    @Test
-    fun `every reason that needs explaining has a line, the normal wake doesn't`() {
-        assertNull(Notifications.reasonText(AlarmReason.WAKE))
-        for (r in AlarmReason.entries.filter { it != AlarmReason.WAKE }) assertTrue(Notifications.reasonText(r) != null, "$r")
+    fun `the ring notification says what the ring screen says`() {
+        assertEquals(RingTextUi("Wake up", "Harbour St is close"), Notifications.ringText("Harbour St", AlarmReason.WAKE, false))
+        assertEquals(RingTextUi("Wake up", "Test ring"), Notifications.ringText(null, null, true))
+        assertEquals("Urgent message", Notifications.ringText("Harbour St", AlarmReason.URGENT, false).title)
+        assertTrue(Notifications.ringText("Harbour St", AlarmReason.OVERSHOOT, false).danger)
+        for (r in AlarmReason.entries.filter { it != AlarmReason.WAKE }) {
+            assertTrue(Notifications.ringText("Harbour St", r, false).line != "Harbour St is close", "$r says why")
+        }
     }
 
     @Test

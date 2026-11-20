@@ -123,3 +123,37 @@ object RingText {
         }
     }
 }
+
+/** The trip notification (mockup `lock`): one line, the alarm time, and how far along the bus is. */
+data class TripNoteUi(val title: String, val text: String, val progress: Int?)
+
+object TripNoteText {
+    /**
+     * - riding: "Harbour St in 6 min" / "Alarm about 7:45"
+     * - GPS lost: "Harbour St · GPS lost" / "Alarm at 7:44 at the latest"
+     * - waiting: "Harbour St · waiting for the bus" (or "Waiting for bus 2 · Harbour St") / "Alarm set until you're on it"
+     * [quiet] (the quiet-trip note) goes after the second line.
+     */
+    fun of(t: TripService.TripUi, clock: (Long) -> String, quiet: String? = null): TripNoteUi {
+        val s = t.status
+        val stop = t.legName ?: "Your stop"
+        val alarmAt = s.alarmAtMs?.let(clock)
+        val gpsLost = s.lastFixAgeS != null && !s.gpsOk
+        val (title, text) = when {
+            s.phase == Phase.RINGING -> "Wake up" to "$stop is close"
+            s.phase == Phase.AWAKE || s.phase == Phase.DONE -> "Get off at $stop" to "You're awake for this stop"
+            gpsLost -> "$stop · GPS lost" to (alarmAt?.let { "Alarm at $it at the latest" } ?: "Check where you are")
+            s.phase == Phase.WAITING && t.legIndex > 0 -> "Waiting for bus ${t.legIndex + 1} · $stop" to "Alarm set until you're on it"
+            s.phase == Phase.WAITING -> "$stop · waiting for the bus" to "Alarm set until you're on it"
+            else -> {
+                val eta = s.etaS?.let { "$stop in ${TripSheetText.minutes(it)}" }
+                (eta ?: s.distanceM?.let { "$stop · ${TripService.distance(it)}" } ?: "$stop · finding you") to
+                    (alarmAt?.let { "Alarm about $it" } ?: "Alarm on")
+            }
+        }
+        val start = s.startDistanceM
+        val d = s.distanceM
+        val progress = if (start != null && d != null && start > 0) ((1 - d / start) * 100).roundToInt().coerceIn(0, 100) else null
+        return TripNoteUi(title, listOfNotNull(text, quiet).joinToString(" · "), progress)
+    }
+}

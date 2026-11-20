@@ -32,6 +32,7 @@ import app.nodstop.App
 import app.nodstop.brief.SampleChats
 import app.nodstop.notify.MessageStore
 import app.nodstop.trip.TripService
+import app.nodstop.ui.v2.SwitchRow
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -107,16 +108,23 @@ fun DebugScreen(go: (Screen) -> Unit) {
             val k = km.toDoubleOrNull()
             val v = kmh.toDoubleOrNull()
             Button(enabled = !tripActive && k != null && k > 0 && v != null && v > 0, onClick = {
-                if (Readiness.canStartTrip(ctx)) { TripService.startSim(ctx, k!!, v!!); go(Screen.Trip) } else go(Screen.Readiness)
+                if (Readiness.canStartTrip(ctx)) { TripService.startSim(ctx, k!!, v!!); go(Screen.Trip) } else go(Screen.Setup)
             }) { Text("Start simulated trip") }
         }
 
         Section("While you slept") {
+            val tea by app.settings.teaTone.collectAsState()
+            val gpu by app.settings.useGpu.collectAsState()
+            SwitchRow("Tea tone", "Briefing lines in group-chat voice. Same facts, checked again.", tea, { app.settings.setTeaTone(it) })
+            SwitchRow(
+                "Use the GPU", "Often faster and lighter on the battery; falls back to the CPU. Trips use it only after the Briefing lab has run on the GPU once.",
+                gpu, { app.settings.setUseGpu(it) }, divider = false,
+            )
             Text("Import a Gemma model and time it on made-up chats (Decision C).")
             Button(onClick = { go(Screen.BriefingLab) }) { Text("Briefing lab") }
             Text(
                 "Couch test without real chats: start a simulated trip, then add made-up chats to it. " +
-                    "Add \"Daycare\" to Important contacts (Readiness) to test the urgent wake.",
+                    "Add \"Daycare\" to Settings → Important contacts to test the urgent wake.",
                 style = MaterialTheme.typography.bodySmall,
             )
             OutlinedButton(enabled = tripActive && MessageStore.instance.isActive, onClick = {

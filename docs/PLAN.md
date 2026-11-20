@@ -446,32 +446,45 @@ groggy thumb; night mode on a dark bus.
 Prerequisite: Run 8 merged.
 
 ### M5 Routes and stops
-- [ ] `RoutesList` (`routes`): one row per route ("2 buses · 12 rides"), a problem as a red second line, + to add.
-- [ ] `RouteDetail` (`route`): the name (tap to rename), its stops on a line (filled = alarm, dashed = no alarm, red
+- [x] `RoutesList` (`routes`): one row per route ("2 buses · 12 rides"), a problem as a red second line, + to add.
+- [x] `RouteDetail` (`route`): the name (tap to rename), its stops on a line (filled = alarm, dashed = no alarm, red
   = stop not set), Add a bus, one primary button for the next thing it needs ("Set Hill Ave"), Delete in the
   overflow (confirmed). Tapping a stop opens `StopPicker`.
-- [ ] `StopPicker` (`stop`): the map moves under a fixed pin ("Drag the map to place your stop"), a search field that
+- [x] `StopPicker` (`stop`): the map moves under a fixed pin ("Drag the map to place your stop"), a search field that
   also takes a pasted Maps link or coordinates (`CoordParser`), the compass, a `Segmented` circle size (Auto, 150 m,
   250 m, 400 m; the 50 m–2 km slider stays one tap away as "More"), Save stop. "Use my location" sits in the search
   field's menu. The stop name comes from the field (typed once, at home).
-- [ ] Screenshot tests `v2_routes`, `v2_route`, `v2_stop` (sheet over a flat map box).
+- [x] Screenshot tests `v2_routes`, `v2_route`, `v2_stop` (sheet over a flat map box).
 
 ### M6 Setup and settings
-- [ ] `SetupScreen` (`setup`): the five required checks as rows (Notifications, Over the lock screen, Exact alarms,
+- [x] `SetupScreen` (`setup`): the five required checks as rows (Notifications, Over the lock screen, Exact alarms,
   Buzz on Mute, Location while riding) with Allow pills; Continue enabled when all are allowed. Shown on first run
   and from Now's red row. Battery (unrestricted) and Samsung's sleeping apps become one more row on Samsung only.
   Optional checks (While you slept, live progress) move to Settings.
-- [ ] `SettingsScreen` (`settings`): the five rows of the mockup; While you slept's extras (tea tone, GPU, backup
+- [x] `SettingsScreen` (`settings`): the five rows of the mockup; While you slept's extras (tea tone, GPU, backup
   and restore, Briefing lab) move to Debug. "Report a missed alarm" shares the location-hidden log (as Debug →
   Share does now) with the last ring's report in the message.
-- [ ] Screenshot tests `v2_setup`, `v2_settings`.
+- [x] Screenshot tests `v2_setup`, `v2_settings`.
 
 ### M7 Notifications, cleanup, docs
-- [ ] The trip notification reads like `lock`: "<stop> in 6 min", "Alarm about 7:45", accent progress, Stop trip
+- [x] The trip notification reads like `lock`: "<stop> in 6 min", "Alarm about 7:45", accent progress, Stop trip
   action kept (authenticated). The ring and rate notifications' copy matches the alarm screens.
-- [ ] Delete the replaced screens (`HomeScreen`, `TripScreen`, `ReadinessScreen`, `RouteEditorScreen`, the old
+- [x] Delete the replaced screens (`HomeScreen`, `TripScreen`, `ReadinessScreen`, `RouteEditorScreen`, the old
   `MapScreen` UI, `AlarmUi`'s old composables, v1 `Design.kt`) and their old screenshot tests; nothing references them.
-- [ ] `docs/DESIGN.md` §5 Screens rewritten for v2; `compare.py`'s index shows **13 of 13 screens built**.
+- [x] `docs/DESIGN.md` §5 Screens rewritten for v2; `compare.py`'s index shows **13 of 13 screens built**.
+
+Deliberate differences from the mockups (in the PR):
+- The stop picker's field reads "Paste a Maps link or coordinates". There's no place search: it would need a
+  geocoding service, which is a new network dependency.
+- The field has Back at its start and ⋯ at its end (Rename stop, alarm on or off, Forget learned rides, Remove
+  this bus). "Use my location" is a round button on the map, as on the riding map, not inside the menu.
+- The slider is "Other size" under the four sizes.
+- Setup's Continue stays grey until every row is allowed, with "Not now" under it, so you're never stuck.
+- On Samsung, Setup adds a sixth row, Keep running, and the three steps no API can check.
+- A route's ⋯ menu also has Start from <a later stop>. It is the old Home's "Start from a later leg", which Run 8's
+  Now left out.
+- Settings shows an Allow row for Android 16's lock-screen progress only while it's off. Important contacts opens
+  its own screen, with the chat notification access While you slept needs.
 
 **Test on phone (Run 9):** set a new stop by dragging the map at home; a full week of rides on v2 only; first run
 from a fresh install (Setup) and an update over the old app (data kept, Setup only if something is missing).

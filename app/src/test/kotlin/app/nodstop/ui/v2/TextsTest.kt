@@ -99,4 +99,18 @@ class TextsTest {
         assertEquals("Test ring", RingText.of(null, null, false, true, null).line)
         assertEquals("Tracking carries on from here.", AwakeText.of(null, test = false).line)
     }
+
+    @Test
+    fun `trip notification - one line and the alarm time, as the lock mockup`() {
+        val riding = TripNoteText.of(trip(status().copy(startDistanceM = 7_312.5)), clock)
+        assertEquals(TripNoteUi("Harbour St in 6 min", "Alarm about 7:45", 68), riding)
+        assertEquals("Alarm about 7:45 · Quiet trip", TripNoteText.of(trip(status()), clock, "Quiet trip").text)
+        assertEquals(null, TripNoteText.of(trip(status()), clock).progress)
+        val lost = TripNoteText.of(trip(status(gpsOk = false, age = 40.0)), { "7:44" })
+        assertEquals("Harbour St · GPS lost" to "Alarm at 7:44 at the latest", lost.title to lost.text)
+        assertEquals("Waiting for bus 2 · Harbour St", TripNoteText.of(trip(status(phase = Phase.WAITING)), clock).title)
+        assertEquals("Central Station · waiting for the bus", TripNoteText.of(trip(status(phase = Phase.WAITING, leg = 0), leg = 0), clock).title)
+        assertEquals("Harbour St · 2.3 km", TripNoteText.of(trip(status(eta = null)), clock).title)
+        assertEquals("Wake up", TripNoteText.of(trip(status(phase = Phase.RINGING)), clock).title)
+    }
 }
