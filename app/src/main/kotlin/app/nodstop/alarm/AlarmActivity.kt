@@ -9,8 +9,6 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,9 +21,9 @@ import app.nodstop.ui.Readiness
 import android.provider.Settings
 import androidx.compose.runtime.remember
 import app.nodstop.trip.TripService
-import app.nodstop.ui.AfterWakeScreen
-import app.nodstop.ui.AlarmScreen
 import app.nodstop.ui.ShareLine
+import app.nodstop.ui.v2.AlarmAwakeHost
+import app.nodstop.ui.v2.AlarmRingHost
 
 /**
  * Shown over the lock screen while ringing. Stops the ring with: a 1 s hold on the big "I'm awake" area,
@@ -36,6 +34,8 @@ class AlarmActivity : ComponentActivity() {
     private var volumeDownSince = 0L
     /** "I'm awake" was held here and there's something to read: show it until Done (DESIGN §10). */
     private val acked = mutableStateOf(false)
+    /** Whether the ring being answered was Debug's test ring (the awake screen says so). */
+    private val lastRingTest = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,24 +50,26 @@ class AlarmActivity : ComponentActivity() {
             override fun handleOnBackPressed() = Unit
         })
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
-                val ring by RingService.state.collectAsState()
-                val current = ring
-                if (current == null && acked.value) {
-                    val snap by MessageStore.instance.state.collectAsState()
-                    val vips by App.instance.settings.vipNames.collectAsState()
-                    val access = remember { Readiness.notificationAccessOk(this) }
-                    val kind = PanelText.afterWake(snap.active, access, Digests.build(snap.messages, snap.otherNotifications, vips))
-                    AfterWakeScreen(
-                        onShare = { ShareLine.share(this, it) }, onDone = { close() }, kind = kind,
-                        onFix = if (kind == PanelText.AfterWake.NEEDS_ACCESS) ({
-                            runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-                            close()
-                        }) else null,
-                    )
-                } else {
-                    AlarmScreen(ring = current, holdMs = 1_000, onAwake = { awakeHere() }, onClose = { close() })
-                }
+            val ring by RingService.state.collectAsState()
+            val current = ring
+            if (current != null) lastRingTest.value = current.test
+            if (current == null && acked.value) {
+                // v2 (PLAN Run 8, M4): what to do now, then what you missed, then Done.
+                val access = remember { Readiness.notificationAccessOk(this) }
+                AlarmAwakeHost(
+                    test = lastRingTest.value, accessOk = access,
+                    onShare = { ShareLine.share(this, it) },
+                    onFix = {
+                        runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                        close()
+                    },
+                    onDone = { close() },
+                )
+            } else if (current != null) {
+                AlarmRingHost(current, onAwake = { awakeHere() })
+            } else {
+                // Opened with nothing ringing and nothing to read: nothing to show.
+                androidx.compose.runtime.LaunchedEffect(Unit) { close() }
             }
         }
     }
