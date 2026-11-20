@@ -46,6 +46,22 @@ new, or repeats something, add it here in the same PR.
 6. **Finding stops is hard.** He wants to paste Google Maps links (places and routes), share from Google Maps, and
    search stops or routes in the app.
 
+## The ring problem so far (read before touching the alarm)
+- **Run 4:** the screen turns on; a heads-up while he's using the phone; re-ring every minute until "I'm awake".
+- **Run 6:** Buzz on Mute, the speaker after 30 s if the buzz may not get through, and the circle rings on entry.
+- **Run 10:**
+  - Found and closed silent failures:
+    - nothing resumed a trip after an update or a reboot;
+    - the alarm channel couldn't get through Do Not Disturb, because it was made before access was granted;
+    - quiet trip stayed on during the ring;
+    - nothing showed if the ring service failed to start;
+    - a failing earbuds tone could stop the buzz;
+    - a ring that cold-started the app wasn't logged.
+  - Added "Over other apps" for the alarm screen while he's using the phone.
+  - Added `RingPathTest` in CI, and a "Last trip" verdict on Now.
+- If he reports a missed ring again: read Now's "Last trip" line and the `ringd` report in his log (he can tap
+  Send), then add the case to `RingPathTest` before fixing it.
+
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
   alone, and don't propose icon work.
