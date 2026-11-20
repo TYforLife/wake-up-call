@@ -560,14 +560,14 @@ trip what happened.
     Without it, the banner stays, as now.
 
 ### A2 Ring-path tests in CI
-- [ ] Robolectric tests drive `AlarmReceiver.onReceive`, then check three things: a full-screen notification is
+- [x] Robolectric tests drive `AlarmReceiver.onReceive`, then check three things: a full-screen notification is
   posted on the alarm channel, vibration is requested with `USAGE_ALARM` (or the channel vibrates), and the mode
   changes are undone after "I'm awake".
-- [ ] The phone states covered: normal; Mute; Do Not Disturb priority; quiet trip on; no Do Not Disturb access; a
+- [x] The phone states covered: normal; Mute; Do Not Disturb priority; quiet trip on; no Do Not Disturb access; a
   cold start with no `TripService`; `RingService` failing to start; no earbuds; earbuds in.
-- [ ] A test for "update during a trip": a saved trip plus a `MY_PACKAGE_REPLACED` broadcast leads to the alarm
+- [x] A test for "update during a trip": a saved trip plus a `MY_PACKAGE_REPLACED` broadcast leads to the alarm
   being scheduled and the trip resumed.
-- [ ] These run in `:app:testDebugUnitTest`, so no future change can silently break the ring.
+- [x] These run in `:app:testDebugUnitTest`, so no future change can silently break the ring.
 
 ### A3 Get off from the notification
 - [ ] The trip notification gets **I'm off this bus** next to Stop trip. It sends `SkipLeg`; on the last bus it
