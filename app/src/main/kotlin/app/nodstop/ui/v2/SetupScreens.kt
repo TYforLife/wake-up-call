@@ -68,6 +68,8 @@ data class SettingsUi(
     val build: String,
     /** Android 16's lock-screen progress is off (optional, so only shown when it is). */
     val liveOff: Boolean = false,
+    /** The credit the bundled stop data asks for (CC BY 4.0, PLAN Run 12), when this build has it. */
+    val credits: String? = null,
 )
 
 class SettingsActions(
@@ -95,6 +97,7 @@ fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modi
             ListRow("Report a missed alarm", "Shares the trip log, locations hidden", divider = ui.liveOff, onClick = a.report, trailing = { Chevron() })
             if (ui.liveOff) ListRow("Progress on the lock screen", "Optional, Android 16", divider = false, trailing = { Pill("Allow", a.live) })
         }
+        ui.credits?.let { Hint(it, Modifier.fillMaxWidth(), center = true) }
         Hint(
             ui.build,
             Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = a.debug).padding(vertical = 12.dp),

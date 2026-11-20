@@ -28,6 +28,9 @@ internal object MapStyle {
     /** Our own layers start with this, so the recolouring leaves them alone. */
     private const val OURS = "nod-"
 
+    /** The bus-stop dots: tap one in Set a stop to choose it (PLAN Run 12, C2). */
+    const val BUS_STOPS = "nod-bus-stops"
+
     fun Long.argb(): Int = toInt()
 
     /** Every base layer in the palette's colours. Best effort per layer: a property a layer lacks is skipped. */
@@ -62,7 +65,7 @@ internal object MapStyle {
             Expression.eq(Expression.get("class"), MapPalette.BUS_STOP_CLASS),
             *MapPalette.BUS_STOP_SUBCLASSES.map { Expression.eq(Expression.get("subclass"), it) }.toTypedArray(),
         )
-        val dot = CircleLayer("${OURS}bus-stops", MapPalette.SOURCE).apply {
+        val dot = CircleLayer(BUS_STOPS, MapPalette.SOURCE).apply {
             sourceLayer = MapPalette.POI_LAYER
             minZoom = MapPalette.BUS_STOP_MIN_ZOOM
             setFilter(filter)

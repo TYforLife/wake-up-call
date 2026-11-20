@@ -2,6 +2,7 @@ package app.nodstop.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import android.graphics.RectF
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
@@ -26,6 +27,7 @@ import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Point
 import org.maplibre.android.geometry.LatLng as MLatLng
 
 /**
@@ -47,6 +49,8 @@ fun PickerMap(
     onRadius: (Double) -> Unit = {},
     /** Tapped inside the circle: show the size slider. */
     onCircleTap: () -> Unit = {},
+    /** Tapped a bus stop on the map: its name and where it is (PLAN Run 12, C2). */
+    onBusStopTap: (String?, LatLng) -> Unit = { _, _ -> },
 ) {
     val ctx = LocalContext.current
     val mapView = rememberMapView()
@@ -55,6 +59,7 @@ fun PickerMap(
     val zone by rememberUpdatedState(zoneM)
     val report by rememberUpdatedState(onCentre)
     val tap by rememberUpdatedState(onCircleTap)
+    val busStop by rememberUpdatedState(onBusStopTap)
     var cameraTick by remember { mutableIntStateOf(0) }
     var target by remember { mutableStateOf(start) }
 
@@ -87,6 +92,16 @@ fun PickerMap(
                 }
                 // Tap inside the circle: the size slider (PLAN B4).
                 m.addOnMapClickListener { ll ->
+                    // A bus stop under your finger first: choose it (PLAN Run 12, C2).
+                    val pt = m.projection.toScreenLocation(ll)
+                    val r = 22 * px
+                    val f = runCatching { m.queryRenderedFeatures(RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), MapStyle.BUS_STOPS) }
+                        .getOrNull()?.firstOrNull()
+                    val g = f?.geometry() as? Point
+                    if (f != null && g != null) {
+                        busStop(runCatching { f.getStringProperty("name") }.getOrNull(), LatLng(g.latitude(), g.longitude()))
+                        return@addOnMapClickListener true
+                    }
                     val t = m.cameraPosition.target ?: return@addOnMapClickListener false
                     val hit = CircleDrag.inside(LatLng(t.latitude, t.longitude), zone, LatLng(ll.latitude, ll.longitude), slackM = 15.0)
                     if (hit) tap()

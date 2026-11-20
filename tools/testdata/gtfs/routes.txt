@@ -1,0 +1,3 @@
+route_id,agency_id,route_short_name,route_long_name,route_type
+R1,AT,100,Test City Link,3
+R2,AT,866,Test North Express,3

@@ -652,28 +652,29 @@ Prerequisite: Run 10 merged.
 Prerequisite: Run 11 merged.
 
 ### C1 Google Maps links and sharing
-- [ ] Any Google Maps link works wherever a stop is set:
+- [x] Any Google Maps link works wherever a stop is set:
   - place and pin links;
   - `maps.app.goo.gl` short links, resolved by following redirects, to Google hosts only (the link is sent to
     Google, nothing else; DESIGN §5 Permissions);
-  - directions links, whose origin and destination become the route's first and last stops, named from the link.
-- [ ] Nodstop appears in Google Maps' Share sheet: share a place, then pick "Add to To work" or "New route".
-- [ ] Parser tests with the real link shapes, using public landmarks only, never personal places.
+  - directions links, whose stops become the route's stops, named from the link. (Built: the start is dropped,
+    because it's where you get on, not a stop you get off at; the waypoints and the destination are the stops.)
+- [x] Nodstop appears in Google Maps' Share sheet: share a place, then pick "Add to To work" or "New route".
+- [x] Parser tests with the real link shapes, using public landmarks only, never personal places.
 
 ### C2 Search Auckland Transport stops
-- [ ] Auckland Transport's public GTFS stops (name, stop number, position) are bundled into the APK at build time;
+- [x] Auckland Transport's public GTFS stops (name, stop number, position) are bundled into the APK at build time;
   CI downloads them, and search works offline.
   - This is a public dataset, not personal data.
   - The cloud session can't download it (network allowlist), so tests use a small fixture.
-- [ ] The stop field searches by name or number ("3353", "Smales Farm").
-- [ ] Bus-stop markers on the Set a stop map: tap one to choose it, with its name.
+- [x] The stop field searches by name or number ("3353", "Smales Farm").
+- [x] Bus-stop markers on the Set a stop map: tap one to choose it, with its name.
 
 ### C3 Route search (direct buses)
-- [ ] "To <stop>" from where you are: the Auckland Transport routes that serve a stop near you and the destination
+- [x] "To <stop>" from where you are: the Auckland Transport routes that serve a stop near you and the destination
   directly. Pick one to create the route with its stops.
   - The routes come from a compact route-to-stops index built from GTFS at build time.
   - Two-bus journeys come later: the owner can paste a Google Maps directions link for those (C1).
-- [ ] Live data never changes the alarm (rule 6): this only fills in stops.
+- [x] Live data never changes the alarm (rule 6): this only fills in stops.
 
 **Test on phone (Run 12):**
 1. Share a stop from Google Maps to Nodstop.

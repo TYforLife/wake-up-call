@@ -97,14 +97,23 @@ object StopText {
     fun eyebrow(stop: String, customM: Double?): String =
         "$stop · wake me within" + (customM?.let { " ${app.nodstop.map.ZoneScale.label(it)}" } ?: "")
 
-    /** What's wrong with a pasted place, or null when it reads (or is empty). */
+    /**
+     * What's wrong with what's in the stop field, or null (PLAN Run 12): coordinates and Google Maps links (place,
+     * directions, short) read; plain words are a stop search; only a link that isn't a Maps link, or a place outside
+     * New Zealand, is a problem.
+     */
     fun pasteError(text: String): String? {
         if (text.isBlank()) return null
-        val p = CoordParser.parse(text)
-            ?: return if ("goo.gl" in text || "maps.app" in text) "Short links can't be read. In Maps, long-press the stop and copy its coordinates."
-            else "Can't read that. Paste \"-36.78, 174.75\" or a Maps link."
-        return if (CoordParser.isInNewZealand(p)) null else "That's outside New Zealand."
+        return when (val r = app.nodstop.data.MapsLink.parse(text)) {
+            is app.nodstop.data.MapsLink.Result.One -> outside(r.place.pos)
+            is app.nodstop.data.MapsLink.Result.Directions -> r.stops.lastOrNull()?.pos?.let(::outside)
+            is app.nodstop.data.MapsLink.Result.Short -> null
+            app.nodstop.data.MapsLink.Result.None ->
+                if ("://" in text) "That link isn't a Google Maps place. Share the stop from Maps instead." else null
+        }
     }
+
+    private fun outside(p: LatLng) = if (CoordParser.isInNewZealand(p)) null else "That's outside New Zealand."
 
     fun coords(p: LatLng): String = String.format(java.util.Locale.US, "%.6f, %.6f", p.lat, p.lng)
 

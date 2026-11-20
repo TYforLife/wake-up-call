@@ -17,11 +17,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.nodstop.App
 import app.nodstop.data.LegDraft
+import app.nodstop.data.MapsLink
+import app.nodstop.data.ShortLinks
+import app.nodstop.data.TransitData
+import app.nodstop.data.TransitIndex
 import app.nodstop.data.Route
 import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
@@ -44,7 +50,7 @@ fun RoutesTab(go: (Screen) -> Unit) {
     val learned by app.learned.all.collectAsState()
     RoutesList(
         routes.map { r -> RouteText.row(r) { learned[Route.stopKey(it)] } },
-        RoutesActions(open = { go(Screen.Route(it)) }, add = { newRoute(go) }),
+        RoutesActions(open = { go(Screen.Route(it)) }, add = { newRoute(go) }, find = { go(Screen.FindBus) }),
         Modifier.statusBarsPadding(),
     )
 }
@@ -159,6 +165,43 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
     val learned = learnedAll[Route.stopKey(centre)]
     val zoneM = custom ?: MapModel.autoZoneM(centre, learned)
 
+    // A Google Maps link (PLAN Run 12, C1): a place, the last stop of directions, or a short link opened first.
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf<String?>(null) }
+    var linkError by remember { mutableStateOf<String?>(null) }
+    fun place(p: MapsLink.Place) {
+        moveTo = p.pos; moveTick++
+        if (p.name != null && (name.isBlank() || name == RouteText.stopName(leg))) name = p.name
+    }
+    fun read(t: String) {
+        linkError = null
+        when (val r = MapsLink.parse(t)) {
+            is MapsLink.Result.One -> place(r.place)
+            is MapsLink.Result.Directions -> r.stops.lastOrNull()?.let(::place)
+            is MapsLink.Result.Short -> {
+                busy = "Opening the link…"
+                scope.launch {
+                    val long = ShortLinks.resolve(r.url)
+                    busy = null
+                    when (val rr = long?.let(MapsLink::parse)) {
+                        is MapsLink.Result.One -> place(rr.place.copy(name = r.name ?: rr.place.name))
+                        is MapsLink.Result.Directions -> rr.stops.lastOrNull()?.let(::place)
+                        else -> linkError = "Couldn't open that link. Check you're online, or share the stop from Maps."
+                    }
+                }
+            }
+            MapsLink.Result.None -> Unit
+        }
+    }
+
+    // Stop search (PLAN Run 12, C2): plain words or a stop number, nearest to you (or the map) first.
+    var index by remember { mutableStateOf<TransitIndex?>(null) }
+    LaunchedEffect(Unit) { index = TransitData.get(ctx) }
+    val hits = remember(paste, index, me) {
+        if ("://" in paste || MapsLink.parse(paste) != MapsLink.Result.None) emptyList()
+        else index?.search(paste, me ?: centre, limit = 6).orEmpty()
+    }
+
     fun locate(move: Boolean) {
         locating = true
         fused.current { loc ->
@@ -188,15 +231,16 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
         StopPickerUi(
             eyebrow = if (alarm) StopText.eyebrow(stopName, custom?.takeIf { CircleChoice.index(it) < 0 }) else "$stopName · no alarm",
             choice = CircleChoice.index(custom), radiusM = zoneM, alarm = alarm,
-            paste = paste, pasteError = StopText.pasteError(paste), slider = slider,
+            paste = paste, pasteError = linkError ?: StopText.pasteError(paste), busy = busy, slider = slider,
+            results = hits.map { h ->
+                StopResultUi(h.stop.name, listOfNotNull(h.stop.code.takeIf { it.isNotEmpty() }?.let { "Stop $it" }, h.distanceM?.let { TripService.distance(it) }).joinToString(" · "))
+            },
             canRemove = route.legs.size > 1, canForget = learned != null, locating = locating,
         ),
         StopPickerActions(
             back = leave,
-            paste = { t ->
-                paste = t
-                CoordParser.parse(t)?.let { moveTo = it; moveTick++ }
-            },
+            paste = { t -> paste = t; read(t) },
+            pickResult = { i -> hits.getOrNull(i)?.let { h -> place(MapsLink.Place(h.stop.name, h.stop.pos)); paste = "" } },
             choose = { custom = CircleChoice.radius(it); slider = false },
             showSlider = { slider = true; if (custom == null) custom = ZoneScale.round(zoneM) },
             slide = { custom = it },
@@ -227,6 +271,8 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
                 // Drag the circle's edge (PLAN B4): a size off the presets shows on the slider.
                 onRadius = { r -> custom = r; slider = CircleChoice.index(r) < 0 },
                 onCircleTap = { slider = true; if (custom == null) custom = ZoneScale.round(zoneM) },
+                // Tap a bus stop on the map: it becomes this stop, with its name (PLAN Run 12, C2).
+                onBusStopTap = { n, p -> place(MapsLink.Place(n, p)) },
             )
         },
         modifier = Modifier.navigationBarsPadding(),
@@ -261,3 +307,103 @@ fun NameDialog(title: String, label: String, initial: String, onDismiss: () -> U
 fun SubScreen(content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize().background(LocalN.current.bg)) { content() }
 }
+
+/** Something shared from Google Maps (PLAN Run 12, C1): a place to add to a route, or directions for a new one. */
+@Composable
+fun ShareHost(text: String, go: (Screen) -> Unit, back: () -> Unit) {
+    val app = App.instance
+    val routes by app.routes.routes.collectAsState()
+    var result by remember(text) { mutableStateOf<MapsLink.Result?>(MapsLink.parse(text)) }
+    LaunchedEffect(text) {
+        val r = result
+        if (r is MapsLink.Result.Short) {
+            val long = ShortLinks.resolve(r.url)
+            result = when (val rr = long?.let(MapsLink::parse)) {
+                is MapsLink.Result.One -> rr.copy(place = rr.place.copy(name = r.name ?: rr.place.name))
+                is MapsLink.Result.Directions -> rr
+                else -> MapsLink.Result.None
+            }
+        }
+    }
+    ShareScreen(
+        ShareText.of(result, routes),
+        onPick = { action ->
+            val res = result
+            when (action) {
+                is ShareOption.Action.AddTo -> {
+                    val r = app.routes.get(action.routeId)
+                    val p = (res as? MapsLink.Result.One)?.place
+                    if (r != null && p != null) {
+                        val i = r.legs.size
+                        app.routes.upsert(r.copy(legs = r.legs + LegDraft(p.name ?: RouteText.stopName(i), StopText.coords(p.pos))))
+                        go(Screen.Stop(r.id, i, fresh = true))
+                    }
+                }
+                ShareOption.Action.NewRoute -> (res as? MapsLink.Result.One)?.place?.let { p ->
+                    val r = Route(
+                        name = RouteText.nextRouteName(routes.map { it.name }),
+                        legs = listOf(LegDraft(p.name ?: RouteText.stopName(0), StopText.coords(p.pos))),
+                    )
+                    app.routes.upsert(r)
+                    go(Screen.Stop(r.id, 0, fresh = true))
+                }
+                ShareOption.Action.NewRouteFromDirections -> (res as? MapsLink.Result.Directions)?.let { d ->
+                    val r = Route(
+                        name = RouteText.nextRouteName(routes.map { it.name }),
+                        legs = d.stops.take(ShareText.MAX_STOPS).mapIndexed { i, p -> LegDraft(p.name ?: RouteText.stopName(i), StopText.coords(p.pos)) },
+                    )
+                    app.routes.upsert(r)
+                    go(Screen.Route(r.id))
+                }
+            }
+        },
+        onBack = back,
+        modifier = Modifier.statusBarsPadding().navigationBarsPadding(),
+    )
+}
+
+/** Find a bus (PLAN Run 12, C3): search where you're going; pick a direct bus from near you; the route is made. */
+@Composable
+fun FindBusHost(go: (Screen) -> Unit, back: () -> Unit) {
+    val ctx = LocalContext.current
+    val app = App.instance
+    var index by remember { mutableStateOf<TransitIndex?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { index = TransitData.get(ctx); loaded = true }
+    var query by remember { mutableStateOf("") }
+    var dest by remember { mutableStateOf<TransitIndex.Hit?>(null) }
+    var here by remember { mutableStateOf<LatLng?>(null) }
+    var located by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(Unit) {
+        FusedLocationSource(ctx).current { loc -> here = loc?.let { LatLng(it.latitude, it.longitude) }; located = loc != null }
+    }
+    androidx.activity.compose.BackHandler(enabled = dest != null) { dest = null }
+    val ix = index
+    val hits = remember(query, ix, here) { ix?.search(query, here, limit = 8).orEmpty() }
+    val options = remember(ix, dest, here) { val d = dest; val h = here; if (ix == null || d == null || h == null) emptyList() else ix.direct(h, d.index) }
+    FindBusScreen(
+        FindBusUi(
+            query,
+            hits.map { h -> StopResultUi(h.stop.name, listOfNotNull(h.stop.code.takeIf { it.isNotEmpty() }?.let { "Stop $it" }, h.distanceM?.let { TripService.distance(it) }).joinToString(" · ")) },
+            dest?.stop?.name, options.map(FindBusText::option),
+            FindBusText.note(ix != null || !loaded, located, dest?.stop?.name, options.size),
+        ),
+        FindBusActions(
+            back = { if (dest != null) dest = null else back() },
+            query = { query = it },
+            pickDest = { i -> hits.getOrNull(i)?.let { dest = it } },
+            pickOption = { i ->
+                val d = dest
+                val o = options.getOrNull(i)
+                if (d != null && o != null) {
+                    // The stop you get off at is the destination; the bus and where to get on are in the name.
+                    val r = Route(name = FindBusText.routeName(o, d.stop.name), legs = listOf(LegDraft(d.stop.name, StopText.coords(d.stop.pos))))
+                    app.routes.upsert(r)
+                    go(Screen.Route(r.id))
+                }
+            },
+        ),
+        Modifier.statusBarsPadding().navigationBarsPadding(),
+    )
+}
+

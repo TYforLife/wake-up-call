@@ -347,6 +347,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | `AlarmActivity` (ack) | **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
 | `LocationSource` | Interface. `FusedLocationSource` (real; also last-known and one-shot "Use my location") and `SimulatedLocationSource` (a pretend bus in real time: halts 90 s at stop 1, drives 3 km to stop 2, halts 2 min, then keeps going, for couch tests). |
 | `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (Set a stop ⋯) or all (Debug). |
+| `TransitIndex` | Auckland Transport's stops and route patterns, offline (PLAN Run 12). CI downloads the public GTFS feed (CC BY 4.0) and `tools/gtfs_index.py` boils it down to `assets/gtfs/stops.tsv` (number, name, position) and `routes.tsv` (each route and direction's stops in order). It powers stop search and Find a bus. It only ever fills in stops: no alarm depends on it (rule 6). A build without it (a local build) has no search; links and the map still work. CI also checks the script against its fixture. |
 | `SafeStore` | How every store loads and saves: each save keeps the previous file as `.bak`; a file that can't be read is kept as `.bad-<time>` and the backup is used, so an update can never wipe routes or learned rides. Fixture tests decode every shipped format. Debug → **Your data** backs everything up to one JSON file (share sheet) and restores it (file picker). |
 | `TraceLogger` | Writes JSONL per trip to app files, flushed per line. Share uses the system share sheet: **location hidden** (every position moved by one random offset, engine re-run, `Trace.anonymize`) for the public repo, or raw (private). |
 | Quick Settings tiles, launcher shortcuts | One tile per first two routes ("To work", "From work"): one tap opens the app and starts the route. Tapping while a trip runs just shows it. Long-press the app icon for the same. |
@@ -408,7 +409,8 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `MODIFY_AUDIO_SETTINGS` (media volume during the ring),
 `POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `RECEIVE_BOOT_COMPLETED` (a trip's alarm survives a
 restart), `SYSTEM_ALERT_WINDOW` ("Display over other apps": the alarm screen opens over the app you're using),
-`INTERNET` (map tiles only, from
+`INTERNET` (map tiles; and, only when you paste or share a `maps.app.goo.gl` short link, that link is sent to
+Google to open it: `ShortLinks` follows its redirects to Google hosts over https only, PLAN Run 12; otherwise map tiles only, from
 OpenFreeMap; the tile server sees roughly which area you're looking at, nothing else is sent).
 
 ### Screens
@@ -481,7 +483,12 @@ doesn't flash another colour while it opens.
 - **After "I'm awake"** (`awake`):
   - "Now", then what to do: get off and what comes next, or stay on after an early ring, and why.
   - Then While you slept as plain rows (tap one to share it), then Done.
-- **Routes** (`routes`):
+- **Routes** (`routes`): the search button opens **Find a bus** (PLAN Run 12, C3).
+  - Type where you're going, by stop name or number.
+  - You get the Auckland Transport buses that call at a stop within 600 m of you and then at it, with no change
+    (`TransitIndex.direct`): "866 towards Britomart · Get on at … · 290 m walk · 12 stops".
+  - Pick one, and the route "866 to Britomart" is made, with that stop.
+  - Two-bus trips come from sharing Google Maps directions.
   - One row per route: "2 buses · 12 rides", or its problem as a red line ("Hill Ave needs a stop").
   - + makes "Route N" with Stop 1 and opens the map at once (PLAN Run 11, B1): save it and the route is ready. Back
     out and it's gone. No names to type.
@@ -495,9 +502,13 @@ doesn't flash another colour while it opens.
 - **Set a stop** (`stop`):
   - The map (the same Google look) moves under a fixed red pin, and the wake circle follows it. Drag the dot on
     the circle's edge to size it, or tap the circle for the slider. Tap the stop's name to rename it.
-  - The field at the top takes a pasted point or Maps link (`CoordParser`: `-36.78123, 174.75123`,
-    `-36.78123 174.75123`, and URLs with `@lat,lng` or `q=`/`query=lat,lng`). It warns outside New Zealand, or
-    for a short link it can't read.
+  - The field at the top (PLAN Run 12) searches stops, or takes a link:
+    - **Search:** a stop number ("3353") or name ("Smales Farm"), nearest first, from the bundled Auckland
+      Transport index (`TransitIndex.search`). Pick one and the map goes there; the stop takes its name.
+    - **Links** (`MapsLink`): place and pin links (the place's own position, and its name), `q=`/`query=`, plain
+      coordinates, directions (the destination), and `maps.app.goo.gl` short links, opened first (`ShortLinks`).
+    - It warns outside New Zealand, or for a link that isn't a Google Maps place.
+  - Tap a bus stop on the map (the blue dots): it becomes this stop, with its name.
   - Use my location; the compass once turned.
   - The sheet: "Hill Ave · wake me within", then Auto / 150 / 250 / 400 m, with Other size for the 50 m–2 km
     slider (`ZoneScale`), then Save stop.
@@ -505,11 +516,17 @@ doesn't flash another colour while it opens.
   - It opens on the stop, else the bus before it, else where you are.
   - Saving when only the circle changed keeps the stop exactly where it was. A running trip takes the new circle
     straight away (`TripService.onRoutesChanged`).
+- **Shared from Google Maps** (PLAN Run 12, C1): Nodstop is in the Share sheet as "Add to Nodstop".
+  - A shared place: "Add to To work" (as its next stop) or "New route"; Set a stop then opens on it.
+  - Shared directions: a new route whose stops are the directions' waypoints and destination. The start is dropped:
+    it's where you get on.
+  - Receiving only (`ShareIn`).
 - **Settings** (`settings`):
   - Quiet other notifications (during trips); Ring out loud after 60 s; Ask how the timing was.
   - Important contacts: the names, plus chat notification access for While you slept.
   - Report a missed alarm: shares the last trip log with locations hidden, and the last ring's report as the
     message.
+  - The credit for the bundled stop data ("Stop and route data: Auckland Transport, CC BY 4.0").
   - The build line. A long press opens Debug.
 - **Debug** (a tool, plain):
   - Test ring in 30 s: the real AlarmManager path, disabled during a trip.

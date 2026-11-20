@@ -1,0 +1,8 @@
+stop_id,stop_code,stop_name,stop_lat,stop_lon,location_type,parent_station
+S1,1001,Test Harbour Station A,-36.84400,174.76800,0,P1
+S2,1002,Test Queen St,-36.84850,174.76220,0,
+S3,1003,Test Museum,-36.86040,174.77780,0,
+S4,1004,Test Park Rd,-36.86500,174.77000,0,
+S5,2001,Test Farm Stop D,-36.78000,174.75000,0,
+S6,2002,Test Farm Stop B,-36.78050,174.75050,0,
+P1,,Test Harbour Station,-36.84400,174.76800,1,

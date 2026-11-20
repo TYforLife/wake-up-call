@@ -181,4 +181,33 @@ class ScreensV2ScreenshotTest {
     @Test fun lock() = shot("lock", dark = true) {
         LockPreview(TripNoteUi("Harbour St in 6 min", "Alarm about 7:45", 68), "7:41", "Friday 20 November")
     }
+
+    // ---- Run 12: finding stops ----
+
+    @Test fun share() = shot("share") {
+        ShareScreen(
+            ShareText.of(
+                app.nodstop.data.MapsLink.Result.One(app.nodstop.data.MapsLink.Place("Sky Tower", app.nodstop.engine.LatLng(-36.8485, 174.7622))),
+                listOf(
+                    app.nodstop.data.Route("w", "To work", listOf(app.nodstop.data.LegDraft("Central Station", "-36.80, 174.70"))),
+                    app.nodstop.data.Route("h", "From work", listOf(app.nodstop.data.LegDraft("Park Rd", "-36.82, 174.72"))),
+                ),
+            ),
+            {}, {},
+        )
+    }
+
+    @Test fun find_bus() = shot("find-bus") {
+        FindBusScreen(
+            FindBusUi(
+                "", emptyList(), dest = "Harbour St",
+                options = listOf(
+                    BusOptionUi("866 towards Britomart", "Get on at Central Station · 290 m walk · 12 stops"),
+                    BusOptionUi("100 towards Harbour St", "Get on at Park Rd · 450 m walk · 9 stops"),
+                ),
+            ),
+            FindBusActions(),
+        )
+    }
 }
+

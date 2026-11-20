@@ -6,3 +6,6 @@ local.properties
 .kotlin/
 captures/
 .DS_Store
+
+# Built by CI from Auckland Transport's public GTFS (tools/gtfs_index.py, PLAN Run 12)
+app/src/main/assets/gtfs/
