@@ -133,5 +133,16 @@ class TextsTest {
         assertEquals("I'm off this bus", acts(status(phase = Phase.WAITING, leg = 0), leg = 0)[0].first)
         assertEquals(listOf(stop), acts(status(phase = Phase.DONE)))
     }
+
+    @Test
+    fun `the folded sheet - one line with the essentials (PLAN B3)`() {
+        assertEquals(CompactSheetUi("Harbour St · 6 min · alarm 7:45", false, "I'm off this bus"), CompactSheetText.of(trip(status()), clock))
+        assertEquals("Harbour St · 2.3 km · alarm 7:45", CompactSheetText.of(trip(status(eta = null)), clock).line)
+        val lost = CompactSheetText.of(trip(status(gpsOk = false, age = 40.0)), { "7:44" })
+        assertEquals(CompactSheetUi("Harbour St · GPS lost · alarm by 7:44", true, "I'm off this bus"), lost)
+        assertEquals(CompactSheetUi("Harbour St · waiting for bus 2", false, "Skip this bus"), CompactSheetText.of(trip(status(phase = Phase.WAITING)), clock))
+        assertEquals("Central Station · waiting for the bus", CompactSheetText.of(trip(status(phase = Phase.WAITING, leg = 0), leg = 0), clock).line)
+        assertEquals("Get off at Harbour St", CompactSheetText.of(trip(status(phase = Phase.AWAKE)), clock).line)
+    }
 }
 

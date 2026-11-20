@@ -2,13 +2,15 @@ package app.nodstop.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import app.nodstop.engine.LatLng
@@ -20,7 +22,6 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
-import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory
@@ -42,6 +43,10 @@ fun PickerMap(
     me: LatLng?,
     onCentre: (LatLng) -> Unit,
     modifier: Modifier = Modifier,
+    /** The circle's edge dragged to a new size, in metres (PLAN Run 11, B4). */
+    onRadius: (Double) -> Unit = {},
+    /** Tapped inside the circle: show the size slider. */
+    onCircleTap: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val mapView = rememberMapView()
@@ -49,6 +54,9 @@ fun PickerMap(
     var style by remember { mutableStateOf<Style?>(null) }
     val zone by rememberUpdatedState(zoneM)
     val report by rememberUpdatedState(onCentre)
+    val tap by rememberUpdatedState(onCircleTap)
+    var cameraTick by remember { mutableIntStateOf(0) }
+    var target by remember { mutableStateOf(start) }
 
     fun drawZone(m: MapLibreMap, s: Style) {
         val t = m.cameraPosition.target ?: return
@@ -68,21 +76,40 @@ fun PickerMap(
             val px = ctx.resources.displayMetrics.density
             m.uiSettings.setCompassMargins(0, (116 * px).toInt(), (16 * px).toInt(), 0)
             if (first) {
-                m.addOnCameraMoveListener { style?.let { drawZone(m, it) } }
+                m.addOnCameraMoveListener {
+                    style?.let { drawZone(m, it) }
+                    m.cameraPosition.target?.let { target = LatLng(it.latitude, it.longitude) }
+                    cameraTick++
+                }
                 m.addOnCameraIdleListener {
-                    m.cameraPosition.target?.let { report(LatLng(it.latitude, it.longitude)) }
+                    m.cameraPosition.target?.let { report(LatLng(it.latitude, it.longitude)); target = LatLng(it.latitude, it.longitude) }
+                    cameraTick++
+                }
+                // Tap inside the circle: the size slider (PLAN B4).
+                m.addOnMapClickListener { ll ->
+                    val t = m.cameraPosition.target ?: return@addOnMapClickListener false
+                    val hit = CircleDrag.inside(LatLng(t.latitude, t.longitude), zone, LatLng(ll.latitude, ll.longitude), slackM = 15.0)
+                    if (hit) tap()
+                    hit
                 }
             }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
-                recolour(s, colors)
-                addPickerLayers(s, colors)
+                val pal = MapPalette.colors(colors.dark)
+                MapStyle.applyGoogleLook(s, pal)
+                MapStyle.addBusStops(s, pal)
+                MapStyle.addImages(s, pal, px)
+                addPickerLayers(s, pal)
                 style = s
                 drawZone(m, s)
             }
         }
     }
 
-    AndroidView(factory = { mapView }, modifier = modifier)
+    Box(modifier) {
+        AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+        // The handle on the circle's edge: drag it in or out; the size saves with the stop (PLAN B4).
+        if (style != null) CircleHandle(map, target, zoneM, cameraTick, MapPalette.colors(colors.dark).me, onDrag = onRadius, onDragEnd = onRadius)
+    }
 
     LaunchedEffect(style, zoneM) {
         val m = map ?: return@LaunchedEffect
@@ -103,18 +130,11 @@ private fun circleJson(c: LatLng, radiusM: Double): String {
     return """{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[$ring]}}]}"""
 }
 
-private fun addPickerLayers(s: Style, c: NColors) {
+private fun addPickerLayers(s: Style, c: MapPalette.Colors) {
     val empty = """{"type":"FeatureCollection","features":[]}"""
     for (id in listOf("pick-zone", "pick-me")) s.addSource(GeoJsonSource(id, empty))
-    val fg = c.fg.toArgb()
-    s.addLayer(FillLayer("pick-zone-f", "pick-zone").withProperties(PropertyFactory.fillColor(fg), PropertyFactory.fillOpacity(0.06f)))
-    s.addLayer(LineLayer("pick-zone-l", "pick-zone").withProperties(PropertyFactory.lineColor(fg), PropertyFactory.lineOpacity(0.35f), PropertyFactory.lineWidth(1.5f)))
-    val blue = 0xFF1A73E8.toInt()
-    s.addLayer(CircleLayer("pick-me-halo", "pick-me").withProperties(PropertyFactory.circleRadius(18f), PropertyFactory.circleColor(blue), PropertyFactory.circleOpacity(0.18f)))
-    s.addLayer(
-        CircleLayer("pick-me-dot", "pick-me").withProperties(
-            PropertyFactory.circleRadius(8f), PropertyFactory.circleColor(blue),
-            PropertyFactory.circleStrokeWidth(3f), PropertyFactory.circleStrokeColor(0xFFFFFFFF.toInt()),
-        ),
-    )
+    val blue = c.me.toInt()
+    s.addLayer(FillLayer("nod-pick-zone-f", "pick-zone").withProperties(PropertyFactory.fillColor(blue), PropertyFactory.fillOpacity(0.10f)))
+    s.addLayer(LineLayer("nod-pick-zone-l", "pick-zone").withProperties(PropertyFactory.lineColor(blue), PropertyFactory.lineOpacity(0.6f), PropertyFactory.lineWidth(2f)))
+    MapStyle.addMe(s, "pick-me", c)
 }

@@ -64,6 +64,34 @@ object TripSheetText {
     }
 }
 
+/** The trip sheet folded to one line (PLAN Run 11, B3): more map, the essentials still there. */
+data class CompactSheetUi(val line: String, val danger: Boolean, val action: String)
+
+object CompactSheetText {
+    /** "Harbour St · 6 min · alarm 7:45"; "Harbour St · GPS lost · alarm by 7:44" (red); waiting; ringing; awake. */
+    fun of(t: TripService.TripUi, clock: (Long) -> String): CompactSheetUi {
+        val s = t.status
+        val stop = t.legName ?: "Your stop"
+        val alarmAt = s.alarmAtMs?.let(clock)
+        val gpsLost = s.lastFixAgeS != null && !s.gpsOk
+        val transfer = s.phase == Phase.WAITING && t.legIndex > 0
+        val action = if (transfer) "Skip this bus" else "I'm off this bus"
+        val parts = when {
+            s.phase == Phase.RINGING -> listOf(stop, "ringing")
+            s.phase == Phase.AWAKE || s.phase == Phase.DONE -> listOf("Get off at $stop")
+            gpsLost -> listOfNotNull(stop, "GPS lost", alarmAt?.let { "alarm by $it" })
+            transfer -> listOf(stop, "waiting for bus ${t.legIndex + 1}")
+            s.phase == Phase.WAITING -> listOf(stop, "waiting for the bus")
+            else -> listOfNotNull(
+                stop,
+                s.etaS?.let(TripSheetText::minutes) ?: s.distanceM?.let { TripService.distance(it) },
+                alarmAt?.let { "alarm $it" },
+            )
+        }
+        return CompactSheetUi(parts.joinToString(" · "), gpsLost, action)
+    }
+}
+
 /** What "Now" says after "I'm awake" (PLAN Run 8, M4). */
 data class AwakeUi(val headline: String, val line: String)
 

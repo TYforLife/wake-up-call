@@ -599,47 +599,47 @@ trip what happened.
 Prerequisite: Run 10 merged.
 
 ### B1 A new route in two taps
-- [ ] The + button on Routes (and Now when there are no routes) opens the map straight away to set Stop 1.
+- [x] The + button on Routes (and Now when there are no routes) opens the map straight away to set Stop 1.
   - Save goes to the route, which has "Add stop 2" and Start.
   - A route with one set stop is ready.
   - No name dialogs anywhere.
-- [ ] Default names:
+- [x] Default names:
   - "Route 1" and "Route 2"; "Stop 1" and "Stop 2".
   - A stop chosen by tapping a bus-stop marker (C2) takes that stop's name instead. Say so in the PR; it's one
     line to revert if the owner wants plain "Stop N".
   - Tap a name to change it. A new route's name can also come from the time of day ("Morning", "Evening") if
     that reads better; decide and say so in the PR.
-- [ ] Count taps in the PR, before and after, for: a new route with two stops, and changing a circle.
+- [x] Count taps in the PR, before and after, for: a new route with two stops, and changing a circle.
 
 ### B2 The map looks like Google Maps
-- [ ] Base map: OpenFreeMap's `liberty` style, tuned to Google Maps' palette, replacing the grey recoloured
+- [x] Base map: OpenFreeMap's `liberty` style, tuned to Google Maps' palette, replacing the grey recoloured
   `positron`:
   - grey-beige land, white streets, and yellow-orange main roads;
   - green parks and blue water;
   - place, POI and transit labels, with bus stops visible;
   - a dark variant at night, like Google's night map.
-- [ ] Markers:
+- [x] Markers:
   - you are Google's blue dot with a heading beam;
   - your stop is a red Google-style pin;
   - the learned route is Google's route blue.
-- [ ] The style is built in code. A JVM test checks the layer colours and that bus stops show. The cloud session
+- [x] The style is built in code. A JVM test checks the layer colours and that bus stops show. The cloud session
   can't load the tiles (network allowlist), so the owner checks the real look on the phone. Screenshot tests keep
   the flat map box.
 
 ### B3 More map, less panel
-- [ ] The riding sheet collapses to one line ("Harbour St · 6 min · alarm 7:45", with I'm off this bus) and drags
+- [x] The riding sheet collapses to one line ("Harbour St · 6 min · alarm 7:45", with I'm off this bus) and drags
   up for the rest. It collapses by itself when you touch the map.
-- [ ] Opening the map still frames you and your stop: the owner likes this, so keep `MapModel.frame`.
-- [ ] Screenshot tests for the collapsed and open sheets.
+- [x] Opening the map still frames you and your stop: the owner likes this, so keep `MapModel.frame`.
+- [x] Screenshot tests for the collapsed and open sheets.
 
 ### B4 Change the circle on the map, per stop
-- [ ] Tap inside a stop's circle: a small sheet with that stop's size (Auto, 150, 250, 400 m, plus the slider).
-- [ ] Drag the handle on the circle's edge in or out: the circle follows your finger and saves when you let go.
-- [ ] Both are per stop (the leg's `wakeRadiusM`), work on the riding map and in Set a stop, and apply to a running
+- [x] Tap inside a stop's circle: a small sheet with that stop's size (Auto, 150, 250, 400 m, plus the slider).
+- [x] Drag the handle on the circle's edge in or out: the circle follows your finger and saves when you let go.
+- [x] Both are per stop (the leg's `wakeRadiusM`), work on the riding map and in Set a stop, and apply to a running
   trip at once (`UpdateLegs`).
-- [ ] The circle only ever makes a ring earlier (DESIGN §2.6). Add an invariant test that shrinking it mid-trip
+- [x] The circle only ever makes a ring earlier (DESIGN §2.6). Add an invariant test that shrinking it mid-trip
   never moves the alarm later than without a circle.
-- [ ] The math is pure and tested: screen drag to metres, clamped to 50 m–2 km, rounded like `ZoneScale`.
+- [x] The math is pure and tested: screen drag to metres, clamped to 50 m–2 km, rounded like `ZoneScale`.
 
 **Test on phone (Run 11):**
 1. Make a new two-stop route from scratch, counting taps.

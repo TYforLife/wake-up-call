@@ -59,6 +59,38 @@ class UpdateLegsTest {
         assertEquals(Input.UpdateLegs(9, legs), Trace.toInput(Trace.decode(Trace.encode(e))))
     }
 
+    /**
+     * PLAN Run 11, B4: the circle is now dragged and tapped on the map, so it shrinks mid-trip often. A circle only
+     * ever adds an earlier ring (DESIGN §2.6): shrinking yours, even to the smallest, never rings later than having
+     * no circle at all.
+     */
+    @Test
+    fun `shrinking your circle mid-trip never rings later than no circle, over 200 random trips`() {
+        var compared = 0
+        for (seed in 1..200) {
+            val rnd = Random(seed)
+            val (path, destAlong) = Path.random(rnd, rnd.nextDouble(2_000.0, 12_000.0))
+            val d = path.at(destAlong)
+            val v = rnd.nextDouble(3.0, cfg.vMax)
+            val sim = Sim(path, destAlong) { v }.run()
+            val none = Harness(cfg).run(FixPlan(intervalS = 1.0..3.0, noiseM = 4.0).inputs(sim, T0, listOf(Trips.leg(d)), Random(seed)))
+            val baseline = none.rings.firstOrNull() ?: continue
+            val big = listOf(Trips.leg(d).copy(wakeRadiusM = rnd.nextDouble(600.0, 2_000.0)))
+            val withBig = FixPlan(intervalS = 1.0..3.0, noiseM = 4.0).inputs(sim, T0, big, Random(seed))
+            val shrinkAt = T0 + rnd.nextLong(0, baseline - T0)
+            val small = Input.UpdateLegs(shrinkAt, listOf(Trips.leg(d).copy(wakeRadiusM = ZoneScaleMin.pick(rnd))))
+            val ring = Harness(cfg).run((withBig + small).sortedBy { it.tMs }).rings.firstOrNull()
+            assertTrue(ring != null && ring <= baseline, "seed $seed: shrunk circle rang at ${ring?.minus(T0)}, no circle at ${baseline - T0}")
+            compared++
+        }
+        assertTrue(compared > 150, "only $compared trips compared")
+    }
+
+    /** The smallest circles the map allows (50 m) up to a modest one. */
+    private object ZoneScaleMin {
+        fun pick(rnd: Random) = if (rnd.nextBoolean()) 50.0 else rnd.nextDouble(50.0, 300.0)
+    }
+
     /** Never later: random trips, random circle edits; until either run rings, the edited one is never later. */
     @Test
     fun `circle edits never make the alarm later over 500 random trips`() {

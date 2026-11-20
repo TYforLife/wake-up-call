@@ -44,23 +44,37 @@ fun RoutesTab(go: (Screen) -> Unit) {
     val learned by app.learned.all.collectAsState()
     RoutesList(
         routes.map { r -> RouteText.row(r) { learned[Route.stopKey(it)] } },
-        RoutesActions(open = { go(Screen.Route(it)) }, add = { go(Screen.Route(null)) }),
+        RoutesActions(open = { go(Screen.Route(it)) }, add = { newRoute(go) }),
         Modifier.statusBarsPadding(),
     )
 }
 
-/** A route (mockup `route`). A null [routeId] asks for a name first and then shows the new route. */
+/**
+ * A new route in two taps (PLAN Run 11, B1): + makes "Route N" with Stop 1 and opens the map at once. Save, and the
+ * route is ready; back out, and it's gone. No names to type: tap one later to change it.
+ */
+fun newRoute(go: (Screen) -> Unit) {
+    val app = App.instance
+    val r = RouteText.newRoute(app.routes.routes.value.map { it.name })
+    app.routes.upsert(r)
+    go(Screen.Stop(r.id, 0, fresh = true))
+}
+
+/** A route (mockup `route`). A null [routeId] makes a new one (PLAN B1). */
 @Composable
 fun RouteHost(routeId: String?, go: (Screen) -> Unit, back: () -> Unit) {
     val ctx = LocalContext.current
     val app = App.instance
     val routes by app.routes.routes.collectAsState()
     val learned by app.learned.all.collectAsState()
-    var id by remember { mutableStateOf(routeId) }
-    var naming by remember { mutableStateOf(routeId == null) }
-    var addingBus by remember { mutableStateOf(false) }
+    if (routeId == null) {
+        LaunchedEffect(Unit) { newRoute(go) }
+        return
+    }
+    val id = routeId
+    var naming by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val r = id?.let { i -> routes.firstOrNull { it.id == i } }
+    val r = routes.firstOrNull { it.id == id }
     val start: (String, Int) -> Unit = { rid, fromLeg ->
         when {
             TripService.status.value != null -> go(Screen.Trip)
@@ -70,8 +84,14 @@ fun RouteHost(routeId: String?, go: (Screen) -> Unit, back: () -> Unit) {
     }
 
     if (r != null) {
-        val ui = RouteDetailUi(r.name, RouteText.stops(r) { learned[Route.stopKey(it)] }, RouteText.next(r), r.legs.size < MAX_BUSES)
-        val addBus = { addingBus = true }
+        val ui = RouteDetailUi(
+            r.name, RouteText.stops(r) { learned[Route.stopKey(it)] }, RouteText.next(r), r.legs.size < MAX_BUSES, RouteText.addLabel(r),
+        )
+        // "Add stop 2": no name to type, straight to the map (PLAN B1).
+        val addBus = {
+            app.routes.upsert(r.copy(legs = r.legs + LegDraft(name = RouteText.stopName(r.legs.size))))
+            go(Screen.Stop(r.id, r.legs.size, fresh = true))
+        }
         RouteDetail(
             ui,
             RouteDetailActions(
@@ -94,23 +114,11 @@ fun RouteHost(routeId: String?, go: (Screen) -> Unit, back: () -> Unit) {
         )
     }
 
-    if (naming) NameDialog(
-        title = if (r == null) "New route" else "Rename route", label = "Name, e.g. To work", initial = r?.name.orEmpty(),
-        onDismiss = { naming = false; if (r == null) back() },
-        onDone = { name ->
-            naming = false
-            if (r == null) Route(name = name, legs = emptyList()).also { app.routes.upsert(it); id = it.id }
-            else app.routes.upsert(r.copy(name = name))
-        },
-    )
-    if (addingBus && r != null) NameDialog(
-        title = "Add a bus", label = "Where you get off, e.g. Hill Ave", initial = "",
-        onDismiss = { addingBus = false },
-        onDone = { name ->
-            addingBus = false
-            app.routes.upsert(r.copy(legs = r.legs + LegDraft(name = name)))
-            go(Screen.Stop(r.id, r.legs.size))
-        },
+    // Only when you ask: tap the name.
+    if (naming && r != null) NameDialog(
+        title = "Rename route", label = "Name, e.g. To work", initial = r.name,
+        onDismiss = { naming = false },
+        onDone = { name -> naming = false; app.routes.upsert(r.copy(name = name)) },
     )
     if (confirmDelete && r != null) AlertDialog(
         onDismissRequest = { confirmDelete = false },
@@ -120,12 +128,12 @@ fun RouteHost(routeId: String?, go: (Screen) -> Unit, back: () -> Unit) {
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
     )
     // The route went away (deleted elsewhere): nothing to show.
-    LaunchedEffect(r == null, naming) { if (r == null && !naming) back() }
+    LaunchedEffect(r == null) { if (r == null) back() }
 }
 
 /** Set a stop (mockup `stop`): the map under a fixed pin, a circle size, Save. */
 @Composable
-fun StopHost(routeId: String, leg: Int, back: () -> Unit) {
+fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
     val ctx = LocalContext.current
     val app = App.instance
     val route = remember(routeId) { app.routes.get(routeId) }
@@ -163,7 +171,19 @@ fun StopHost(routeId: String, leg: Int, back: () -> Unit) {
     // A new stop with nothing to start from: open where you are.
     LaunchedEffect(Unit) { locate(move = start == StopText.FALLBACK) }
 
-    val stopName = name.ifBlank { "Bus ${leg + 1}" }
+    val stopName = name.ifBlank { RouteText.stopName(leg) }
+    // Backing out of a stop you just added, without saving it: it goes (and a new route with nothing set goes too).
+    val leave = {
+        if (fresh) app.routes.get(routeId)?.let { now ->
+            if (leg in now.legs.indices && !RouteText.stopSet(now, leg)) {
+                val left = now.legs.filterIndexed { i, _ -> i != leg }
+                if (left.none { CoordParser.parse(it.coords) != null }) app.routes.delete(routeId)
+                else app.routes.upsert(now.copy(legs = left))
+            }
+        }
+        back()
+    }
+    androidx.activity.compose.BackHandler { leave() }
     StopPicker(
         StopPickerUi(
             eyebrow = if (alarm) StopText.eyebrow(stopName, custom?.takeIf { CircleChoice.index(it) < 0 }) else "$stopName · no alarm",
@@ -172,7 +192,7 @@ fun StopHost(routeId: String, leg: Int, back: () -> Unit) {
             canRemove = route.legs.size > 1, canForget = learned != null, locating = locating,
         ),
         StopPickerActions(
-            back = back,
+            back = leave,
             paste = { t ->
                 paste = t
                 CoordParser.parse(t)?.let { moveTo = it; moveTick++ }
@@ -201,7 +221,14 @@ fun StopHost(routeId: String, leg: Int, back: () -> Unit) {
                 back()
             },
         ),
-        map = { m -> PickerMap(start, zoneM, LocalN.current, moveTo, moveTick, me, { centre = it }, m) },
+        map = { m ->
+            PickerMap(
+                start, zoneM, LocalN.current, moveTo, moveTick, me, { centre = it }, m,
+                // Drag the circle's edge (PLAN B4): a size off the presets shows on the slider.
+                onRadius = { r -> custom = r; slider = CircleChoice.index(r) < 0 },
+                onCircleTap = { slider = true; if (custom == null) custom = ZoneScale.round(zoneM) },
+            )
+        },
         modifier = Modifier.navigationBarsPadding(),
     )
     if (renaming) NameDialog(

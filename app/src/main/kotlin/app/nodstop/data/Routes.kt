@@ -28,15 +28,15 @@ data class Route(
     /** Engine legs with what has been learned about each stop, or null if any leg is incomplete. */
     fun toLegs(learned: (LatLng) -> Learned? = { null }): List<Leg>? = legs.mapIndexed { i, d ->
         val dest = CoordParser.parse(d.coords) ?: return null
-        Leg(name = d.name.ifBlank { "Leg ${i + 1}" }, dest = dest, alarmEnabled = d.alarmEnabled, learned = learned(dest), wakeRadiusM = d.wakeRadiusM)
+        Leg(name = d.name.ifBlank { "Stop ${i + 1}" }, dest = dest, alarmEnabled = d.alarmEnabled, learned = learned(dest), wakeRadiusM = d.wakeRadiusM)
     }.takeIf { it.isNotEmpty() }
 
     /** Human-readable reason this route can't start yet, or null. */
     fun problem(): String? {
-        if (legs.isEmpty()) return "Add a leg"
+        if (legs.isEmpty()) return "Add a stop"
         legs.forEachIndexed { i, d ->
-            val label = d.name.ifBlank { "Leg ${i + 1}" }
-            if (CoordParser.parse(d.coords) == null) return "$label: set where you get off"
+            val label = d.name.ifBlank { "Stop ${i + 1}" }
+            if (CoordParser.parse(d.coords) == null) return "$label needs a stop"
         }
         return null
     }

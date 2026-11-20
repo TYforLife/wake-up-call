@@ -1,6 +1,14 @@
 package app.nodstop.ui.v2
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -133,6 +141,8 @@ fun TextLinkButton(text: String, onClick: () -> Unit) {
 /**
  * Now, riding (mockups `riding`, `riding-night`, `gps-lost`, `transfer`): the map fills the screen; one sheet
  * holds the words. [map] draws the map (the real MapLibre map, or a flat box in screenshot tests).
+ * PLAN Run 11, B3: with [compact], the sheet folds to one line for more map: drag it down (or touch the map), drag
+ * it up or tap it to open it again.
  */
 @Composable
 fun NowRiding(
@@ -142,6 +152,11 @@ fun NowRiding(
     onStopTrip: () -> Unit,
     map: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
+    compact: CompactSheetUi? = null,
+    expanded: Boolean = true,
+    onExpandedChange: (Boolean) -> Unit = {},
+    /** Shown instead of the trip sheet, e.g. a stop's circle sizes (PLAN B4). */
+    overlay: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -160,8 +175,38 @@ fun NowRiding(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 44.dp),
             )
         }
+        // Drag the sheet down to fold it, up to open it (PLAN B3).
+        val threshold = with(LocalDensity.current) { 24.dp.toPx() }
+        var dragged by remember { mutableFloatStateOf(0f) }
+        val drag = Modifier.draggable(
+            rememberDraggableState { dragged += it }, Orientation.Vertical,
+            onDragStarted = { dragged = 0f },
+            onDragStopped = { if (dragged < -threshold) onExpandedChange(true) else if (dragged > threshold) onExpandedChange(false) },
+        )
         // The sheet overlaps the map by its rounded corners.
-        TripSheet(sheet, onAction, Modifier.offsetUp(28))
+        Box(Modifier.offsetUp(28).animateContentSize().then(drag)) {
+            when {
+                overlay != null -> overlay()
+                expanded || compact == null -> TripSheet(sheet, onAction)
+                else -> CompactTripSheet(compact, onAction, onExpand = { onExpandedChange(true) })
+            }
+        }
+    }
+}
+
+/** The trip sheet folded to one line: where, when, the alarm, and I'm off this bus. Tap to open it. */
+@Composable
+fun CompactTripSheet(ui: CompactSheetUi, onAction: () -> Unit, onExpand: () -> Unit, modifier: Modifier = Modifier) {
+    val c = LocalN.current
+    Sheet(modifier.clickable(onClickLabel = "Show more", onClick = onExpand)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (ui.danger) Icon(NIcons.Warn, null, tint = c.danger)
+            Text(
+                ui.line, style = NType.row, color = if (ui.danger) c.danger else c.fg, maxLines = 2,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            )
+            Pill(ui.action, onAction)
+        }
     }
 }
 
@@ -171,3 +216,31 @@ internal fun Modifier.offsetUp(dp: Int): Modifier = this.layout { measurable, co
     val up = dp.dp.roundToPx()
     layout(p.width, (p.height - up).coerceAtLeast(0)) { p.place(0, -up) }
 }
+
+/** A stop's circle, from the riding map (PLAN Run 11, B4): [radiusM] is yours (null: automatic), [shownM] the size drawn. */
+data class CircleSheetUi(val stop: String, val radiusM: Double?, val shownM: Double)
+
+/** Tap your stop's circle on the map: its sizes, saved as you pick (Auto, 150, 250, 400 m, or the slider). */
+@Composable
+fun CircleSheet(ui: CircleSheetUi, onChange: (Double?) -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
+    val c = LocalN.current
+    var slider by remember { mutableStateOf(CircleChoice.index(ui.radiusM) < 0) }
+    var draft by remember(ui.shownM) { mutableFloatStateOf(app.nodstop.map.ZoneScale.toPos(ui.shownM)) }
+    val custom = if (slider) app.nodstop.map.ZoneScale.toMeters(draft) else ui.radiusM?.takeIf { CircleChoice.index(it) < 0 }
+    Sheet(modifier) {
+        Eyebrow(StopText.eyebrow(ui.stop, custom))
+        Spacer(Modifier.height(2.dp))
+        Segmented(CircleChoice.LABELS, if (slider) -1 else CircleChoice.index(ui.radiusM)) { slider = false; onChange(CircleChoice.radius(it)) }
+        if (slider) {
+            androidx.compose.material3.Slider(
+                draft, { draft = it }, onValueChangeFinished = { onChange(app.nodstop.map.ZoneScale.toMeters(draft)) },
+                colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = c.fg, activeTrackColor = c.fg, inactiveTrackColor = c.line),
+            )
+        } else {
+            Text("Other size", style = NType.secondary, color = c.muted, modifier = Modifier.clickable { slider = true }.padding(vertical = 8.dp))
+        }
+        Hint("Or drag the dot on the circle's edge.", Modifier.padding(bottom = 8.dp))
+        PrimaryButton("Done", onDone)
+    }
+}
+

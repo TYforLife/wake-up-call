@@ -148,6 +148,9 @@ object MapModel {
 
     fun tracksJson(l: Layers): String = collection(l.tracks.map { feature(line(it)) })
 
-    fun meJson(me: LatLng?, kind: Me): String =
-        collection(listOfNotNull(me?.let { feature(point(it), mapOf("icon" to JsonPrimitive(kind.name.lowercase()))) }))
+    /** You, with your heading in degrees when known (the map turns the blue dot's beam to it, PLAN B2). */
+    fun meJson(me: LatLng?, kind: Me, bearing: Double? = null): String =
+        collection(listOfNotNull(me?.let {
+            feature(point(it), listOfNotNull("icon" to JsonPrimitive(kind.name.lowercase()), bearing?.let { b -> "bearing" to JsonPrimitive(b) }).toMap())
+        }))
 }

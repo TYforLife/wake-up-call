@@ -42,8 +42,8 @@ sealed interface Screen {
     data object Trip : Screen
     /** A route (null: a new one, named first). */
     data class Route(val routeId: String?) : Screen
-    /** Set one bus's stop on the map. */
-    data class Stop(val routeId: String, val leg: Int) : Screen
+    /** Set one bus's stop on the map. [fresh]: just added; backing out without saving removes it (PLAN B1). */
+    data class Stop(val routeId: String, val leg: Int, val fresh: Boolean = false) : Screen
     data object Setup : Screen
     data object Contacts : Screen
     data object Debug : Screen
@@ -126,7 +126,7 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>) {
     when (s) {
         null -> NodstopV2Theme { TabbedShell(tab, { tab = it }, resumeTick, go) }
         is Screen.Route -> NodstopV2Theme { SubScreen { RouteHost(s.routeId, go, back) } }
-        is Screen.Stop -> NodstopV2Theme { SubScreen { StopHost(s.routeId, s.leg, back) } }
+        is Screen.Stop -> NodstopV2Theme { SubScreen { StopHost(s.routeId, s.leg, s.fresh, back) } }
         Screen.Setup -> NodstopV2Theme { SubScreen { SetupHost(resumeTick, back) } }
         Screen.Contacts -> NodstopV2Theme { SubScreen { ContactsHost(resumeTick, back) } }
         else -> NodstopV2Theme {

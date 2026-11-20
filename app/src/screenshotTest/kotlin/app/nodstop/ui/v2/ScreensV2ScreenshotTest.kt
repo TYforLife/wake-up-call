@@ -31,7 +31,11 @@ class ScreensV2ScreenshotTest {
     private fun shot(id: String, dark: Boolean = false, content: @Composable () -> Unit) =
         captureRoboImage("src/test/snapshots/v2_$id.png") { NodstopV2Theme(dark = dark) { content() } }
 
-    private val flatMap: @Composable (Modifier) -> Unit = { m -> Box(m.background(LocalN.current.mapBg)) }
+    /** MapLibre can't render on the JVM: the map is a flat box in Google's land colour (PLAN B2). */
+    private val flatMap: @Composable (Modifier) -> Unit = { m ->
+        val land = app.nodstop.map.MapPalette.colors(LocalN.current.dark).base.getValue(app.nodstop.map.MapPalette.Role.LAND)
+        Box(m.background(androidx.compose.ui.graphics.Color(land.toInt())))
+    }
 
     private val routes = listOf(
         RouteOption("work", "To work", "Central Station, then Harbour St"),
@@ -68,6 +72,23 @@ class ScreensV2ScreenshotTest {
     }
 
     @Test fun riding() = shot("riding") { withTabs(true) { NowRiding(riding, {}, {}, {}, flatMap) } }
+
+    /** PLAN Run 11, B3: the sheet folded to one line, for more map. */
+    @Test fun riding_collapsed() = shot("riding-collapsed") {
+        withTabs(true) {
+            NowRiding(
+                riding, {}, {}, {}, flatMap,
+                compact = CompactSheetUi("Harbour St · 6 min · alarm 7:45", false, "I'm off this bus"), expanded = false,
+            )
+        }
+    }
+
+    /** PLAN Run 11, B4: your stop's circle tapped on the map: its sizes. */
+    @Test fun riding_circle() = shot("riding-circle") {
+        withTabs(true) {
+            NowRiding(riding, {}, {}, {}, flatMap, overlay = { CircleSheet(CircleSheetUi("Harbour St", 250.0, 250.0), {}, {}) })
+        }
+    }
 
     @Test fun riding_night() = shot("riding-night", dark = true) {
         withTabs(true) { NowRiding(riding.copy(alarm = "Alarm about 22:45"), {}, {}, {}, flatMap) }

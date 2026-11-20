@@ -27,6 +27,7 @@ import androidx.compose.runtime.produceState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -102,7 +103,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     }
     val ui = NowIdleUi(
         greeting = Greeting.of(cal.get(Calendar.HOUR_OF_DAY)),
-        routes = routes.map { RouteOption(it.id, it.name, routeSubtitle(it), it.problem()) },
+        routes = routes.map { RouteOption(it.id, it.name, routeSubtitle(it), RouteText.problem(it)) },
         selectedId = picked,
         notReady = notReady,
         interruptedAlarm = persisted?.let { app.scheduler.scheduledAtMs?.let(::hm) ?: "" },
@@ -127,7 +128,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
                 }
             },
             skipRating = { app.settings.setPendingRating(null) },
-            addRoute = { go(Screen.Route(null)) },
+            addRoute = { newRoute(go) },
             sendReport = { reportMissedAlarm(ctx) },
             dismissLastTrip = { lastTrip?.first?.let { app.settings.setVerdictSeen(it) }; verdictTick++ },
         ),
@@ -182,20 +183,60 @@ private fun NowRidingTab(t: TripService.TripUi) {
     var confirmStop by remember { mutableStateOf(false) }
     // A simulated trip's stops aren't in any route: show them too.
     val all = if (routes.none { it.name == t.routeName })
-        routes + Route(name = t.routeName, legs = t.legNames.zip(t.legStops).map { (n, p) -> LegDraft(n, "${p.lat}, ${p.lng}") })
+        routes + Route(
+            name = t.routeName,
+            legs = t.legNames.zip(t.legStops).mapIndexed { i, (n, p) -> LegDraft(n, "${p.lat}, ${p.lng}", wakeRadiusM = t.legRadii.getOrNull(i)) },
+        )
     else routes
     val layers = remember(all, learned, t.routeName, t.legIndex) {
         MapModel.layers(MapModel.visibleRoutes(all, t.routeName, null, null), { learned[Route.stopKey(it)] }, t.routeName, t.legIndex)
     }
     val colors = LocalN.current
+    // More map, less panel (PLAN B3): touching the map folds the sheet; it remembers while the trip runs.
+    var expanded by rememberSaveable { mutableStateOf(true) }
+    // Your stop's circle, tapped on the map (PLAN B4): its sizes replace the sheet until Done.
+    var circleOpen by remember { mutableStateOf(false) }
+    val circlePin = layers.pins.firstOrNull { it.current && it.alarm }
     NowRiding(
         sheet = TripSheetText.of(t, ::hm),
         onAction = { TripService.instance?.skipLeg() },
         onRecentre = { recentre++ },
         onStopTrip = { confirmStop = true },
-        map = { m -> RideMap(layers, t.status.position, colors, recentre, m) },
+        map = { m ->
+            RideMap(
+                layers, t.status.position, colors, recentre, m, onUserGesture = { expanded = false },
+                onCircleTap = { circleOpen = true },
+                onCircleResize = { p, r -> saveCircle(p, r) },
+            )
+        },
+        compact = CompactSheetText.of(t, ::hm),
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        overlay = circlePin?.takeIf { circleOpen }?.let { p ->
+            {
+                CircleSheet(
+                    CircleSheetUi(p.label, if (p.zoneIsYours) p.zoneM else null, p.zoneM),
+                    onChange = { saveCircle(p, it) }, onDone = { circleOpen = false },
+                )
+            }
+        },
     )
     if (confirmStop) StopTripDialog({ confirmStop = false }) { TripService.stop(ctx) }
+}
+
+/**
+ * A stop's circle changed on the map (PLAN B4): saved to that stop of its route, which the running trip takes at
+ * once (`TripService.onRoutesChanged`, `UpdateLegs`: it can only ring earlier). A simulated trip's stops aren't in
+ * any route: the trip takes it directly.
+ */
+fun saveCircle(pin: MapModel.Pin, radiusM: Double?) {
+    val app = App.instance
+    val r = app.routes.get(pin.routeId)
+    if (r != null && pin.legIndex in r.legs.indices) {
+        app.routes.upsert(r.copy(legs = r.legs.mapIndexed { i, l -> if (i == pin.legIndex) l.copy(wakeRadiusM = radiusM) else l }))
+    } else {
+        TripService.instance?.setWakeRadius(pin.pos, radiusM)
+    }
 }
 
 @Composable

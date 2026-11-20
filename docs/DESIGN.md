@@ -174,9 +174,12 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
 - **Automatic** (dashed): how far out, in a straight line, the bus usually is when the stop's lead is
   left on past rides (median); before any ride, lead × 25 km/h (about 310 m at 45 s). Display only: the
   alarm itself follows §2's timing.
-- **Yours** (solid): tap a stop pin on the map, then a preset (Auto, 150, 250, 400, 700 m) or the slider
-  (50 m–2 km on a square-root scale, so most of it is under 1 km; `ZoneScale`); the circle follows live;
-  Save stores it on that leg (`LegDraft.wakeRadiusM`). **A saved circle applies to a running trip at once**
+- **Yours** (solid), set right on the map (PLAN Run 11, B4):
+  - Tap inside your stop's circle for its sizes: Auto, 150, 250, 400 m, or the slider (50 m–2 km on a
+    square-root scale, so most of it is under 1 km; `ZoneScale`).
+  - Or drag the dot on its edge in or out: the circle follows your finger, and the size is rounded like the
+    slider's (`CircleDrag`).
+  - It's stored on that stop (`LegDraft.wakeRadiusM`), from the riding map or Set a stop. **A saved circle applies to a running trip at once**
   (`Input.UpdateLegs`: only circles, only for legs whose stop is unchanged; a circle you're already inside
   rings now; property-tested never to make an alarm later). A simulated trip's stops can be set too (for
   that trip only). Once you're on the bus and inside
@@ -188,7 +191,8 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
   each taken only if earlier. GPS already runs at 1–2 s for the whole trip, so no faster checking is
   needed near the circle; a GPS gap is covered by the failsafe (tested: a gap from 60 s before the edge
   still rings before it). Waiting at a stop inside the zone doesn't ring until you're on the bus.
-  Property-tested: with a circle, the first ring is never later than without one (300 random trips).
+  Property-tested: with a circle, the first ring is never later than without one (300 random trips). Shrinking a
+  circle mid-trip, even to 50 m, never rings later than having no circle (200 random trips, PLAN B4).
 
 ### Why the approximations err early
 
@@ -452,14 +456,22 @@ doesn't flash another colour while it opens.
     - Neutral when you got off or stopped first.
     - OK hides it.
 - **Now, riding** (`riding`, `riding-night`, `gps-lost`, `transfer`):
-  - A full-bleed map: OpenFreeMap `positron`, recoloured to the map tokens, light or dark. It shows only this
-    trip's stops, your stop as a black pin with its circle, the learned route, and you as the blue dot. It has
-    recentre, rotation and the compass.
+  - A full-bleed map that looks like Google Maps (PLAN Run 11, B2; `MapPalette`, `MapStyle`):
+    - The base is OpenFreeMap `liberty` in Google's colours: grey-beige land, white streets, yellow-orange main
+      roads, green parks, blue water, place, POI and transit labels, and bus stops as small blue discs, then
+      their names. At night it uses Google's navy night map.
+    - It shows only this trip's stops: your stop as Google's red pin with its circle shaded blue, the others as
+      small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
+    - It has recentre, rotation and the compass, and opens framing you and your stop (`MapModel.frame`; the owner
+      likes this).
+    - Tap your stop's circle for its sizes, or drag the dot on its edge (§2.6).
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45", and I'm off this bus.
     - Waiting: "4.1 km · waiting for the bus".
     - After changing buses: "Off at X · next stop", "Waiting for bus 2", and Skip this bus.
     - GPS lost: the map greys out, the figures show their age, and a red line says when it rings at the latest
       (the failsafe).
+    - **It folds to one line** for more map (PLAN B3, `CompactSheetText`): "Harbour St · 6 min · alarm 7:45",
+      with I'm off this bus. Drag it down or touch the map to fold it; drag it up or tap it to open it.
   - Stop trip is in the ⋯ menu, and is confirmed.
 - **The ring** (`ring`):
   - Black in both themes. "Wake up" (or "Urgent message"), then one line ("Harbour St in about 45 s", is close,
@@ -471,15 +483,18 @@ doesn't flash another colour while it opens.
   - Then While you slept as plain rows (tap one to share it), then Done.
 - **Routes** (`routes`):
   - One row per route: "2 buses · 12 rides", or its problem as a red line ("Hill Ave needs a stop").
-  - + names a new route.
+  - + makes "Route N" with Stop 1 and opens the map at once (PLAN Run 11, B1): save it and the route is ready. Back
+    out and it's gone. No names to type.
 - **A route** (`route`):
   - The name (tap to rename), then the stops on a line: a ring for an alarm, dashed for no alarm, red for not set,
     each with "Alarm 45 s before · within 250 m".
-  - Add a bus (up to 3) asks where you get off, then opens the map.
+  - "Add stop 2" (up to 3) opens the map straight away; backing out without saving drops it. Stops are "Stop 1",
+    "Stop 2" until you tap a name to change it. A route with one stop set is ready.
   - One primary button for the next thing it needs ("Set Hill Ave"), or Start when it's ready.
   - Rename and Delete route (confirmed) are in the ⋯ menu. **No times.**
 - **Set a stop** (`stop`):
-  - The map moves under a fixed pin, and the wake circle follows it.
+  - The map (the same Google look) moves under a fixed red pin, and the wake circle follows it. Drag the dot on
+    the circle's edge to size it, or tap the circle for the slider. Tap the stop's name to rename it.
   - The field at the top takes a pasted point or Maps link (`CoordParser`: `-36.78123, 174.75123`,
     `-36.78123 174.75123`, and URLs with `@lat,lng` or `q=`/`query=lat,lng`). It warns outside New Zealand, or
     for a short link it can't read.
