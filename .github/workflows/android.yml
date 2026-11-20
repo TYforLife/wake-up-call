@@ -35,6 +35,18 @@ jobs:
           name: screenshots
           path: app/src/test/snapshots/*.png
           if-no-files-found: ignore
+      - name: Compare with the design (PLAN Runs 8 and 9; never blocks the APK)
+        continue-on-error: true
+        run: |
+          pip install --quiet pillow
+          python3 docs/design/compare.py app/src/test/snapshots build/compare
+          cat build/compare/index.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compare
+          path: build/compare/*.png
+          if-no-files-found: ignore
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -64,6 +76,11 @@ jobs:
         with:
           name: screenshots
           path: screenshots
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: compare
+          path: compare
       - name: Publish to the debug-latest prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,5 +101,9 @@ jobs:
           # Screenshots of the screens (PLAN U0), viewable on a phone from the release page.
           if ls screenshots/*.png > /dev/null 2>&1; then
             gh release upload debug-latest screenshots/*.png --repo "$REPO" --clobber
+          fi
+          # Design next to app, per screen (PLAN Runs 8 and 9).
+          if ls compare/*.png > /dev/null 2>&1; then
+            gh release upload debug-latest compare/*.png --repo "$REPO" --clobber
           fi
           gh release edit debug-latest --repo "$REPO" --prerelease --notes "$NOTES"

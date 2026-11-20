@@ -18,6 +18,9 @@ Files:
 - `gen_mockups.py`: the screens and tokens (`tokens.v2.json`), writes `mockups.html`, `screens.json`, `flows.json`.
 - `shoot.js`: renders them to `screens/` (`node docs/design/shoot.js docs/design`).
 - `screens/`: 13 screens and 2 flows. Made-up stops and messages only.
+- `compare.py`: puts each mockup next to the app's screenshot (`app/src/test/snapshots/v2_<id>.png`) as
+  `compare_<id>.png`, and counts the screens built. CI runs it on every push and attaches the images to
+  `debug-latest` (PLAN Runs 8 and 9).
 
 | Screen | File |
 | --- | --- |

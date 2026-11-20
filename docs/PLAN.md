@@ -348,14 +348,134 @@ Prerequisite: Run 6 merged. This run produces **designs, not code**. Its PR is d
   - https://claude.ai/artifact/VoVev4CB3YYocztGCXF8Cb: 18 screens in four rows by flow, the design system installed. Rendered from `docs/design/mockups.html`; PNGs and flow strips in `docs/design/screens/`.
 - [x] Links to both artifacts in the PR. The owner reviews and comments **in the artifacts**; the session answers there and revises.
 - [x] **v2, from scratch** after the owner rejected v1's look: black and white, the system font, one button per screen, lists, map with a sheet, a clock-like alarm, one accent for "live". Same two artifact links, updated; `docs/design/` regenerated (`gen_mockups.py`, 13 screens).
-- [ ] **Gate D** (owner): approves the designs. Then Run 8 builds them screen by screen, each PR with the mockup next to its screenshot.
+- [x] **Gate D** (owner): approves the designs. Passed 2026-11-20 ("Looks bloody amazing"), on v2. Then Run 8 builds them screen by screen, each PR with the mockup next to its screenshot.
 
 **Test on phone (Run 7):** none: review the artifacts on the phone instead.
+
+## UI migration: Runs 8 and 9 (build the v2 design)
+
+The approved design is the source of truth: `docs/design/screens/*.png` (13 screens), `docs/design/tokens.v2.json`
+(every colour), `docs/design/system/` (type, spacing, radii, components, rules in its README). Where a mockup and
+this plan disagree, the mockup wins; where the mockup is silent, follow the design system README.
+
+**How every UI milestone is checked (no device in the cloud):**
+- Each screen gets a Roborazzi screenshot test that records `app/src/test/snapshots/v2_<id>.png`, `<id>` as in
+  `docs/design/screens.json`, at 390×844 dp (`qualifiers = "w390dp-h844dp-xxhdpi"`), from made-up data, light and
+  (where the mockup is dark) dark.
+- CI runs `python3 docs/design/compare.py` after the screenshots (after `pip install pillow`) and uploads
+  `build/compare/*.png` (mockup left, app right) with the screenshots to `debug-latest`. Every UI PR shows the
+  comparison images of the screens it touches, and `build/compare/index.md`'s count.
+- The bar: same layout, hierarchy, copy, colours and spacing as the mockup at a glance. Pixel-exact is not the
+  goal (fonts render differently); "looks like the mockup" is. Anything deliberately different is listed in the PR.
+
+**What does not change:** behaviour. The engine, the alarm path (rule 1), the re-ring, buzz on Mute, quiet trip,
+While you slept, learning, data stores and every test stay as they are. These runs move pixels and navigation, not
+logic. Every existing JVM test must pass untouched (screenshot tests are replaced).
+
+### Screen map (mockup → Compose → what it replaces)
+
+| Mockup `id` | New composable | Replaces |
+| --- | --- | --- |
+| `setup` | `ui/v2/SetupScreen` | `ReadinessScreen` (checks list), Home's red cards |
+| `now` | `ui/v2/NowIdle` | `HomeScreen` |
+| `riding`, `riding-night`, `gps-lost`, `transfer` | `ui/v2/NowRiding` (map + `TripSheet`) | `TripScreen`, Home's trip card, `MapScreen` during a trip |
+| `ring` | `ui/v2/AlarmRing` | `AlarmUi.AlarmScreen` |
+| `awake` | `ui/v2/AlarmAwake` | `AlarmUi.AfterWakeScreen` |
+| `routes` | `ui/v2/RoutesList` | Home's route cards |
+| `route` | `ui/v2/RouteDetail` | `RouteEditorScreen` |
+| `stop` | `ui/v2/StopPicker` (map + sheet) | `MapScreen`'s zone sheet, coordinate pasting |
+| `settings` | `ui/v2/SettingsScreen` | `ReadinessScreen`'s settings sections |
+| `lock` | `Notifications.trip` text and colour | the current trip notification copy |
+
+## Run 8: Foundation, Now, the ring
+
+Prerequisite: Gate D passed (above). Branch from the latest `main`.
+
+### M1 Tokens, type and components
+- [ ] `ui/v2/Theme.kt`: `NodstopTheme` from `tokens.v2.json` exactly (light and dark), the system font
+  (`FontFamily.Default`, Roboto on the phone), the type scale and spacing/radius/size tokens from
+  `docs/design/system/tokens.json`. A JVM test reads `docs/design/tokens.v2.json` and fails if any colour in
+  `Theme.kt` differs (so design and code can't drift).
+- [ ] `ui/v2/Components.kt`: `PrimaryButton`, `GhostButton`, `Pill`, `TextLink`, `ListRow`, `RadioRow`, `SwitchRow`,
+  `Segmented`, `TripSheet`, `HoldToStop` (1 s hold, accent ring fills, haptic tick at the end; no tap or brush
+  stops it), `TabBar` (live dot), and the outline icons from `gen_mockups.py` as `ImageVector`s (no icon library).
+- [ ] One screenshot test per component, light and dark.
+
+### M2 Navigation shell
+- [ ] Three tabs (Now, Routes, Settings) and two overlays (Setup, Alarm), replacing the `Screen` enum's Home/Trip/
+  Readiness/Map. Back from a tab goes to Now; Now's tab shows the live dot while a trip runs.
+- [ ] Debug moves behind a long-press on Settings' build line; nothing else links to it.
+- [ ] Quick Settings tiles and launcher shortcuts still start a route (open Now riding).
+
+### M3 Now
+- [ ] `NowIdle` (`now`): "Good morning/afternoon/evening", "Where are you riding?", a `RadioRow` per route with the
+  likely one selected, one Start. `RouteSuggest` (pure, `:app` JVM test): the route last started at a similar time
+  of day (±2 h) on a weekday/weekend match, else the last started, else the first. A required check that's off shows
+  as one red row above the list that opens Setup.
+- [ ] `NowRiding` (`riding`, `riding-night`, `gps-lost`, `transfer`): a full-bleed MapLibre map under one `TripSheet`.
+  Map: OpenFreeMap's plain style (`positron`; confirm it on the phone, as the cloud session can't reach the tile
+  host), recoloured at runtime to the tokens (`map-*`), dark at night; the route line in `fg`, the stop pin, the circle as
+  a faint `fg` ring, you as the blue dot; only this trip's stops (R4). Recentre button; rotation and the compass
+  stay. Sheet states: riding (min · km, "Alarm about 7:45"), waiting/transfer ("Off at X · next stop",
+  "Waiting for bus 2"), GPS lost (figures muted with their age, the red line "GPS lost. Alarm at 7:44 at the latest."
+  from the engine's failsafe time). "I'm off this bus" is the ghost button; Stop trip moves to the sheet's overflow
+  (confirmed).
+- [ ] Screenshot tests: `v2_now`, `v2_riding` (light), `v2_riding-night` (dark), `v2_gps-lost`, `v2_transfer`. The map
+  can't render on the JVM: the test draws the sheet over a flat `map-bg` box; the PR says so.
+
+### M4 The ring and after
+- [ ] `AlarmRing` (`ring`): black in both themes, "Wake up" (light weight, 64 sp), "<stop> in about 45 s",
+  `HoldToStop` low on the screen, "Hold for 1 second to stop / or hold volume down". The briefing is not on this
+  screen any more (it's on the next). Volume-down hold, the notification button, `RingDiag` and the
+  over-the-lock-screen behaviour stay exactly as they are.
+- [ ] `AlarmAwake` (`awake`): "Now" / "Get off at <stop>" (or "Stay on the bus" for an early ring, with why) /
+  one line, then "While you slept" as plain rows (Urgent tag, Share this line), then Done. "What you missed" and
+  W3 (cleared on Done) unchanged.
+- [ ] Screenshot tests `v2_ring`, `v2_awake` (+ the early-ring and nothing-new variants).
+
+**Test on phone (Run 8):** the Now screen starts the right route in the morning and the evening; a real ride shows
+the map and sheet, readable at arm's length; the couch test rings with the new alarm and the hold works with a
+groggy thumb; night mode on a dark bus.
+
+## Run 9: Routes, stops, setup, settings, cleanup
+
+Prerequisite: Run 8 merged.
+
+### M5 Routes and stops
+- [ ] `RoutesList` (`routes`): one row per route ("2 buses · 12 rides"), a problem as a red second line, + to add.
+- [ ] `RouteDetail` (`route`): the name (tap to rename), its stops on a line (filled = alarm, dashed = no alarm, red
+  = stop not set), Add a bus, one primary button for the next thing it needs ("Set Hill Ave"), Delete in the
+  overflow (confirmed). Tapping a stop opens `StopPicker`.
+- [ ] `StopPicker` (`stop`): the map moves under a fixed pin ("Drag the map to place your stop"), a search field that
+  also takes a pasted Maps link or coordinates (`CoordParser`), the compass, a `Segmented` circle size (Auto, 150 m,
+  250 m, 400 m; the 50 m–2 km slider stays one tap away as "More"), Save stop. "Use my location" sits in the search
+  field's menu. The stop name comes from the field (typed once, at home).
+- [ ] Screenshot tests `v2_routes`, `v2_route`, `v2_stop` (sheet over a flat map box).
+
+### M6 Setup and settings
+- [ ] `SetupScreen` (`setup`): the five required checks as rows (Notifications, Over the lock screen, Exact alarms,
+  Buzz on Mute, Location while riding) with Allow pills; Continue enabled when all are allowed. Shown on first run
+  and from Now's red row. Battery (unrestricted) and Samsung's sleeping apps become one more row on Samsung only.
+  Optional checks (While you slept, live progress) move to Settings.
+- [ ] `SettingsScreen` (`settings`): the five rows of the mockup; While you slept's extras (tea tone, GPU, backup
+  and restore, Briefing lab) move to Debug. "Report a missed alarm" shares the location-hidden log (as Debug →
+  Share does now) with the last ring's report in the message.
+- [ ] Screenshot tests `v2_setup`, `v2_settings`.
+
+### M7 Notifications, cleanup, docs
+- [ ] The trip notification reads like `lock`: "<stop> in 6 min", "Alarm about 7:45", accent progress, Stop trip
+  action kept (authenticated). The ring and rate notifications' copy matches the alarm screens.
+- [ ] Delete the replaced screens (`HomeScreen`, `TripScreen`, `ReadinessScreen`, `RouteEditorScreen`, the old
+  `MapScreen` UI, `AlarmUi`'s old composables, v1 `Design.kt`) and their old screenshot tests; nothing references them.
+- [ ] `docs/DESIGN.md` §5 Screens rewritten for v2; `compare.py`'s index shows **13 of 13 screens built**.
+
+**Test on phone (Run 9):** set a new stop by dragging the map at home; a full week of rides on v2 only; first run
+from a fresh install (Setup) and an update over the old app (data kept, Setup only if something is missing).
 
 Start them like the earlier runs:
 
 ```
-/goal Finish Run 7 in docs/PLAN.md and merge its PR
+/goal Finish Run 8 in docs/PLAN.md and merge its PR
 ```
 
 ## Later (not for automated runs yet)
