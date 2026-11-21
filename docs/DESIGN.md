@@ -750,7 +750,13 @@ Default Gemma 4 E2B (`.litertlm`), fallback Gemma 3 1B. Runtime: LiteRT-LM
 Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend by default. Debug → **Use the GPU (experimental)**
 tries the GPU first and falls back to the CPU if the phone or model can't use it; the lab shows which
 one ran, so both can be compared. A GPU driver can crash natively, past any `try`, so trips use the GPU
-only after the lab has loaded the model on it successfully on this phone (`gpuVerified`). The rider downloads the file on the phone and
+only after the lab has loaded the model on it successfully on this phone (`gpuVerified`). **Trips use a model
+only after it has finished a lab run on this phone** (`modelVerified`, 2026-11-21). On the owner's Galaxy A17,
+loading Gemma 4 E2B in the lab closed the app. A model too big for the phone's memory would otherwise be loaded
+mid-trip, in the trip's own process, and take tracking down with it. Until a run finishes, the alarm screen
+shows the digest. If a lab run closes the app, the next lab visit says why (`LabExit`, from Android's
+`ApplicationExitInfo`: memory, or a native crash, and on the GPU or not). Before a run, the lab warns when free
+memory looks too small and the button reads "Run anyway". The rider downloads the file on the phone and
 imports it in Debug → **Briefing lab** (`ModelManager`, app storage, select or delete); the lab also
 times the model on made-up chats (`SampleChats`). With no model, the alarm screen shows the digest
 only. **Decision C (owner, 2026-11-16): Gemma 4 E2B is the default**; Gemma 3 1B stays the fallback

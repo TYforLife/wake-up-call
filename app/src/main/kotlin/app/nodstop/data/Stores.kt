@@ -305,6 +305,21 @@ class Settings(context: Context) {
      */
     val gpuVerified: Boolean get() = prefs.getBoolean(KEY_GPU_OK, false)
 
+    /**
+     * The model that finished a Briefing lab run on this phone. Trips use only that one: a model that closes the
+     * app in the lab never gets the chance to take trip tracking down with it.
+     */
+    val modelVerified: String? get() = prefs.getString(KEY_MODEL_OK, null)
+    fun setModelVerified(name: String?) { prefs.edit().apply { if (name == null) remove(KEY_MODEL_OK) else putString(KEY_MODEL_OK, name) }.apply() }
+
+    /** A lab run in progress (model name, start time), so a run that killed the app is explained next time. */
+    val labRunning: Pair<String, Long>? get() = prefs.getString(KEY_LAB_RUN, null)?.let { s ->
+        s.substringBefore('|').takeIf { it.isNotEmpty() }?.let { n -> n to (s.substringAfter('|').toLongOrNull() ?: 0L) }
+    }
+    fun setLabRunning(model: String?, atMs: Long = 0) {
+        prefs.edit().apply { if (model == null) remove(KEY_LAB_RUN) else putString(KEY_LAB_RUN, "$model|$atMs") }.commit()
+    }
+
     fun setGpuVerified(ok: Boolean) { prefs.edit().putBoolean(KEY_GPU_OK, ok).apply() }
 
     /** Your last starts (route, time of day, weekday or weekend), oldest first: what Now suggests from (Run 8). */
@@ -359,6 +374,8 @@ class Settings(context: Context) {
         const val KEY_TEA = "wys_tea_tone"
         const val KEY_GPU = "wys_use_gpu"
         const val KEY_GPU_OK = "wys_gpu_verified"
+        const val KEY_MODEL_OK = "wys_model_verified"
+        const val KEY_LAB_RUN = "wys_lab_running"
         const val KEY_DND = "dnd_during_trips"
         const val KEY_RING_SET = "ring_mode_set"
         const val KEY_RING_PREV_RINGER = "ring_prev_ringer"
