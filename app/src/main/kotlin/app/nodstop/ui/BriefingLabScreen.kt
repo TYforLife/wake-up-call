@@ -37,6 +37,7 @@ import app.nodstop.brief.Guardrails
 import app.nodstop.brief.LiteRtLlm
 import app.nodstop.brief.PromptBuilder
 import app.nodstop.brief.SampleChats
+import app.nodstop.model.LabExit
 import app.nodstop.model.ModelManager
 import app.nodstop.trip.TripService
 import kotlinx.coroutines.Dispatchers
@@ -77,6 +78,9 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
         if (uri != null) scope.launch { mm.import(uri) }
     }
     val current = mm.current()
+    // A run that closed the app last time: say why, once (it's read when the lab opens in a fresh start).
+    val lastExit = remember { lastRunExit(ctx) }
+    val verified = remember(result, running) { App.instance.settings.modelVerified }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -114,7 +118,23 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
             val status = remember(models, running, result, eval) { deviceStatus(ctx, current?.sizeBytes) }
             Text(status, style = MaterialTheme.typography.bodySmall)
         }
+        lastExit?.let { x ->
+            Section("Last run closed the app") {
+                Text(x.title, color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodyMedium)
+                Text(x.advice, style = MaterialTheme.typography.bodySmall)
+            }
+        }
         Section("Run on sample chats") {
+            val fits = remember(models, running) { current?.let { memoryFits(ctx, it.sizeBytes) } ?: true }
+            if (current != null && !fits) Text(
+                "This phone may not have enough free memory for this model: it can close the app. Close other apps first, " +
+                    "or import a smaller model (Gemma 3 1B).",
+                color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodySmall,
+            )
+            if (current != null) Text(
+                if (current.name == verified) "This model has run on this phone: trips use it." else "Trips show the plain digest until this model finishes a run here.",
+                style = MaterialTheme.typography.bodySmall,
+            )
             Text(
                 "Made-up chats, never yours. The first load can take a minute or more. " +
                     "During a trip the briefing waits at most ${BatchPlan.LLM_TIMEOUT_MS / 1000} s for an answer.",
@@ -128,7 +148,7 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
                     result = withContext(Dispatchers.Default) { runLab(m, ctx.cacheDir.absolutePath) }
                     running = false
                 }
-            }) { Text(if (running) "Running…" else "Run") }
+            }) { Text(if (running) "Running…" else if (current != null && !memoryFits(ctx, current.sizeBytes)) "Run anyway" else "Run") }
             if (trip != null) Text("Not during a trip.", style = MaterialTheme.typography.bodySmall)
             result?.let { r -> LabResultView(r) }
         }
@@ -153,7 +173,10 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
 }
 
 private suspend fun runLab(m: ModelManager.Model, cacheDir: String): LabResult {
-    val llm = LiteRtLlm(m.path, cacheDir, App.instance.settings.useGpu.value)
+    val settings = App.instance.settings
+    val llm = LiteRtLlm(m.path, cacheDir, settings.useGpu.value)
+    // If this run takes the app down, the next start explains why (LabExit).
+    settings.setLabRunning(m.name, System.currentTimeMillis())
     return try {
         val loadMs = llm.load()
         // Survived a GPU load on this phone: trips may now try the GPU too (see Settings.gpuVerified).
@@ -166,13 +189,37 @@ private suspend fun runLab(m: ModelManager.Model, cacheDir: String): LabResult {
             val l = parsed[c.id] ?: return@mapNotNull null
             Triple(c.title, l.line, Guardrails.passes(l.line, SampleChats.messages.filter { it.convKey == c.convKey }, c.title))
         }
+        // It loaded and answered on this phone: trips may use it now (until then they show the plain digest).
+        if (raw != null) settings.setModelVerified(m.name)
         LabResult(m.name, llm.backendUsed, loadMs, s.firstTokenMs, if (raw == null) null else s.totalMs, raw, lines,
             if (raw == null) "No answer within ${2 * BatchPlan.LLM_TIMEOUT_MS / 1000} s." else null)
     } catch (t: Throwable) {
         LabResult(m.name, llm.backendUsed, null, null, null, null, emptyList(), "${t::class.simpleName}: ${t.message}")
     } finally {
+        settings.setLabRunning(null)
         llm.close()
     }
+}
+
+/**
+ * The lab's last run didn't finish because the app was closed (the owner's Galaxy A17): why, from Android's own
+ * record of how the process ended. Null if the last run finished, or nothing was recorded.
+ */
+private fun lastRunExit(ctx: android.content.Context): LabExit.Verdict? {
+    val settings = App.instance.settings
+    val (_, startedMs) = settings.labRunning ?: return null
+    settings.setLabRunning(null)
+    val am = ctx.getSystemService(android.app.ActivityManager::class.java)
+    val exit = runCatching { am.getHistoricalProcessExitReasons(ctx.packageName, 0, 5) }.getOrNull()
+        ?.firstOrNull { it.timestamp >= startedMs - 1_000 }
+        ?: return LabExit.Verdict("The last run didn't finish: the app was closed while the model loaded.", "Try again with nothing else open, or try a smaller model (Gemma 3 1B).", true)
+    return LabExit.of(exit.reason, exit.status, exit.description, exit.pss, settings.useGpu.value)
+}
+
+/** Enough free memory to load this model now, with room left for the rest of the phone (DeviceGate). */
+private fun memoryFits(ctx: android.content.Context, modelBytes: Long): Boolean {
+    val mem = android.app.ActivityManager.MemoryInfo().also { ctx.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(it) }
+    return DeviceGate.check(null, null, mem.availMem, mem.lowMemory, modelBytes, modelLoaded = false) == DeviceGate.Verdict.OK
 }
 
 /** Free memory, heat and battery, and whether a trip's briefing would run now (DeviceGate). */
@@ -183,7 +230,7 @@ private fun deviceStatus(ctx: android.content.Context, modelBytes: Long?): Strin
         ctx.getSystemService(android.os.BatteryManager::class.java).getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
     }.getOrNull()
     val verdict = modelBytes?.let { DeviceGate.check(battery, thermal, mem.availMem, mem.lowMemory, it, modelLoaded = false) }
-    return "Free memory ${ModelManager.mb(mem.availMem)} MB · thermal status ${thermal ?: "?"} (3+ stops AI) · battery ${battery ?: "?"}%\n" +
+    return "Memory ${ModelManager.mb(mem.availMem)} MB free of ${ModelManager.mb(mem.totalMem)} MB · model ${modelBytes?.let { ModelManager.mb(it) } ?: "–"} MB · thermal status ${thermal ?: "?"} (3+ stops AI) · battery ${battery ?: "?"}%\n" +
         when {
             verdict == null -> "No model imported."
             verdict == DeviceGate.Verdict.OK -> "A trip's briefing would run now."
@@ -194,6 +241,7 @@ private fun deviceStatus(ctx: android.content.Context, modelBytes: Long?): Strin
 /** The eval's score as text for the lab (and to paste into the PR). */
 private suspend fun runEval(m: ModelManager.Model, cacheDir: String): String {
     val llm = LiteRtLlm(m.path, cacheDir, App.instance.settings.useGpu.value)
+    App.instance.settings.setLabRunning(m.name, System.currentTimeMillis())
     return try {
         llm.load()
         val t0 = android.os.SystemClock.elapsedRealtime()
@@ -209,6 +257,7 @@ private suspend fun runEval(m: ModelManager.Model, cacheDir: String): String {
     } catch (t: Throwable) {
         "Eval failed: ${t::class.simpleName}: ${t.message}"
     } finally {
+        App.instance.settings.setLabRunning(null)
         llm.close()
     }
 }

@@ -5,7 +5,8 @@ the same thing twice. Read it with `CLAUDE.md` before you plan, design or ship a
 new, or repeats something, add it here in the same PR.
 
 ## Who he is and how he works
-- He rides two commutes on a Samsung phone and sleeps on the bus. "To work" is two buses and "From work" is three.
+- He rides two commutes on a Samsung phone (a **Galaxy A17**, a budget phone with little memory) and sleeps on the bus.
+  Anything heavy, like the Gemma model, must be proven on that phone before a trip relies on it. "To work" is two buses and "From work" is three.
   He usually has earbuds in, but he forgets them.
 - He works from his phone only. He sends `/goal` lines, reads the PR on his phone, installs the `debug-latest` APK
   and tests on real buses. He has no laptop and won't debug for you.

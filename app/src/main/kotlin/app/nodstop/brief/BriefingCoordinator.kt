@@ -44,7 +44,9 @@ class BriefingCoordinator(
             synchronized(checked) { checked.clear() }
         }
         if (job?.isActive == true) return
-        val model = App.instance.models.current() ?: return
+        // Only a model that finished a Briefing lab run on this phone (a model that's too big would otherwise be
+        // loaded here, in the trip's own process). Until then, the alarm screen shows the plain digest.
+        val model = App.instance.models.current()?.takeIf { it.name == App.instance.settings.modelVerified } ?: return
         val battery = battery()
         // Memory, heat and battery first: the trip shares this process and must never be put at risk.
         val gate = deviceVerdict(battery, model.sizeBytes)
