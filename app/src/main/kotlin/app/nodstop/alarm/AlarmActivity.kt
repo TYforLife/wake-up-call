@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import app.nodstop.openIfPossible
 import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.brief.Digests
@@ -60,7 +61,7 @@ class AlarmActivity : ComponentActivity() {
                     test = lastRingTest.value, accessOk = access,
                     onShare = { ShareLine.share(this, it) },
                     onFix = {
-                        runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                        openIfPossible(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         close()
                     },
                     onDone = { close() },

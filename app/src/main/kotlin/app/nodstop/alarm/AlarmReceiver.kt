@@ -4,9 +4,9 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import app.nodstop.App
 import app.nodstop.Notifications
+import app.nodstop.isolated
 import app.nodstop.engine.Config
 import app.nodstop.trip.TripService
 
@@ -22,20 +22,16 @@ class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = App.instance
         val info = RingService.info()
-        runCatching {
+        isolated("ring notification") {
             Notifications.ensureAlarmChannel(context)
             context.getSystemService(NotificationManager::class.java)
                 .notify(Notifications.ID_RING, Notifications.ring(context, info.legName, info.reason, info.test))
-        }.onFailure { Log.e("Nodstop", "could not post the ring notification", it) }
+        }
         app.scheduler.markFired()
-        try {
-            RingService.start(context)
-        } catch (e: Exception) {
-            Log.e("Nodstop", "could not start the ring service", e)
-            // Keep the dead-man's switch: with no service to re-ring, the system rings again in a minute.
-            if (!info.test && TripService.instance == null) {
-                runCatching { app.scheduler.set(System.currentTimeMillis() + (Config().reringS * 1000).toLong()) }
-            }
+        val started = isolated("ring service start", false) { RingService.start(context); true }
+        // Keep the dead-man's switch: with no service to re-ring, the system rings again in a minute.
+        if (!started && !info.test && TripService.instance == null) {
+            app.scheduler.set(System.currentTimeMillis() + (Config().reringS * 1000).toLong())
         }
         TripService.instance?.onRang()
     }

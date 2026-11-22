@@ -23,6 +23,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import app.nodstop.isolated
 import app.nodstop.ui.v2.AlarmRingHost
 
 /**
@@ -37,7 +38,7 @@ object AlarmOverlay {
     private var owner: Owner? = null
     private val handler by lazy { Handler(Looper.getMainLooper()) }
 
-    fun allowed(ctx: Context): Boolean = runCatching { Settings.canDrawOverlays(ctx) }.getOrDefault(false)
+    fun allowed(ctx: Context): Boolean = Settings.canDrawOverlays(ctx)
 
     /**
      * Only while you're using the phone (screen on and unlocked), with the permission, and when Nodstop isn't
@@ -49,12 +50,10 @@ object AlarmOverlay {
     /** Shows the ring over the current app if [shouldShow]; true if it's showing. */
     fun showIfInUse(ctx: Context): Boolean {
         val app = ctx.applicationContext
-        val screenOn = runCatching { app.getSystemService(PowerManager::class.java).isInteractive }.getOrDefault(false)
-        val locked = runCatching { app.getSystemService(KeyguardManager::class.java).isKeyguardLocked }.getOrDefault(true)
-        val front = runCatching {
-            ActivityManager.RunningAppProcessInfo().also { ActivityManager.getMyMemoryState(it) }.importance <=
-                ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
-        }.getOrDefault(false)
+        val screenOn = app.getSystemService(PowerManager::class.java).isInteractive
+        val locked = app.getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        val front = ActivityManager.RunningAppProcessInfo().also { ActivityManager.getMyMemoryState(it) }.importance <=
+            ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
         if (!shouldShow(screenOn, locked, allowed(app), front)) return false
         return show(app)
     }
@@ -96,13 +95,13 @@ object AlarmOverlay {
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
             PixelFormat.OPAQUE,
         )
-        return runCatching {
-            wm.addView(v, lp)
-            view = v
-            owner = o
-            v.requestFocus()
-            true
-        }.getOrElse { o.stop(); false }
+        // Android can still refuse the window (permission revoked a moment ago): the full-screen alarm covers it then.
+        val added = isolated("ring overlay", false) { wm.addView(v, lp); true }
+        if (!added) { o.stop(); return false }
+        view = v
+        owner = o
+        v.requestFocus()
+        return true
     }
 
     private fun awake(ctx: Context, source: String) {
@@ -116,7 +115,8 @@ object AlarmOverlay {
         val v = view ?: return
         view = null
         handler.post {
-            runCatching { ctx.applicationContext.getSystemService(WindowManager::class.java)?.removeView(v) }
+            // Already gone if Android removed the window itself (IllegalArgumentException: not attached).
+            isolated("ring overlay removal") { ctx.applicationContext.getSystemService(WindowManager::class.java)?.removeView(v) }
             owner?.stop()
             owner = null
         }

@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.util.Log
@@ -19,6 +18,8 @@ import app.nodstop.engine.CoordParser
 import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
+import app.nodstop.alarm.vibrateAsAlarm
+import app.nodstop.isolated
 import app.nodstop.brief.BriefingCoordinator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
@@ -92,7 +93,7 @@ class TripService : Service() {
     private val screen = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (trip == null) return
-            runCatching { DndController.update(this@TripService, tripRunning = true, screenOn = intent.action == Intent.ACTION_SCREEN_ON) }
+            DndController.update(this@TripService, tripRunning = true, screenOn = intent.action == Intent.ACTION_SCREEN_ON)
         }
     }
 
@@ -101,7 +102,7 @@ class TripService : Service() {
             val now = System.currentTimeMillis()
             input(Input.Tick(now))
             // Also every tick: the setting or its access may change mid-trip, and a screen broadcast can be missed.
-            if (trip != null) runCatching { DndController.update(this@TripService, tripRunning = true) }
+            if (trip != null) DndController.update(this@TripService, tripRunning = true)
             briefing?.onTick(now, lastScheduled)
             handler.postDelayed(this, TICK_MS)
         }
@@ -225,7 +226,7 @@ class TripService : Service() {
         src.start { fix -> notes.onFix(fix.tMs); input(Input.FixIn(fix.tMs, fix)) }
         handler.postDelayed(tick, TICK_MS)
         // Quiet trip: on now only if the screen is already off (a trip started from the tile, PLAN A4).
-        runCatching { DndController.update(this, tripRunning = true) }
+        DndController.update(this, tripRunning = true)
     }
 
     private fun input(i: Input) {
@@ -301,11 +302,9 @@ class TripService : Service() {
     /** One light buzz and a notification: the bus is at your stop. Not the alarm: no sound. */
     private fun nudge(legName: String?) {
         Notifications.atStop(this, legName)
-        runCatching {
-            val v = getSystemService(VibratorManager::class.java).defaultVibrator
-            val effect = VibrationEffect.createWaveform(longArrayOf(0, 180, 120, 180), -1)
-            if (Build.VERSION.SDK_INT >= 33) v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
-            else @Suppress("DEPRECATION") v.vibrate(effect)
+        isolated("at-stop buzz") {
+            getSystemService(VibratorManager::class.java).defaultVibrator
+                .vibrateAsAlarm(VibrationEffect.createWaveform(longArrayOf(0, 180, 120, 180), -1))
         }
     }
 
@@ -412,7 +411,7 @@ class TripService : Service() {
 
     override fun onDestroy() {
         routesJob?.cancel()
-        runCatching { unregisterReceiver(screen) }
+        unregisterReceiver(screen)
         // Do NOT cancel the alarm here: if the system destroys us, the scheduled alarm is the dead-man's switch.
         briefing?.stop(); briefing = null
         MessageStore.instance.stop()

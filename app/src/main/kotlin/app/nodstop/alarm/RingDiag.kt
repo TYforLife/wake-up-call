@@ -1,6 +1,7 @@
 package app.nodstop.alarm
 
 import android.os.SystemClock
+import app.nodstop.isolated
 import app.nodstop.App
 import app.nodstop.engine.TraceEvent
 
@@ -41,7 +42,8 @@ object RingDiag {
 
     private fun save() {
         val r = current ?: return
-        runCatching {
+        // The report must never stand in the ring's way: a log that can't be written is skipped.
+        isolated("ring report") {
             val app = App.instance
             app.settings.setLastRing(r.summary())
             // A ring that cold-started the app: write into the saved trip's log, so the verdict sees it (PLAN A0).
