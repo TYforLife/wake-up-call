@@ -1,11 +1,9 @@
 package app.nodstop.brief
 
-import android.app.ActivityManager
 import android.content.Context
-import android.os.BatteryManager
-import android.os.PowerManager
 import app.nodstop.App
 import app.nodstop.notify.MessageStore
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -47,9 +45,10 @@ class BriefingCoordinator(
         // Only a model that finished a Briefing lab run on this phone (a model that's too big would otherwise be
         // loaded here, in the trip's own process). Until then, the alarm screen shows the plain digest.
         val model = App.instance.models.current()?.takeIf { it.name == App.instance.settings.modelVerified } ?: return
-        val battery = battery()
+        val device = DeviceReadings.read(ctx)
+        val battery = device.batteryPct
         // Memory, heat and battery first: the trip shares this process and must never be put at risk.
-        val gate = deviceVerdict(battery, model.sizeBytes)
+        val gate = device.verdict(model.sizeBytes, modelLoaded = llm != null)
         if (gate != DeviceGate.Verdict.OK) {
             unload() // free the memory now; the digest covers everything
             return
@@ -71,6 +70,8 @@ class BriefingCoordinator(
                         UrgencyChecker(l).firstUrgent(candidates)
                     }
                     if (urgent != null && store.markUrgent(generation, urgent.convKey)) onUrgent()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Throwable) {
                     // Not urgent as far as we know: the stop alarm is unaffected either way.
                 } finally {
@@ -94,6 +95,8 @@ class BriefingCoordinator(
                 l.load()
                 val lines = withTimeoutOrNull(BatchPlan.LLM_TIMEOUT_MS) { Briefer(l, tone).brief(messages, previous) }
                 if (lines != null) store.mergeBriefed(generation, lines)
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Throwable) {
                 // Any failure: the digest stays (W2).
             } finally {
@@ -133,13 +136,4 @@ class BriefingCoordinator(
         llm = null
     }
 
-    private fun deviceVerdict(battery: Int?, modelBytes: Long): DeviceGate.Verdict {
-        val mem = runCatching { ActivityManager.MemoryInfo().also { ctx.getSystemService(ActivityManager::class.java).getMemoryInfo(it) } }.getOrNull()
-        val thermal = runCatching { ctx.getSystemService(PowerManager::class.java).currentThermalStatus }.getOrNull()
-        return DeviceGate.check(battery, thermal, mem?.availMem, mem?.lowMemory == true, modelBytes, modelLoaded = llm != null)
-    }
-
-    private fun battery(): Int? = runCatching {
-        ctx.getSystemService(BatteryManager::class.java).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).takeIf { it in 0..100 }
-    }.getOrNull()
 }

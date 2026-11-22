@@ -1,5 +1,6 @@
 package app.nodstop.ui
 
+import kotlin.coroutines.cancellation.CancellationException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import app.nodstop.App
 import app.nodstop.brief.BatchPlan
 import app.nodstop.brief.BriefParser
 import app.nodstop.brief.DeviceGate
+import app.nodstop.brief.DeviceReadings
 import app.nodstop.brief.EvalRunner
 import app.nodstop.brief.Llm
 import app.nodstop.brief.Guardrails
@@ -193,6 +195,8 @@ private suspend fun runLab(m: ModelManager.Model, cacheDir: String): LabResult {
         if (raw != null) settings.setModelVerified(m.name)
         LabResult(m.name, llm.backendUsed, loadMs, s.firstTokenMs, if (raw == null) null else s.totalMs, raw, lines,
             if (raw == null) "No answer within ${2 * BatchPlan.LLM_TIMEOUT_MS / 1000} s." else null)
+    } catch (e: CancellationException) {
+        throw e // the lab screen closed: nothing to report
     } catch (t: Throwable) {
         LabResult(m.name, llm.backendUsed, null, null, null, null, emptyList(), "${t::class.simpleName}: ${t.message}")
     } finally {
@@ -210,27 +214,23 @@ private fun lastRunExit(ctx: android.content.Context): LabExit.Verdict? {
     val (_, startedMs) = settings.labRunning ?: return null
     settings.setLabRunning(null)
     val am = ctx.getSystemService(android.app.ActivityManager::class.java)
-    val exit = runCatching { am.getHistoricalProcessExitReasons(ctx.packageName, 0, 5) }.getOrNull()
-        ?.firstOrNull { it.timestamp >= startedMs - 1_000 }
+    val exit = am.getHistoricalProcessExitReasons(ctx.packageName, 0, 5)
+        .firstOrNull { it.timestamp >= startedMs - 1_000 }
         ?: return LabExit.Verdict("The last run didn't finish: the app was closed while the model loaded.", "Try again with nothing else open, or try a smaller model (Gemma 3 1B).", true)
     return LabExit.of(exit.reason, exit.status, exit.description, exit.pss, settings.useGpu.value)
 }
 
 /** Enough free memory to load this model now, with room left for the rest of the phone (DeviceGate). */
 private fun memoryFits(ctx: android.content.Context, modelBytes: Long): Boolean {
-    val mem = android.app.ActivityManager.MemoryInfo().also { ctx.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(it) }
-    return DeviceGate.check(null, null, mem.availMem, mem.lowMemory, modelBytes, modelLoaded = false) == DeviceGate.Verdict.OK
+    val d = DeviceReadings.read(ctx)
+    return DeviceGate.check(null, null, d.availMem, d.lowMemory, modelBytes, modelLoaded = false) == DeviceGate.Verdict.OK
 }
 
 /** Free memory, heat and battery, and whether a trip's briefing would run now (DeviceGate). */
 private fun deviceStatus(ctx: android.content.Context, modelBytes: Long?): String {
-    val mem = android.app.ActivityManager.MemoryInfo().also { ctx.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(it) }
-    val thermal = runCatching { ctx.getSystemService(android.os.PowerManager::class.java).currentThermalStatus }.getOrNull()
-    val battery = runCatching {
-        ctx.getSystemService(android.os.BatteryManager::class.java).getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
-    }.getOrNull()
-    val verdict = modelBytes?.let { DeviceGate.check(battery, thermal, mem.availMem, mem.lowMemory, it, modelLoaded = false) }
-    return "Memory ${ModelManager.mb(mem.availMem)} MB free of ${ModelManager.mb(mem.totalMem)} MB · model ${modelBytes?.let { ModelManager.mb(it) } ?: "–"} MB · thermal status ${thermal ?: "?"} (3+ stops AI) · battery ${battery ?: "?"}%\n" +
+    val d = DeviceReadings.read(ctx)
+    val verdict = modelBytes?.let { d.verdict(it, modelLoaded = false) }
+    return "Memory ${ModelManager.mb(d.availMem)} MB free of ${ModelManager.mb(d.totalMem)} MB · model ${modelBytes?.let { ModelManager.mb(it) } ?: "–"} MB · thermal status ${d.thermalStatus} (3+ stops AI) · battery ${d.batteryPct ?: "?"}%\n" +
         when {
             verdict == null -> "No model imported."
             verdict == DeviceGate.Verdict.OK -> "A trip's briefing would run now."
@@ -254,6 +254,8 @@ private suspend fun runEval(m: ModelManager.Model, cacheDir: String): String {
                 appendLine("• ${c.id}: ${if (c.invented) "invented a fact" else "missed ${c.missed.joinToString()}"}${c.line?.let { " — \"$it\"" } ?: ""}")
             }
         }.trim()
+    } catch (e: CancellationException) {
+        throw e // the lab screen closed: nothing to report
     } catch (t: Throwable) {
         "Eval failed: ${t::class.simpleName}: ${t.message}"
     } finally {

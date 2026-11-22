@@ -2,8 +2,10 @@ package app.nodstop.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URISyntaxException
 import java.net.URL
 import java.net.URLDecoder
 
@@ -15,7 +17,18 @@ import java.net.URLDecoder
 object ShortLinks {
     private const val MAX_HOPS = 6
 
-    suspend fun resolve(url: String): String? = withContext(Dispatchers.IO) { runCatching { follow(url) }.getOrNull() }
+    /** Null when it can't be followed: offline, a timeout, or a reply that isn't a link (every one of those). */
+    suspend fun resolve(url: String): String? = withContext(Dispatchers.IO) {
+        try {
+            follow(url)
+        } catch (_: IOException) {
+            null
+        } catch (_: URISyntaxException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null // a redirect to a malformed Location, or a bad escape in `continue`
+        }
+    }
 
     private fun follow(start: String): String? {
         var u = start

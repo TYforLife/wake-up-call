@@ -1,5 +1,6 @@
 package app.nodstop.ui
 
+import app.nodstop.openIfPossible
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Intent
@@ -17,10 +18,10 @@ object ShareLine {
         val km = activity.getSystemService(KeyguardManager::class.java)
         if (km.isKeyguardLocked) {
             km.requestDismissKeyguard(activity, object : KeyguardManager.KeyguardDismissCallback() {
-                override fun onDismissSucceeded() { runCatching { activity.startActivity(chooser) } }
+                override fun onDismissSucceeded() { activity.openIfPossible(chooser) }
             })
         } else {
-            runCatching { activity.startActivity(chooser) }
+            activity.openIfPossible(chooser)
         }
     }
 }

@@ -34,8 +34,11 @@ object DataExport {
     fun encode(b: ExportBundle): String = storeJson.encodeToString(ExportBundle.serializer(), b)
 
     /** Null if it isn't a Nodstop export (or is from a newer format this version can't read). */
-    fun decode(text: String): ExportBundle? = runCatching { storeJson.decodeFromString(ExportBundle.serializer(), text) }
-        .getOrNull()?.takeIf { it.format <= ExportBundle.FORMAT }
+    fun decode(text: String): ExportBundle? = try {
+        storeJson.decodeFromString(ExportBundle.serializer(), text).takeIf { it.format <= ExportBundle.FORMAT }
+    } catch (_: IllegalArgumentException) {
+        null // SerializationException is one
+    }
 
     fun snapshot(nowMs: Long): ExportBundle {
         val app = App.instance

@@ -1,6 +1,5 @@
 package app.nodstop.map
 
-import android.annotation.SuppressLint
 import android.graphics.PointF
 import android.view.MotionEvent
 import android.view.View
@@ -30,7 +29,6 @@ internal class EdgeDrag(
     private var downX = 0f
     private var downY = 0f
 
-    @SuppressLint("ClickableViewAccessibility")
     override fun onTouch(v: View, ev: MotionEvent): Boolean = when (ev.actionMasked) {
         MotionEvent.ACTION_DOWN -> {
             val m = map()

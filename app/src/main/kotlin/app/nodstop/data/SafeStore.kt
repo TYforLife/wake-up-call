@@ -2,6 +2,7 @@ package app.nodstop.data
 
 import kotlinx.serialization.KSerializer
 import java.io.File
+import java.io.IOException
 
 /**
  * Loading and saving that never loses data (PLAN U1): every save keeps the previous file as `.bak`; a file
@@ -26,17 +27,27 @@ internal object SafeStore {
         }
         decode(file, serializer)?.let { return Loaded.Ok(it) }
         val bad = File(file.parentFile, "${file.name}.bad-$nowMs")
-        val kept = runCatching { file.copyTo(bad, overwrite = true) }.getOrNull()
+        val kept = try { file.copyTo(bad, overwrite = true) } catch (_: IOException) { null }
         decode(bak, serializer)?.let { return Loaded.Recovered(it, kept, fromBackup = true) }
         return Loaded.Recovered(default(), kept, fromBackup = false)
     }
 
     /** Keeps the current file as `.bak`, then writes atomically. */
     fun <T> save(file: File, serializer: KSerializer<T>, value: T) {
-        if (file.exists()) runCatching { file.copyTo(backup(file), overwrite = true) }
+        // No backup this time (disk full?) still saves: losing the new value would be worse than an old .bak.
+        if (file.exists()) try { file.copyTo(backup(file), overwrite = true) } catch (_: IOException) { }
         file.writeAtomically(storeJson.encodeToString(serializer, value))
     }
 
-    private fun <T> decode(f: File, serializer: KSerializer<T>): T? =
-        if (!f.exists()) null else runCatching { storeJson.decodeFromString(serializer, f.readText()) }.getOrNull()
+    /** Null if missing or unreadable: an I/O error, or JSON that doesn't fit (SerializationException is an IllegalArgumentException). */
+    private fun <T> decode(f: File, serializer: KSerializer<T>): T? {
+        if (!f.exists()) return null
+        return try {
+            storeJson.decodeFromString(serializer, f.readText())
+        } catch (_: IOException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
 }

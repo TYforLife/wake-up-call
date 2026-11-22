@@ -90,6 +90,7 @@ class MainActivity : ComponentActivity() {
         ShareIn.text(intent)?.let { pendingShare.value = it; intent?.removeExtra(Intent.EXTRA_TEXT) }
         intent?.getStringExtra(Shortcuts.EXTRA_START_ROUTE_ID)?.let {
             pendingStart.value = it
+            Shortcuts.reportUsed(this, it)
             intent.removeExtra(Shortcuts.EXTRA_START_ROUTE_ID)
         }
     }

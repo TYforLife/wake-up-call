@@ -3,6 +3,7 @@ package app.nodstop.data
 import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
 import java.net.URI
+import java.net.URISyntaxException
 import java.net.URLDecoder
 
 /**
@@ -39,11 +40,14 @@ object MapsLink {
 
     fun googleHost(host: String?): Boolean = host != null && host.lowercase() in GOOGLE
 
-    fun isShort(link: String): Boolean = runCatching {
-        val u = URI(link)
+    fun isShort(link: String): Boolean {
+        val u = uriOrNull(link) ?: return false
         val h = u.host?.lowercase()
-        h == "maps.app.goo.gl" || (h == "goo.gl" && u.path.startsWith("/maps"))
-    }.getOrDefault(false)
+        return h == "maps.app.goo.gl" || (h == "goo.gl" && u.path.orEmpty().startsWith("/maps"))
+    }
+
+    /** A pasted link with a stray space or bracket isn't a valid URI: then it's simply not a link we can read. */
+    private fun uriOrNull(link: String): URI? = try { URI(link) } catch (_: URISyntaxException) { null }
 
     /** What Share puts before the link: "Britomart Transport Centre\nhttps://maps.app.goo.gl/…" → the name. */
     fun sharedName(text: String): String? =
@@ -57,7 +61,7 @@ object MapsLink {
         val name = sharedName(t)
         if (link == null) return CoordParser.parse(t)?.let { Result.One(Place(null, it)) } ?: Result.None
         if (isShort(link)) return Result.Short(link, name)
-        val path = runCatching { URI(link).rawPath.orEmpty() }.getOrDefault("")
+        val path = uriOrNull(link)?.rawPath.orEmpty()
         if ("/maps/dir" in path || "/dir/" in path) directions(link, path)?.let { return it }
         // A place: its own position first, then the view's centre, then q=/query=/ll=.
         val pos = placePos.findAll(link).lastOrNull()?.let { LatLng(it.groupValues[1].toDouble(), it.groupValues[2].toDouble()) }
@@ -74,10 +78,10 @@ object MapsLink {
         val places = when {
             pts.size >= 2 -> pts.mapIndexed { i, p -> Place(segs.getOrNull(i)?.takeIf { CoordParser.parse(it) == null }?.let(::shortName), p) }
             // Waypoints typed as coordinates: /dir/-36.84,174.76/-36.85,174.76/
-            segs.size >= 2 && segs.all { CoordParser.parse(it) != null } -> segs.map { Place(null, CoordParser.parse(it)!!) }
+            segs.size >= 2 && segs.all { CoordParser.parse(it) != null } -> segs.mapNotNull(CoordParser::parse).map { Place(null, it) }
             else -> {
                 // api=1&origin=…&destination=…
-                val q = runCatching { URI(link).rawQuery.orEmpty() }.getOrDefault("").split('&')
+                val q = uriOrNull(link)?.rawQuery.orEmpty().split('&')
                     .associate { it.substringBefore('=') to decode(it.substringAfter('=', "")) }
                 val o = q["origin"]?.let(CoordParser::parse)
                 val d = q["destination"]?.let(CoordParser::parse) ?: return null
@@ -91,7 +95,8 @@ object MapsLink {
         path.substringAfter("/place/", "").substringBefore('/').takeIf { it.isNotEmpty() }?.let(::decode)
             ?.takeIf { CoordParser.parse(it) == null }?.let(::shortName)
 
-    private fun decode(s: String) = runCatching { URLDecoder.decode(s, "UTF-8") }.getOrDefault(s).trim()
+    /** A lone `%` (not an escape) is kept as typed. */
+    private fun decode(s: String) = try { URLDecoder.decode(s, "UTF-8") } catch (_: IllegalArgumentException) { s }.trim()
 
     /** "Britomart Transport Centre, Lower Queen Street, Auckland" → "Britomart Transport Centre". */
     private fun shortName(s: String) = s.substringBefore(',').trim().takeIf { it.isNotEmpty() }

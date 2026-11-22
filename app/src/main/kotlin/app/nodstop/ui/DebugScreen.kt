@@ -1,5 +1,6 @@
 package app.nodstop.ui
 
+import app.nodstop.openIfPossible
 import android.os.Process
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -61,7 +62,15 @@ fun DebugScreen(go: (Screen) -> Unit) {
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         importScope.launch {
-            val text = withContext(Dispatchers.IO) { runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull() }
+            val text = withContext(Dispatchers.IO) {
+                try {
+                    ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                } catch (_: java.io.IOException) {
+                    null
+                } catch (_: SecurityException) {
+                    null // the file's app took back access
+                }
+            }
             val b = text?.let { DataExport.decode(it) }
             if (b == null) importMessage = "That isn't a Nodstop backup." else pendingImport = b
         }
@@ -105,10 +114,11 @@ fun DebugScreen(go: (Screen) -> Unit) {
                 OutlinedTextField(kmh, { kmh = it }, label = { Text("km/h") }, modifier = Modifier.weight(1f), singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
             }
-            val k = km.toDoubleOrNull()
-            val v = kmh.toDoubleOrNull()
-            Button(enabled = !tripActive && k != null && k > 0 && v != null && v > 0, onClick = {
-                if (Readiness.canStartTrip(ctx)) { TripService.startSim(ctx, k!!, v!!); go(Screen.Trip) } else go(Screen.Setup)
+            val k = km.toDoubleOrNull()?.takeIf { it > 0 }
+            val v = kmh.toDoubleOrNull()?.takeIf { it > 0 }
+            Button(enabled = !tripActive && k != null && v != null, onClick = {
+                if (k == null || v == null) return@Button
+                if (Readiness.canStartTrip(ctx)) { TripService.startSim(ctx, k, v); go(Screen.Trip) } else go(Screen.Setup)
             }) { Text("Start simulated trip") }
         }
 
@@ -138,7 +148,7 @@ fun DebugScreen(go: (Screen) -> Unit) {
                     "anyway; this is for a new phone or a reinstall. The file has your stops: keep it private.",
                 style = MaterialTheme.typography.bodySmall,
             )
-            Button(onClick = { runCatching { ctx.startActivity(DataExport.shareIntent(ctx, System.currentTimeMillis())) } }) { Text("Back up to a file") }
+            Button(onClick = { ctx.openIfPossible(DataExport.shareIntent(ctx, System.currentTimeMillis())) }) { Text("Back up to a file") }
             OutlinedButton(enabled = !tripActive, onClick = { importPicker.launch(arrayOf("application/json", "*/*")) }) { Text("Restore from a file") }
             importMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }
@@ -155,11 +165,11 @@ fun DebugScreen(go: (Screen) -> Unit) {
 
         Section("Trip log") {
             Button(enabled = app.traces.lastTripFile() != null, onClick = {
-                app.traces.shareIntent(hideLocation = true)?.let { runCatching { ctx.startActivity(it) } }
+                app.traces.shareIntent(hideLocation = true)?.let { ctx.openIfPossible(it) }
             }) { Text("Share last trip log (location hidden)") }
             Text("Safe for the public repo: every position is moved far away, and it still replays exactly.", style = MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled = app.traces.lastTripFile() != null, onClick = {
-                app.traces.shareIntent(hideLocation = false)?.let { runCatching { ctx.startActivity(it) } }
+                app.traces.shareIntent(hideLocation = false)?.let { ctx.openIfPossible(it) }
             }) { Text("Share raw log (private: shows where you ride)") }
             Text(app.traces.lastTripFile()?.name ?: "No trips yet", style = MaterialTheme.typography.bodySmall)
         }

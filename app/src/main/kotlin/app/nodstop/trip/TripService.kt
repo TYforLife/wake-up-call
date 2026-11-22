@@ -123,12 +123,13 @@ class TripService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // A notification button on a running trip: already in the foreground; don't flash "starting" over it.
         val button = intent?.action == ACTION_OFF || intent?.action == ACTION_STOP
-        if (!(button && trip != null)) try {
-            startForeground(Notifications.ID_TRIP, Notifications.tripStarting(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-        } catch (e: Exception) {
-            Log.e("Nodstop", "trip service could not start in the foreground", e)
-            stopSelf()
-            return START_NOT_STICKY
+        // Android refuses a location service without location access (SecurityException) or from the background.
+        if (!(button && trip != null)) {
+            val ok = isolated("trip in the foreground", false) {
+                startForeground(Notifications.ID_TRIP, Notifications.tripStarting(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+                true
+            }
+            if (!ok) { stopSelf(); return START_NOT_STICKY }
         }
         val now = System.currentTimeMillis()
         when (intent?.action) {
@@ -497,7 +498,8 @@ class TripService : Service() {
         private fun send(ctx: Context, intent: Intent) {
             try {
                 ctx.startForegroundService(intent)
-            } catch (e: Exception) {
+            } catch (e: IllegalStateException) {
+                // ForegroundServiceStartNotAllowedException: Android won't start it from the background right now.
                 Log.e("Nodstop", "could not start the trip service", e)
             }
         }

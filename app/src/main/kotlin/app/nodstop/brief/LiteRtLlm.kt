@@ -64,10 +64,9 @@ class LiteRtLlm(
         val done = CountDownLatch(1)
         val conv: Conversation = synchronized(lock) {
             val e = engine?.takeIf { !closed } ?: error("model not loaded")
-            inFlight += done
-            runCatching {
-                e.createConversation(ConversationConfig(samplerConfig = SamplerConfig(1, 1.0, 0.1, 0), maxOutputToken = maxTokens))
-            }.getOrElse { inFlight -= done; throw it }
+            // Tracked only once it exists: a conversation that couldn't be made has nothing for close() to wait for.
+            e.createConversation(ConversationConfig(samplerConfig = SamplerConfig(1, 1.0, 0.1, 0), maxOutputToken = maxTokens))
+                .also { inFlight += done }
         }
         val t0 = SystemClock.elapsedRealtime()
         var first: Long? = null

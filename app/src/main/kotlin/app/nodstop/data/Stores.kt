@@ -224,7 +224,7 @@ class Settings(context: Context) {
     val pendingRating: StateFlow<PendingRating?> = _pendingRating
 
     private fun readRating(): PendingRating? = prefs.getString(KEY_RATING, null)?.let {
-        runCatching { storeJson.decodeFromString(PendingRating.serializer(), it) }.getOrNull()
+        try { storeJson.decodeFromString(PendingRating.serializer(), it) } catch (_: IllegalArgumentException) { null }
     }
 
     fun setPendingRating(r: PendingRating?) {

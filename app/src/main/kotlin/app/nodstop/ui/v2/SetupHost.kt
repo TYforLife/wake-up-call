@@ -1,5 +1,6 @@
 package app.nodstop.ui.v2
 
+import app.nodstop.openIfPossible
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -30,7 +31,7 @@ private fun rememberFixer(onResult: () -> Unit): (Readiness.Check) -> Unit {
     return { c ->
         when (val f = c.fix) {
             is Readiness.Fix.Permission -> launcher.launch(f.permission)
-            is Readiness.Fix.Open -> runCatching { ctx.startActivity(f.intent) }
+            is Readiness.Fix.Open -> ctx.openIfPossible(f.intent)
             null -> Unit
         }
     }
@@ -116,5 +117,5 @@ fun reportMissedAlarm(ctx: Context) {
 }
 
 private fun open(ctx: Context, i: Intent) {
-    runCatching { ctx.startActivity(i) }
+    ctx.openIfPossible(i)
 }

@@ -1,5 +1,6 @@
 package app.nodstop.map
 
+import app.nodstop.isolated
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -35,16 +36,16 @@ internal object MapStyle {
 
     /** Every base layer in the palette's colours. Best effort per layer: a property a layer lacks is skipped. */
     fun applyGoogleLook(s: Style, c: MapPalette.Colors) {
-        for (layer in s.layers) runCatching {
-            if (layer.id.startsWith(OURS)) return@runCatching
+        for (layer in s.layers) isolated("map colours for ${layer.id}") {
+            if (layer.id.startsWith(OURS)) return@isolated
             val type = when (layer) {
                 is BackgroundLayer -> "background"
                 is FillLayer -> "fill"
                 is LineLayer -> "line"
                 is SymbolLayer -> "symbol"
-                else -> return@runCatching
+                else -> return@isolated
             }
-            val role = MapPalette.role(type, layer.id) ?: return@runCatching
+            val role = MapPalette.role(type, layer.id) ?: return@isolated
             val col = c.base.getValue(role).argb()
             when (layer) {
                 is BackgroundLayer -> layer.setProperties(PropertyFactory.backgroundColor(col))
@@ -59,8 +60,8 @@ internal object MapStyle {
     }
 
     /** Bus stops from the base map's points of interest, as Google shows them: a small blue disc, then its name. */
-    fun addBusStops(s: Style, c: MapPalette.Colors, below: String? = null) = runCatching {
-        if (s.getSource(MapPalette.SOURCE) == null) return@runCatching
+    fun addBusStops(s: Style, c: MapPalette.Colors, below: String? = null) = isolated("bus stops layer") {
+        if (s.getSource(MapPalette.SOURCE) == null) return@isolated
         val filter = Expression.any(
             Expression.eq(Expression.get("class"), MapPalette.BUS_STOP_CLASS),
             *MapPalette.BUS_STOP_SUBCLASSES.map { Expression.eq(Expression.get("subclass"), it) }.toTypedArray(),

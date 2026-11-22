@@ -1,6 +1,6 @@
 package app.nodstop.map
 
-import androidx.activity.ComponentActivity
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -54,7 +55,8 @@ fun RideMap(
     /** Dragged its edge to a new size, in metres: save it. */
     onCircleResize: (MapModel.Pin, Double) -> Unit = { _, _ -> },
 ) {
-    val ctx = LocalContext.current
+    // Read through Compose so a display change (font or screen size) reaches the map too.
+    val density = LocalDensity.current.density
     val mapView = rememberMapView()
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
@@ -75,7 +77,7 @@ fun RideMap(
             m.uiSettings.isCompassEnabled = true
             m.uiSettings.isAttributionEnabled = true
             m.uiSettings.isLogoEnabled = false
-            val px = ctx.resources.displayMetrics.density
+            val px = density
             m.uiSettings.setCompassMargins(0, (56 * px).toInt(), (16 * px).toInt(), 0)
             m.addOnCameraMoveStartedListener { reason ->
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) { following = false; onUserGesture() }
@@ -102,7 +104,6 @@ fun RideMap(
 
     Box(modifier) {
         // Touch the circle's edge and drag to resize it; anywhere else moves the map (owner: "no dot").
-        val density = LocalContext.current.resources.displayMetrics.density
         val edge = remember {
             EdgeDrag(density, { map }, { currentPin?.let { it.pos to (preview ?: it.zoneM) } }, { preview = it }, { r -> currentPin?.let { resize(it, r) } }, { currentPin?.let { tap(it) } })
         }
@@ -146,12 +147,12 @@ fun RideMap(
     }
 }
 
-/** A MapView tied to the activity's lifecycle, destroyed with the composable. */
+/** A MapView tied to its screen's lifecycle, destroyed with the composable. */
 @Composable
 internal fun rememberMapView(): MapView {
     val ctx = LocalContext.current
     val mapView = remember { MapView(ctx).also { it.onCreate(null) } }
-    val lifecycle = (ctx as ComponentActivity).lifecycle
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, e ->
             when (e) {

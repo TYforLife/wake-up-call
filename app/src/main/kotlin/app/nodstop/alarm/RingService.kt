@@ -22,7 +22,6 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.util.Log
 import app.nodstop.App
 import app.nodstop.isolated
 import app.nodstop.Notifications
@@ -121,21 +120,18 @@ class RingService : Service() {
         legName = info.legName
         reason = info.reason
         val n = Notifications.ring(this, legName, reason, test)
-        try {
-            // systemExempted (allowed for apps holding USE_EXACT_ALARM) exists from Android 14.
-            val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
-            else ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            startForeground(Notifications.ID_RING, n, type)
-        } catch (e: Exception) {
-            Log.w("Nodstop", "systemExempted refused, falling back to mediaPlayback", e)
-            try {
-                startForeground(Notifications.ID_RING, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-            } catch (e2: Exception) {
-                // e.g. a sticky restart from the background: nothing we may do. Never crash-loop.
-                Log.e("Nodstop", "could not start the ring in the foreground", e2)
-                stopSelf()
-                return START_NOT_STICKY
+        // systemExempted (allowed for apps holding USE_EXACT_ALARM) exists from Android 14; mediaPlayback otherwise.
+        val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+        else ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        val inForeground = isolated("ring in the foreground", false) { startForeground(Notifications.ID_RING, n, type); true } ||
+            isolated("ring in the foreground as media", false) {
+                startForeground(Notifications.ID_RING, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK); true
             }
+        if (!inForeground) {
+            // e.g. a sticky restart from the background: nothing we may do. Never crash-loop. The receiver's
+            // notification is still on screen and buzzing, and the re-ring alarm is set.
+            stopSelf()
+            return START_NOT_STICKY
         }
         // Re-ring safety net (DESIGN §2): with the trip service alive, the engine keeps the alarm a minute
         // ahead while ringing. After a cold start there is no engine, so keep it here: if this ring dies
