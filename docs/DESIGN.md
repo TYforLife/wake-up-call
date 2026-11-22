@@ -307,6 +307,7 @@ limits and stops, and time-correlated GPS error (AR(1), τ = 20 s, plus 1 m whit
     teeth check (violations without the failsafe or without `V_FLOOR`).
 12. Replay test: every `*.jsonl` in `engine/src/test/resources/traces/` reproduces its `out` lines
     (the folder starts empty); a synthetic trip also round-trips through the format.
+13. Purity: `:engine` main code has no Android, clocks, randomness, I/O or networking (`PurityTest`).
 
 Extra tests:
 - motorway then slow city (the 866 complaint): 64 s first ride, 44 s learned

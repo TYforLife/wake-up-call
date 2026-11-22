@@ -1,5 +1,6 @@
 package app.nodstop.ui.v2
 
+import app.nodstop.openIfPossible
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -153,7 +154,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
                     app.settings.setDndDuringTrips(true)
                     startNow(id)
                     if (!DndController.granted(ctx)) {
-                        runCatching { ctx.startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
+                        ctx.openIfPossible(Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
                     }
                 }) { Text("Quiet my trips") }
             },
@@ -170,7 +171,9 @@ private fun lastTripVerdict(): Pair<String, List<VerdictLine>>? {
     if (TripService.status.value != null || app.trips.load() != null) return null
     val f = app.traces.lastTripFile() ?: return null
     if (f.name == app.settings.verdictSeen) return null
-    val events = runCatching { f.readLines().mapNotNull { l -> runCatching { Trace.decode(l) }.getOrNull() } }.getOrNull() ?: return null
+    val lines = try { f.readLines() } catch (_: java.io.IOException) { return null }
+    // A line cut short by a crash mid-write is skipped; the rest of the log still counts.
+    val events = lines.mapNotNull { l -> try { Trace.decode(l) } catch (_: IllegalArgumentException) { null } }
     return f.name to TripVerdict.of(events).takeIf { it.isNotEmpty() }.orEmpty()
 }
 

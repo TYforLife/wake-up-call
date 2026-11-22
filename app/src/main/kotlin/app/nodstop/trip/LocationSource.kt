@@ -1,6 +1,5 @@
 package app.nodstop.trip
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
 import android.os.Handler
@@ -28,7 +27,9 @@ class FusedLocationSource(context: Context) : LocationSource {
     private val client = LocationServices.getFusedLocationProviderClient(context)
     private var callback: LocationCallback? = null
 
-    @SuppressLint("MissingPermission") // checked by the UI before a trip can start
+    // The UI asks for location before a trip starts, but it can be taken back in Settings at any time. Without it
+    // Android throws SecurityException: then there are simply no fixes, and the failsafe alarm still rings (DESIGN §2).
+
     override fun start(onFix: (Fix) -> Unit) {
         val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2_000)
             .setMinUpdateIntervalMillis(1_000)
@@ -39,8 +40,12 @@ class FusedLocationSource(context: Context) : LocationSource {
                 for (loc in result.locations) onFix(toFix(loc))
             }
         }
-        callback = cb
-        client.requestLocationUpdates(req, cb, Looper.getMainLooper())
+        try {
+            client.requestLocationUpdates(req, cb, Looper.getMainLooper())
+            callback = cb
+        } catch (_: SecurityException) {
+            callback = null
+        }
     }
 
     override fun stop() {
@@ -49,28 +54,30 @@ class FusedLocationSource(context: Context) : LocationSource {
     }
 
     /** The phone's last known position (often seconds old), or null; calls back within ~1.5 s either way. */
-    @SuppressLint("MissingPermission")
     fun lastKnown(maxAgeMs: Long, onResult: (Fix?) -> Unit) {
         val handler = Handler(Looper.getMainLooper())
         var done = false
         fun finish(f: Fix?) { if (!done) { done = true; onResult(f) } }
         handler.postDelayed({ finish(null) }, 1_500)
-        runCatching {
+        try {
             client.lastLocation.addOnCompleteListener { task ->
                 val loc = if (task.isSuccessful) task.result else null
                 val fix = loc?.let { toFix(it) }
                 finish(fix?.takeIf { it.tMs - it.fixTimeMs <= maxAgeMs })
             }
-        }.onFailure { finish(null) }
+        } catch (_: SecurityException) {
+            finish(null)
+        }
     }
 
     /** One fresh, accurate position (for "Use my location" in the route editor). */
-    @SuppressLint("MissingPermission")
     fun current(onResult: (Location?) -> Unit) {
-        runCatching {
+        try {
             client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 .addOnCompleteListener { t -> onResult(if (t.isSuccessful) t.result else null) }
-        }.onFailure { onResult(null) }
+        } catch (_: SecurityException) {
+            onResult(null)
+        }
     }
 
     companion object {

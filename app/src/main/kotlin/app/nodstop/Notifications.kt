@@ -93,7 +93,7 @@ object Notifications {
      * Never while a ring is showing: its notification lives on the channel.
      */
     fun ensureAlarmChannel(ctx: Context) {
-        runCatching {
+        isolated("alarm channel check") {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             val id = alarmChannelId(ctx)
             val ch = nm.getNotificationChannel(id)
@@ -113,8 +113,12 @@ object Notifications {
 
     private const val KEY_ALARM_CHANNEL = "alarm_channel"
 
+    /** A trip notification that can't be posted must never stop the trip that posts it. */
+    private fun post(ctx: Context, id: Int, n: Notification) =
+        isolated("notification $id") { ctx.getSystemService(NotificationManager::class.java).notify(id, n) }
+
     /** The alarm channel in a few words, for the ring report (PLAN A0): "high bypass", "high", "low", "off", "missing". */
-    fun alarmChannelState(ctx: Context): String = runCatching {
+    fun alarmChannelState(ctx: Context): String = isolated("alarm channel state", "?") {
         val ch = ctx.getSystemService(NotificationManager::class.java).getNotificationChannel(alarmChannelId(ctx)) ?: return "missing"
         val level = when {
             ch.importance == NotificationManager.IMPORTANCE_NONE -> "off"
@@ -122,7 +126,7 @@ object Notifications {
             else -> "low"
         }
         if (ch.canBypassDnd()) "$level bypass" else level
-    }.getOrDefault("?")
+    }
 
     fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(
         ctx, 10, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -198,7 +202,7 @@ object Notifications {
             .setTimeoutAfter(3 * 60_000L)
             .setContentIntent(openApp(ctx))
             .build()
-        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_AT_STOP, n) }
+        post(ctx, ID_AT_STOP, n)
     }
 
     /** After "I'm awake" on a stop's ring: optional, silent, gone after 15 min (PLAN U3 feedback). */
@@ -222,7 +226,7 @@ object Notifications {
             .addAction(action("Good", "good", 1))
             .addAction(action("Too late", "too_late", 2))
             .build()
-        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_RATE, n) }
+        post(ctx, ID_RATE, n)
     }
 
     /** "What you missed (N chats)": counts only (W3). Tap: "You're awake" after unlocking. Swipe: forget them. */
@@ -246,7 +250,7 @@ object Notifications {
             .setContentIntent(open)
             .setDeleteIntent(forget)
             .build()
-        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_MISSED, n) }
+        post(ctx, ID_MISSED, n)
     }
 
     /**
@@ -265,15 +269,15 @@ object Notifications {
             .setAutoCancel(true)
             .setColor(ACCENT)
             .build()
-        runCatching { ctx.getSystemService(NotificationManager::class.java).notify(ID_PAUSED, n) }
+        post(ctx, ID_PAUSED, n)
     }
 
     fun cancelTripPaused(ctx: Context) {
-        runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(ID_PAUSED) }
+        ctx.getSystemService(NotificationManager::class.java).cancel(ID_PAUSED)
     }
 
     fun cancelMissed(ctx: Context) {
-        runCatching { ctx.getSystemService(NotificationManager::class.java).cancel(ID_MISSED) }
+        ctx.getSystemService(NotificationManager::class.java).cancel(ID_MISSED)
     }
 
     const val RATE_TITLE = "How was the ring timing?"

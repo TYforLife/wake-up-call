@@ -224,7 +224,7 @@ class Settings(context: Context) {
     val pendingRating: StateFlow<PendingRating?> = _pendingRating
 
     private fun readRating(): PendingRating? = prefs.getString(KEY_RATING, null)?.let {
-        runCatching { storeJson.decodeFromString(PendingRating.serializer(), it) }.getOrNull()
+        try { storeJson.decodeFromString(PendingRating.serializer(), it) } catch (_: IllegalArgumentException) { null }
     }
 
     fun setPendingRating(r: PendingRating?) {
@@ -345,7 +345,9 @@ class Settings(context: Context) {
     private fun place(key: String): Place? = prefs.getString(key, null)?.let { s ->
         val f = s.split('|')
         val ll = f[0].split(',')
-        runCatching { Place(ll[0].toDouble(), ll[1].toDouble(), f.getOrElse(1) { "" }, f.getOrElse(2) { "" }) }.getOrNull()
+        val lat = ll.getOrNull(0)?.toDoubleOrNull()
+        val lng = ll.getOrNull(1)?.toDoubleOrNull()
+        if (lat == null || lng == null) null else Place(lat, lng, f.getOrElse(1) { "" }, f.getOrElse(2) { "" })
     }
     private fun setPlace(key: String, p: Place?) {
         prefs.edit().apply {

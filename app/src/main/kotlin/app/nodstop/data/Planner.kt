@@ -124,7 +124,8 @@ object Planner {
             var bestHere: Pair<Int, Pair<Int, Double>>? = null
             for (s in reached) ends[s]?.let { d ->
                 val arr = tau[k][s] + walkS(d)
-                if (arr < bestEnd && (bestHere == null || arr < bestHere!!.first)) bestHere = arr to (s to d)
+                val cur = bestHere
+                if (arr < bestEnd && (cur == null || arr < cur.first)) bestHere = arr to (s to d)
             }
             bestHere?.let { (arr, sd) ->
                 bestEnd = arr

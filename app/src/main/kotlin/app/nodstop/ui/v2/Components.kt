@@ -100,7 +100,7 @@ fun Pill(text: String, onClick: () -> Unit) {
 
 /** A round icon button (add, back, recentre). [floating] adds the map's shadow. */
 @Composable
-fun IconCircle(icon: ImageVector, label: String, onClick: () -> Unit, floating: Boolean = false, modifier: Modifier = Modifier) {
+fun IconCircle(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, floating: Boolean = false) {
     val c = LocalN.current
     Box(
         modifier
@@ -123,7 +123,7 @@ fun IconCircle(icon: ImageVector, label: String, onClick: () -> Unit, floating: 
 @Composable
 fun ListRow(
     title: String,
-    subtitle: String? = null,
+    subtitle: String?,
     modifier: Modifier = Modifier,
     big: Boolean = false,
     subtitleDanger: Boolean = false,

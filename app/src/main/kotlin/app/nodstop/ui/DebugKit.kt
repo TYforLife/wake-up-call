@@ -42,7 +42,7 @@ fun TopBar(title: String, onBack: (() -> Unit)?) {
 
 /** A group on a `fill` background, with an optional title. */
 @Composable
-fun Section(title: String? = null, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun Section(title: String?, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val c = LocalN.current
     Column(
         modifier.fillMaxWidth().clip(RoundedCornerShape(Tokens.RADIUS_BUTTON.dp)).background(c.fill).padding(16.dp),

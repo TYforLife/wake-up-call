@@ -28,7 +28,7 @@ object DndController {
     }
 
     /** A ring is starting: lift quiet trip first, so nothing of ours stands between you and the alarm. */
-    fun onRingStart(ctx: Context) = runCatching { update(ctx, ringing = true) }
+    fun onRingStart(ctx: Context) = update(ctx, ringing = true)
 
     fun onTripStart(ctx: Context) {
         val settings = App.instance.settings
@@ -45,6 +45,11 @@ object DndController {
         // Save first: if we die between the two, the next start can still restore.
         App.instance.settings.setDndRecord(d.record)
         val filter = d.setFilter ?: return
-        if (granted(ctx)) runCatching { nm(ctx).setInterruptionFilter(filter) }
+        if (!granted(ctx)) return
+        try {
+            nm(ctx).setInterruptionFilter(filter)
+        } catch (_: SecurityException) {
+            // Access was revoked since the check above: nothing to change; the record says what to restore.
+        }
     }
 }

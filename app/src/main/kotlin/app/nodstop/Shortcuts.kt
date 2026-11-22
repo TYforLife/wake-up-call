@@ -18,10 +18,17 @@ object Shortcuts {
             .putExtra(EXTRA_START_ROUTE_ID, routeId)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
+    private fun id(routeId: String) = "route-$routeId"
+
+    /** A trip started from a shortcut or a tile: the launcher ranks the shortcuts you use first. */
+    fun reportUsed(ctx: Context, routeId: String) {
+        ctx.getSystemService(ShortcutManager::class.java)?.reportShortcutUsed(id(routeId))
+    }
+
     fun update(ctx: Context, routes: List<Route>) {
         val sm = ctx.getSystemService(ShortcutManager::class.java) ?: return
         val list = routes.take(sm.maxShortcutCountPerActivity.coerceAtMost(4)).mapIndexed { i, r ->
-            ShortcutInfo.Builder(ctx, "route-${r.id}")
+            ShortcutInfo.Builder(ctx, id(r.id))
                 .setShortLabel("Start ${r.name}".take(25))
                 .setLongLabel("Start trip: ${r.name}")
                 .setIcon(Icon.createWithResource(ctx, R.drawable.ic_tile))
@@ -29,6 +36,10 @@ object Shortcuts {
                 .setIntent(startIntent(ctx, r.id))
                 .build()
         }
-        runCatching { sm.dynamicShortcuts = list }
+        try {
+            sm.dynamicShortcuts = list
+        } catch (_: IllegalStateException) {
+            // The phone is still locked after a restart, or the launcher is rate-limiting: the next update sets them.
+        }
     }
 }

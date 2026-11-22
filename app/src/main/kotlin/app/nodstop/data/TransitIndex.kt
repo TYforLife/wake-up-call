@@ -44,23 +44,26 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>) {
      * option per route and direction: the boarding stop nearest you. Nearest first, then fewest stops.
      */
     fun direct(here: LatLng, dest: Int, walkM: Double = 600.0): List<Direct> {
-        val out = HashMap<Pair<String, String>, Direct>()
+        // Each route's nearest boarding stop, with its walk in metres.
+        val out = HashMap<Pair<String, String>, Pair<Direct, Double>>()
         for (p in patterns) {
             val j = p.stops.indexOf(dest)
             if (j <= 0) continue
             var best: Direct? = null
+            var bestM = Double.MAX_VALUE
             for (i in 0 until j) {
                 val s = stops[p.stops[i]]
                 val d = Geo.distanceM(here, s.pos)
-                if (d > walkM) continue
-                if (best == null || d < best.board.distanceM!!) best = Direct(p.route, p.headsign, Hit(p.stops[i], s, d), j - i, dest)
+                if (d > walkM || d >= bestM) continue
+                bestM = d
+                best = Direct(p.route, p.headsign, Hit(p.stops[i], s, d), j - i, dest)
             }
             val b = best ?: continue
             val key = p.route to p.headsign
             val prev = out[key]
-            if (prev == null || b.board.distanceM!! < prev.board.distanceM!!) out[key] = b
+            if (prev == null || bestM < prev.second) out[key] = b to bestM
         }
-        return out.values.sortedWith(compareBy({ it.board.distanceM }, { it.stopsToGo }, { it.route }))
+        return out.values.sortedWith(compareBy({ it.second }, { it.first.stopsToGo }, { it.first.route })).map { it.first }
     }
 
     /** One bus of a trip: get on at [board], off at [alight] ([stops] stops later). */
@@ -83,7 +86,7 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>) {
     private val stopPatterns: Array<List<Pair<Int, Int>>> by lazy {
         val out = Array(stops.size) { ArrayList<Pair<Int, Int>>() }
         patterns.forEachIndexed { pi, p -> p.stops.forEachIndexed { pos, s -> out[s] += pi to pos } }
-        Array(stops.size) { out[it] as List<Pair<Int, Int>> }
+        Array<List<Pair<Int, Int>>>(stops.size) { out[it] }
     }
 
     private fun cell(lat: Double, lng: Double): Long = (Math.floor(lat / CELL) .toLong() shl 32) xor (Math.floor(lng / CELL).toLong() and 0xffffffffL)
@@ -128,7 +131,8 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>) {
                     }
                     boardFrom[s]?.let { (c, prev) ->
                         val eq = c + (if (round > 1) BUS_COST else 0.0) - pos
-                        if (best == null || eq < best!!.first) best = Triple(eq, pos, prev)
+                        val cur = best
+                        if (cur == null || eq < cur.first) best = Triple(eq, pos, prev)
                     }
                 }
             }
@@ -163,7 +167,9 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>) {
         fun parse(stopsTsv: String, routesTsv: String): TransitIndex {
             val stops = stopsTsv.lineSequence().filter { it.isNotBlank() }.mapNotNull { l ->
                 val f = l.split('\t')
-                if (f.size < 4) null else Stop(f[0], f[1], LatLng(f[2].toDouble(), f[3].toDouble()))
+                val lat = f.getOrNull(2)?.toDoubleOrNull()
+                val lng = f.getOrNull(3)?.toDoubleOrNull()
+                if (lat == null || lng == null) null else Stop(f[0], f[1], LatLng(lat, lng))
             }.toList()
             val patterns = routesTsv.lineSequence().filter { it.isNotBlank() }.mapNotNull { l ->
                 val f = l.split('\t')

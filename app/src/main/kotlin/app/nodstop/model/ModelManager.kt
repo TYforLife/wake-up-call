@@ -2,12 +2,15 @@ package app.nodstop.model
 
 import android.content.Context
 import android.net.Uri
+import android.os.storage.StorageManager
 import android.provider.OpenableColumns
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 
 /**
  * On-device model files for While You Slept (DESIGN §10). The rider downloads a `.litertlm` file on the
@@ -38,20 +41,27 @@ class ModelManager(private val ctx: Context) {
         _models.value = scan()
     }
 
+    /** Space the model can have, counting cache Android would clear for it. */
+    private fun freeBytes(): Long {
+        val sm = ctx.getSystemService(StorageManager::class.java)
+        return try { sm.getAllocatableBytes(sm.getUuidForPath(dir)) } catch (_: IOException) { dir.usableSpace }
+    }
+
     suspend fun import(uri: Uri) = withContext(Dispatchers.IO) {
         val (name, size) = describe(uri)
         if (!name.endsWith(".litertlm")) {
             _import.value = ImportState(error = "Choose a .litertlm model file (e.g. Gemma 4 E2B).")
             return@withContext
         }
-        if (size != null && dir.usableSpace < size + 200L * 1024 * 1024) {
+        if (size != null && freeBytes() < size + 200L * 1024 * 1024) {
             _import.value = ImportState(error = "Not enough free space: the model needs ${mb(size)} MB.")
             return@withContext
         }
         val tmp = File(dir, "$name.part")
         _import.value = ImportState(running = true, totalBytes = size)
-        val result = runCatching {
-            ctx.contentResolver.openInputStream(uri)!!.use { input ->
+        val error = try {
+            val stream = ctx.contentResolver.openInputStream(uri) ?: throw IOException("the file can't be opened")
+            stream.use { input ->
                 tmp.outputStream().use { out ->
                     val buf = ByteArray(1 shl 20)
                     var copied = 0L
@@ -66,12 +76,20 @@ class ModelManager(private val ctx: Context) {
             }
             val target = File(dir, name)
             target.delete()
-            check(tmp.renameTo(target)) { "could not save the file" }
+            if (!tmp.renameTo(target)) throw IOException("could not save the file")
+            null
+        } catch (e: IOException) {
+            e.message ?: "the file couldn't be copied"
+        } catch (_: SecurityException) {
+            "the app it came from took back access"
+        } catch (e: CancellationException) {
+            _import.value = ImportState(error = "Import stopped when you left this screen. Try again and stay on it.")
+            throw e
+        } finally {
+            tmp.delete()
         }
-        tmp.delete()
         _models.value = scan()
-        result.onSuccess { select(name); _import.value = ImportState() }
-            .onFailure { _import.value = ImportState(error = "Import failed: ${it.message}") }
+        if (error == null) { select(name); _import.value = ImportState() } else _import.value = ImportState(error = "Import failed: $error")
     }
 
     private fun describe(uri: Uri): Pair<String, Long?> {
