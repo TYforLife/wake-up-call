@@ -200,7 +200,7 @@ class ScreensV2ScreenshotTest {
     @Test fun plan() = shot("plan") {
         PlanTripScreen(
             PlanUi(
-                "Plan a trip", "Your location", "Work", time = "Leave now",
+                "Plan a trip", "Your location", "Work", time = "Arrive by 8:30",
                 rides = listOf(
                     RideUi("7:38 → 8:20", "42 min", listOf("866", "70"), "Walk 4 min · Central Station at 7:42"),
                     RideUi("7:52 → 8:31", "39 min", listOf("82"), "Walk 6 min · Park Rd at 7:58"),
@@ -226,6 +226,7 @@ class ScreensV2ScreenshotTest {
                 ),
             ),
             RideActions(),
+            map = { m -> Box(m.background(LocalN.current.mapBg)) },
         )
     }
 

@@ -70,4 +70,44 @@ class PlannerTest {
     fun `nothing within walking distance - no rides`() {
         assertTrue(Planner.plan(ix, tt, LatLng(-36.70, 174.60), at("Test Hill Ave"), wednesday, hm(7, 0)).isEmpty())
     }
+
+    @Test
+    fun `arrive by - the rides that get there in time, the latest last`() {
+        val js = Planner.arriveBy(ix, tt, at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(7, 55))
+        assertEquals(hm(7, 30) to hm(7, 50), js.last().leaveS to js.last().arriveS)
+        assertTrue(js.all { it.arriveS <= hm(7, 55) })
+        val early = Planner.arriveBy(ix, tt, at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(7, 45))
+        assertEquals(listOf(hm(7, 0)), early.map { it.leaveS })
+    }
+
+    @Test
+    fun `walks - one at each end and one between buses, never two in a row, and the bus's every stop for the map`() {
+        for ((a, b) in listOf("Test Farm Stop D" to "Test Hill Ave", "Test Farm Stop D" to "Test Domain Gate", "Test Farm Stop D" to "Test Queen St")) {
+            for (j in plan(a, b, wednesday, hm(6, 50))) {
+                j.legs.zipWithNext().forEach { (x, y) -> assertTrue(!(x is Planner.Leg.Walk && y is Planner.Leg.Walk), "two walks in a row: $j") }
+                j.buses.forEach { bus -> assertEquals(bus.stops + 1, bus.path.size); assertEquals(bus.board, bus.path.first()); assertEquals(bus.alight, bus.path.last()) }
+            }
+        }
+    }
+
+    private fun ride(leave: Int, arrive: Int, buses: Int, walkS: Int = 0): Planner.Journey {
+        val legs = ArrayList<Planner.Leg>()
+        if (walkS > 0) legs += Planner.Leg.Walk(null, 0, walkS * 1.25, walkS)
+        repeat(buses) { legs += Planner.Leg.Bus("R$it", "", 0, 1, leave + walkS + it, arrive - 1, 3) }
+        return Planner.Journey(legs, leave, arrive)
+    }
+
+    @Test
+    fun `the list, like Google's - a change must save time, and leaving a minute later doesn't excuse a worse ride`() {
+        val direct = ride(hm(8, 3), hm(8, 31), 1)
+        // Two buses, a minute later and a minute sooner: not worth the change.
+        val hop = ride(hm(8, 4), hm(8, 30), 2)
+        // Two buses that save 10 minutes: kept.
+        val fast = ride(hm(8, 3), hm(8, 21), 2)
+        // The next bus, leaving much later: kept.
+        val later = ride(hm(8, 33), hm(9, 1), 1)
+        assertEquals(listOf(fast, later), Planner.best(listOf(direct, hop, fast, later)))
+        assertTrue(hop !in Planner.best(listOf(direct, hop)))
+        assertTrue(direct in Planner.best(listOf(direct, hop)))
+    }
 }

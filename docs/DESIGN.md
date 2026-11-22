@@ -497,12 +497,19 @@ doesn't flash another colour while it opens.
   - Then While you slept as plain rows (tap one to share it), then Done.
 - **Routes** (`routes`): **Plan a trip** (PLAN Run 13, T4), like Google's:
   - From (Your location by default) and To, each with suggestions as you type: Home and Work, addresses, then AT
-    stops. A swap button, and a **Leave now** chip that opens a clock for a later time.
-  - Rides from the bundled timetable (`Timetable`, `Planner`: RAPTOR, up to 3 buses, walks up to 800 m, changes
-    within 250 m): "7:38 → 8:20 · 42 min", bus chips "866 › 70", "Walk 4 min · Central Station at 7:42". The
-    earliest arrival first, then fewer changes, then the next departures. Times are the timetable's, not live.
-  - Tap a ride for its timeline (leave, walk, bus with stops and times, change with the wait, arrive), then **Use
-    this** or **Start now**. Using it makes a route whose stops are where you get off each bus, named "To <place>"
+    stops. A swap button, and a **Leave now** chip: tap it for **Leave at** or **Arrive by** and a time.
+  - Rides from the bundled timetable (`Timetable`, `Planner`: RAPTOR, up to 3 buses): "7:38 → 8:20 · 42 min", bus
+    chips "866 › 70", "Walk 4 min · Central Station at 7:42". Times are the timetable's, not live.
+    - Walks are straight lines × 1.25 (streets) at 4.5 km/h: up to about 1 km to the first stop and from the last,
+      up to about 300 m between buses, and **one walk at a time** (never a walk to another stop and then on).
+    - A change takes at least 2 minutes.
+    - Each search keeps every way to arrive within 20 minutes of the fastest (another bus, another last stop). The
+      list then drops a ride when another leaves about as late (within 3 minutes) and costs less, where a change
+      costs 5 minutes and each walking minute counts half again (Google's habits). Sorted by when you leave.
+    - Arrive by: the rides that get there in time, leaving latest, none more than 45 minutes before the last.
+  - Tap a ride for its **map** (the buses in route blue through every stop, walks dotted, where you get on and off,
+    the end as the red pin) and its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
+    then **Use this** or **Start now**. Using it makes a route whose stops are where you get off each bus, named "To <place>"
     ("To work" updates that route rather than adding another).
   - Pasting or sharing Google Maps directions fills From and To.
   - With no routes yet, **Home and work** comes first (PLAN Run 13, T5): "Where's home?", "Where's work?" (an

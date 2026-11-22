@@ -22,10 +22,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimeInput
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -169,23 +178,57 @@ data class RideDetailUi(val title: String, val summary: String, val buses: List<
 
 class RideActions(val back: () -> Unit = {}, val use: () -> Unit = {}, val start: () -> Unit = {})
 
+/** A ride: its map ([map], when there is one: the real map, or a flat box in screenshot tests), then the timeline. */
 @Composable
-fun RideScreen(ui: RideDetailUi, a: RideActions, modifier: Modifier = Modifier) {
+fun RideScreen(ui: RideDetailUi, a: RideActions, modifier: Modifier = Modifier, map: (@Composable (Modifier) -> Unit)? = null) {
     val c = LocalN.current
-    Column(modifier.fillMaxSize().padding(horizontal = 24.dp).padding(top = 12.dp, bottom = 24.dp)) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            TitleBar { IconCircle(NIcons.Back, "Back", a.back) }
+    Column(modifier.fillMaxSize().padding(top = 12.dp, bottom = 24.dp)) {
+        Box(Modifier.padding(horizontal = 24.dp)) { TitleBar { IconCircle(NIcons.Back, "Back", a.back) } }
+        map?.invoke(Modifier.fillMaxWidth().height(260.dp))
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
+            if (map != null) Spacer(Modifier.height(12.dp))
             ScreenTitle(ui.title)
             Text(ui.summary, style = NType.body, color = c.muted, modifier = Modifier.padding(bottom = 8.dp))
             BusChips(ui.buses)
             Spacer(Modifier.height(20.dp))
             ui.steps.forEachIndexed { i, s -> Step(s, last = i == ui.steps.lastIndex) }
         }
-        Hint("Every stop where you get off a bus is added, with its alarm.", Modifier.fillMaxWidth().padding(bottom = 12.dp), center = true)
-        PrimaryButton("Use this", a.use)
-        Spacer(Modifier.height(8.dp))
-        GhostButton("Start now", a.start, Modifier.fillMaxWidth())
+        Column(Modifier.padding(horizontal = 24.dp)) {
+            Hint("Every stop where you get off a bus is added, with its alarm.", Modifier.fillMaxWidth().padding(bottom = 12.dp), center = true)
+            PrimaryButton("Use this", a.use)
+            Spacer(Modifier.height(8.dp))
+            GhostButton("Start now", a.start, Modifier.fillMaxWidth())
+        }
     }
+}
+
+/** Leave at or arrive by, and the time, like Google's (owner's feedback on Run 13). Now clears the time. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimeDialog(initial: TimeChoice, nowS: Int, onDone: (TimeChoice) -> Unit, onDismiss: () -> Unit) {
+    val c = LocalN.current
+    var arrive by remember { mutableStateOf(initial.arrive) }
+    val start = initial.atS ?: nowS
+    val state = rememberTimePickerState(initialHour = start / 3600 % 24, initialMinute = start % 3600 / 60, is24Hour = false)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = c.bg,
+        title = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((label, value) in listOf("Leave at" to false, "Arrive by" to true)) {
+                    val on = arrive == value
+                    Text(
+                        label, style = NType.row, color = if (on) c.bg else c.fg,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) c.fg else c.fill)
+                            .clickable { arrive = value }.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        },
+        text = { TimeInput(state) },
+        confirmButton = { TextButton({ onDone(TimeChoice(arrive, state.hour * 3600 + state.minute * 60)) }) { Text("Done", color = c.fg) } },
+        dismissButton = { TextButton({ onDone(TimeChoice()) }) { Text("Leave now", color = c.fg) } },
+    )
 }
 
 @Composable
