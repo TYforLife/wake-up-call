@@ -34,5 +34,7 @@ object NIcons {
     val Warn = icon("warn", 2f, listOf("M12 4l9 16H3z", "M12 10v4M12 17v.5"))
     val Plus = icon("plus", 2f, listOf("M12 5v14M5 12h14"))
     val Search = icon("search", 1.8f, listOf(circle(11f, 11f, 6f), "M16 16l4 4"))
+    /** Swap From and To: two arrows, up and down. */
+    val Swap = icon("swap", 2f, listOf("M8 4v15M8 4l-3 3M8 4l3 3", "M16 20V5M16 20l-3-3M16 20l3-3"))
     val More = icon("more", 1f, emptyList(), listOf(circle(6f, 12f, 1.8f), circle(12f, 12f, 1.8f), circle(18f, 12f, 1.8f)))
 }

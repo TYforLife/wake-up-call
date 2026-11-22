@@ -56,7 +56,7 @@ import app.nodstop.map.ZoneScale
 
 // ---- Routes (mockup `routes`) ----
 
-class RoutesActions(val open: (String) -> Unit = {}, val add: () -> Unit = {}, val find: () -> Unit = {})
+class RoutesActions(val open: (String) -> Unit = {}, val add: () -> Unit = {}, val find: () -> Unit = {}, val homeWork: () -> Unit = {})
 
 /** Your routes as rows; a problem is the row's red second line (PLAN Run 9, M5). */
 @Composable
@@ -68,8 +68,13 @@ fun RoutesList(rows: List<RouteRowUi>, a: RoutesActions, modifier: Modifier = Mo
                 IconCircle(NIcons.Plus, "Add a route", a.add)
             }
             // The quickest way to a route with all its stops (feedback round 4): search, or paste Google Maps directions.
+            // No routes yet: home and work by address sets up both commutes (PLAN Run 13, T5).
+            if (rows.isEmpty()) ListRow(
+                "Home and work", "Type two addresses: both commutes, every stop", onClick = a.homeWork,
+                leading = { Icon(NIcons.Now, null, tint = LocalN.current.fg) }, trailing = { Chevron() },
+            )
             ListRow(
-                "Find a trip", "Search a stop, or paste Google Maps directions", onClick = a.find,
+                "Plan a trip", "Where to, leaving now: buses and times", onClick = a.find,
                 leading = { Icon(NIcons.Search, null, tint = LocalN.current.fg) }, trailing = { Chevron() },
             )
             if (rows.isEmpty()) Lead("Add the buses you take, and where you get off.")
