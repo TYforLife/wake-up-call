@@ -12,10 +12,12 @@ object RingModeController {
     private fun nm(ctx: Context) = ctx.getSystemService(NotificationManager::class.java)
     private fun audio(ctx: Context) = ctx.getSystemService(AudioManager::class.java)
 
-    fun granted(ctx: Context) = nm(ctx).isNotificationPolicyAccessGranted
-    fun ringer(ctx: Context) = audio(ctx).ringerMode
-    fun filter(ctx: Context) = nm(ctx).currentInterruptionFilter
-    private fun hasVibrator(ctx: Context) = ctx.getSystemService(VibratorManager::class.java).defaultVibrator.hasVibrator()
+    // Read at the ring's start (RingService.begin): a reading that fails gets the usual value, never a stopped ring.
+    fun granted(ctx: Context) = isolated("Do Not Disturb access read", false) { nm(ctx).isNotificationPolicyAccessGranted }
+    fun ringer(ctx: Context) = isolated("ringer read", RingMode.RINGER_NORMAL) { audio(ctx).ringerMode }
+    fun filter(ctx: Context) = isolated("Do Not Disturb read", RingMode.FILTER_ALL) { nm(ctx).currentInterruptionFilter }
+    private fun hasVibrator(ctx: Context) =
+        isolated("vibrator read", true) { ctx.getSystemService(VibratorManager::class.java).defaultVibrator.hasVibrator() }
 
     /** At the ring: switch if needed, and say whether it can buzz (decided on the settings before the switch). */
     fun onRingStart(ctx: Context): RingMode.Buzz {

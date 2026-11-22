@@ -146,7 +146,7 @@ class RingService : Service() {
         isolated("alarm screen") { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         // While you use another app (owner, 2026-11-22: only the banner showed): the ring itself is drawn over that
         // app, with "Display over other apps". Locked or screen off, the full-screen alarm above covers it.
-        AlarmOverlay.showIfInUse(this)
+        isolated("ring overlay") { AlarmOverlay.showIfInUse(this) }
         return START_STICKY
     }
 
@@ -170,7 +170,7 @@ class RingService : Service() {
         // Was quiet trip's Do Not Disturb on when the ring started? (For the report, PLAN A0.)
         val quietAtRing = App.instance.settings.dndRecord()?.setByUs == true
         // ...and lift it for the ring (PLAN A1): it comes back once you're awake, if the screen goes off again.
-        DndController.onRingStart(this)
+        isolated("quiet trip lift") { DndController.onRingStart(this) }
         // Buzz on Mute (PLAN R1): read the phone's mode first (for the report), then switch it for the ring.
         val ringer = RingModeController.ringer(this)
         val filter = RingModeController.filter(this)
@@ -293,7 +293,7 @@ class RingService : Service() {
             // Back to Mute (or your Do Not Disturb), if the ring switched it.
             isolated("ring mode restore") { RingModeController.onRingEnd(this) }
             // Quiet trip comes back only while a trip runs and the screen is off (PLAN A4).
-            DndController.update(this, ringing = false)
+            isolated("quiet trip restore") { DndController.update(this, ringing = false) }
             AlarmOverlay.hide(this)
             wakeLock?.takeIf { it.isHeld }?.release()
             screenLock?.takeIf { it.isHeld }?.release()
@@ -332,7 +332,8 @@ class RingService : Service() {
         data class Info(val legName: String?, val reason: AlarmReason?, val test: Boolean)
 
         fun info(): Info {
-            val trip = App.instance.trips.load()
+            // First thing the cold-started receiver does (rule 2): a trip file that can't be read means a test ring, never no ring.
+            val trip = isolated("saved trip", null) { App.instance.trips.load() }
             val test = trip == null && TripService.instance == null
             return Info(
                 TripService.status.value?.legName ?: trip?.currentLeg?.name,
