@@ -65,11 +65,13 @@ fun RoutesList(rows: List<RouteRowUi>, a: RoutesActions, modifier: Modifier = Mo
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             TitleBar {
                 Box(Modifier.weight(1f)) { ScreenTitle("Routes") }
-                // Find a bus to where you're going (PLAN Run 12, C3).
-                IconCircle(NIcons.Search, "Find a bus", a.find)
-                Spacer(Modifier.width(8.dp))
                 IconCircle(NIcons.Plus, "Add a route", a.add)
             }
+            // The quickest way to a route with all its stops (feedback round 4): search, or paste Google Maps directions.
+            ListRow(
+                "Find a trip", "Search a stop, or paste Google Maps directions", onClick = a.find,
+                leading = { Icon(NIcons.Search, null, tint = LocalN.current.fg) }, trailing = { Chevron() },
+            )
             if (rows.isEmpty()) Lead("Add the buses you take, and where you get off.")
             rows.forEachIndexed { i, r ->
                 ListRow(

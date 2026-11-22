@@ -3,3 +3,5 @@ R1,WK,T1,Test Museum,0
 R1,WK,T2,Test Museum,0
 R1,WK,T3,Test Harbour Station,1
 R2,WK,T4,Test Harbour Station,0
+R3,WK,T5,Test Hill Ave,0
+R4,WK,T6,Test Domain Gate,0
