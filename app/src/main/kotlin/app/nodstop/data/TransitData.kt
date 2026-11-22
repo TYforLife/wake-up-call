@@ -39,11 +39,19 @@ object TransitData {
         timetable?.let { return it }
         if (noTimetable) return null
         return withContext(Dispatchers.IO) {
-            runCatching {
+            // All or nothing: trips point at profiles by line number, so a timetable missing a line would show wrong
+            // times. A build without the files, or with files that don't parse, has no planner instead.
+            try {
                 val a = ctx.applicationContext.assets
                 fun read(n: String) = a.open("gtfs/$n").bufferedReader().use { it.readText() }
                 Timetable.parse(read("patterns.tsv"), read("profiles.tsv"), read("trips.tsv"), read("services.tsv")).takeIf { it.patterns.isNotEmpty() }
-            }.getOrNull().also { if (it == null) noTimetable = true else timetable = it }
+            } catch (_: IOException) {
+                null
+            } catch (_: NumberFormatException) {
+                null
+            } catch (_: IndexOutOfBoundsException) {
+                null
+            }.also { if (it == null) noTimetable = true else timetable = it }
         }
     }
 

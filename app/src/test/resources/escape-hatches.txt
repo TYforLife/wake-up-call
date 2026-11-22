@@ -5,6 +5,7 @@ app/src/main/kotlin/app/nodstop/alarm/AlarmVibration.kt	@Suppress	1
 app/src/main/kotlin/app/nodstop/alarm/RingService.kt	@Suppress	1
 app/src/main/kotlin/app/nodstop/brief/BriefingCoordinator.kt	catch-all	2
 app/src/main/kotlin/app/nodstop/brief/LiteRtLlm.kt	catch-all	5
+app/src/main/kotlin/app/nodstop/data/AddressSearch.kt	@Suppress	1
 app/src/main/kotlin/app/nodstop/notify/CaptureService.kt	@Suppress	1
 app/src/main/kotlin/app/nodstop/notify/CaptureService.kt	catch-all	1
 app/src/main/kotlin/app/nodstop/tile/RouteTiles.kt	@Suppress	1
