@@ -63,13 +63,20 @@ class ArchitectureTest {
     }
 
     /**
-     * Escape hatches may only go down. `!!`, `@Suppress`, `runCatching` and `catch (` hide a problem instead of
-     * fixing it, so each file's count is pinned in `escape-hatches.txt`. Some are the right design (the ring path
-     * must survive any failure), which is why this is a baseline and not a ban.
+     * Escape hatches may only go down. `!!`, `@Suppress`, `runCatching` and catch-alls (`catch (e: Exception)`,
+     * `Throwable`, `RuntimeException`, `Error`) hide a problem instead of fixing it, so each file's count is pinned
+     * in `escape-hatches.txt`. Catching the one exception an API documents (`ActivityNotFoundException`,
+     * `IOException`) is handling it, so that doesn't count. Some are the right design (the ring path must survive
+     * any failure: see `isolated`), which is why this is a baseline and not a ban.
      */
     @Test
     fun `escape hatches never increase`() {
-        val kinds = listOf("!!", "@Suppress", "runCatching", "catch (")
+        val kinds = mapOf(
+            "!!" to Regex("!!"),
+            "@Suppress" to Regex("@Suppress"),
+            "runCatching" to Regex("""\brunCatching\b"""),
+            "catch-all" to Regex("""catch\s*\(\s*\w+\s*:\s*(Throwable|Exception|RuntimeException|Error)\s*\)"""),
+        )
         val baselineFile = File("src/test/resources/escape-hatches.txt")
         val baseline = baselineFile.readLines().filter { it.isNotBlank() && !it.startsWith("#") }.associate { line ->
             val (path, kind, n) = line.split("\t")
@@ -77,7 +84,7 @@ class ArchitectureTest {
         }
         val actual = mains.flatMap(::kt).flatMap { f ->
             val lines = code(f).map { it.value }
-            kinds.map { k -> (rel(f) to k) to lines.sumOf { it.windowed(k.length).count { w -> w == k } } }
+            kinds.map { (k, re) -> (rel(f) to k) to lines.sumOf { re.findAll(it).count() } }
         }.filter { it.second > 0 }.toMap()
 
         val over = actual.filter { (key, n) -> n > (baseline[key] ?: 0) }

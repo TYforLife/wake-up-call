@@ -40,10 +40,12 @@ here". A workaround merged today becomes the pattern three sessions from now. So
 1. **Fix the cause, not the symptom.** No retry, delay, timer, flag or catch-all that makes a symptom go away
    while its cause stays. If the clean fix is outside this PR, leave the code as it was and list it under
    "Not fixed" in the PR, with the cause you found.
-2. **Escape hatches only go down.** Each file's count of `!!`, `@Suppress`, `runCatching` and `catch (` is pinned in
-   `app/src/test/resources/escape-hatches.txt`. Don't add one; when you remove one, lower its line. Raising a line
-   needs a reason under "Escape hatches" in the PR. Most of the legitimate ones are on the ring path, where a
-   failure must never stop a ring.
+2. **Escape hatches only go down.** Each file's count of `!!`, `@Suppress`, `runCatching` and catch-alls
+   (`catch (e: Exception)` or `Throwable`) is pinned in `app/src/test/resources/escape-hatches.txt`. Don't add one;
+   when you remove one, lower its line. Raising a line needs a reason under "Escape hatches" in the PR. Catch the
+   exception an API documents by its type (`ActivityNotFoundException`, `IOException`), not everything. Where a
+   failure must not take the ring or the trip down, use `isolated("what") { … }`: it logs the failure instead of
+   hiding it.
 3. **Comments say what the spec requires, never why a shortcut is fine.** Cite `DESIGN §n` when it helps. Comments
    containing "workaround", "for now", "hack", "TODO" or "FIXME" fail CI.
 4. **Copy a nearby pattern only if it follows these rules.** If it doesn't, don't spread it; fix it if it's
