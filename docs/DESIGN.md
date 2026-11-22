@@ -335,6 +335,16 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 
 `minSdk 31`, `targetSdk`/`compileSdk` 36. Package `app.nodstop`.
 
+- **Target stays at 36.** Targeting 37 (Android 17) lets an app play audio in the background only from a
+  foreground service with while-in-use capabilities. It waives that only for `USAGE_ALARM` audio with exact-alarm
+  access, and an alarm-started service isn't documented to have them, so the earbuds tone (`USAGE_MEDIA`) could be
+  muted without an error. It also requires read-only native libraries (MapLibre, LiteRT). Raising it needs an
+  Android 17 phone, `adb shell cmd audio set-enable-hardening enable`, and every ring case in `RingPathTest`.
+  `ArchitectureTest` pins it.
+- **Nothing is copied off the phone**: `allowBackup="false"` plus `data_extraction_rules.xml`, which excludes
+  everything from cloud backup and from phone-to-phone transfer. Moving phones is Debug → **Your data** (a file
+  you choose to share). `ArchitectureTest` checks both.
+
 ### Components
 
 | Component | Job |

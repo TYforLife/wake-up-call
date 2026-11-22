@@ -44,6 +44,34 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `target SDK stays at 36 (DESIGN 5)`() {
+        val gradle = File("build.gradle.kts").readText()
+        assertTrue(
+            Regex("""targetSdk\s*=\s*36\b""").containsMatchIn(gradle),
+            "targetSdk changed. Targeting 37 can silently mute the earbuds ring in the background (Android 17 audio " +
+                "hardening). Raise it only as its own PR, proven on an Android 17 phone (DESIGN §5), and update this test there.",
+        )
+    }
+
+    @Test
+    fun `nothing is copied off the phone (DESIGN 5)`() {
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        assertTrue("android:allowBackup=\"false\"" in manifest, "allowBackup must stay false (owner: no backups).")
+        assertTrue("android:dataExtractionRules=\"@xml/data_extraction_rules\"" in manifest, "the data extraction rules are not used")
+        val rules = File("src/main/res/xml/data_extraction_rules.xml").readText()
+        for (section in listOf("cloud-backup", "device-transfer")) {
+            val body = rules.substringAfter("<$section>", "").substringBefore("</$section>")
+            for (domain in listOf("root", "file", "database", "sharedpref", "external")) {
+                assertTrue(
+                    "<exclude domain=\"$domain\" path=\".\" />" in body,
+                    "$section must exclude $domain: nothing leaves the phone (owner, DESIGN §5).",
+                )
+            }
+            assertTrue("<include" !in body, "$section includes something: nothing leaves the phone (owner, DESIGN §5).")
+        }
+    }
+
+    @Test
     fun `no comment justifies a workaround`() {
         val phrases = listOf(
             "workaround", "work around", "hack", "for now", "quick fix", "temporary fix", "band-aid", "bandaid",

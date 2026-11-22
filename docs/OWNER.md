@@ -83,6 +83,10 @@ new, or repeats something, add it here in the same PR.
 - One ring path, the dead-man's switch, and "ring earlier, never later" (`CLAUDE.md`). He has never asked to relax
   these.
 - Personal stops and ride logs never go in the repo.
+- **No backups off the phone** (2026-11-22): "keep backups off the new phone". Nothing goes to cloud backup or to a
+  new phone by transfer; moving phones is the backup file he shares himself (DESIGN §5).
+- **Android target**: he left it to us ("raise it if you believe it's better"). It stays at 36 until the Android 17
+  audio rules are proven on a phone (DESIGN §5).
 - **Clean code, no workarounds** (asked Nov 2026, after Lauren Tan's talk "All Code Is Slop (Except Mine)"). He
   wants the codebase to stay clean as sessions pile up, so later sessions copy good patterns. Fix causes, not
   symptoms. Turn his corrections into checks (`CLAUDE.md` "Code quality"), not more prose.
