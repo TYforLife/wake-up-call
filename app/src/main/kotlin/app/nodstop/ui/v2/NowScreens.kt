@@ -123,7 +123,7 @@ fun NowIdle(ui: NowIdleUi, a: NowActions, modifier: Modifier = Modifier) {
             }
         }
         if (selected == null) {
-            PrimaryButton("Add a route", a.addRoute)
+            PrimaryButton("Set up home and work", a.addRoute)
         } else {
             Hint("Wakes you about 45 s before each stop", Modifier.fillMaxWidth().padding(bottom = 12.dp), center = true)
             PrimaryButton("Start", { a.start(selected.id) }, enabled = selected.problem == null)

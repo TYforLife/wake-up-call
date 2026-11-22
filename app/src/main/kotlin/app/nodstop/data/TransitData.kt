@@ -31,6 +31,22 @@ object TransitData {
         }
     }
 
+    @Volatile private var timetable: Timetable? = null
+    @Volatile private var noTimetable = false
+
+    /** The timetable for the journey planner (PLAN Run 13), loaded once, off the main thread; null if not bundled. */
+    suspend fun timetable(ctx: Context): Timetable? {
+        timetable?.let { return it }
+        if (noTimetable) return null
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val a = ctx.applicationContext.assets
+                fun read(n: String) = a.open("gtfs/$n").bufferedReader().use { it.readText() }
+                Timetable.parse(read("patterns.tsv"), read("profiles.tsv"), read("trips.tsv"), read("services.tsv")).takeIf { it.patterns.isNotEmpty() }
+            }.getOrNull().also { if (it == null) noTimetable = true else timetable = it }
+        }
+    }
+
     /** "Stop and route data: Auckland Transport, CC BY 4.0", or null when there's no data in this build. */
     fun attribution(ctx: Context): String? =
         try { ctx.assets.open("gtfs/meta.txt").bufferedReader().use { it.readLine() } } catch (_: IOException) { null }

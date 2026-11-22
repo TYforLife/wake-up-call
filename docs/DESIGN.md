@@ -349,7 +349,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | `AlarmActivity` (ack) | **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
 | `LocationSource` | Interface. `FusedLocationSource` (real; also last-known and one-shot "Use my location") and `SimulatedLocationSource` (a pretend bus in real time: halts 90 s at stop 1, drives 3 km to stop 2, halts 2 min, then keeps going, for couch tests). |
 | `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (Set a stop ⋯) or all (Debug). |
-| `TransitIndex` | Auckland Transport's stops and route patterns, offline (PLAN Run 12). CI downloads the public GTFS feed (CC BY 4.0) and `tools/gtfs_index.py` boils it down to `assets/gtfs/stops.tsv` (number, name, position) and `routes.tsv` (each route and direction's stops in order). It powers stop search and Find a bus. It only ever fills in stops: no alarm depends on it (rule 6). A build without it (a local build) has no search; links and the map still work. CI also checks the script against its fixture. |
+| `TransitIndex` | Auckland Transport's stops and route patterns, offline (PLAN Run 12). CI downloads the public GTFS feed (CC BY 4.0) and `tools/gtfs_index.py` boils it down to `assets/gtfs/stops.tsv` (number, name, position) and `routes.tsv` (each route and direction's stops in order). It powers stop search and Plan a trip; `patterns`, `profiles`, `trips` and `services.tsv` hold the timetable (PLAN Run 13, about 2.4 MB). It only ever fills in stops: no alarm depends on it (rule 6). A build without it (a local build) has no search; links and the map still work. CI also checks the script against its fixture. |
 | `SafeStore` | How every store loads and saves: each save keeps the previous file as `.bak`; a file that can't be read is kept as `.bad-<time>` and the backup is used, so an update can never wipe routes or learned rides. Fixture tests decode every shipped format. Debug → **Your data** backs everything up to one JSON file (share sheet) and restores it (file picker). |
 | `TraceLogger` | Writes JSONL per trip to app files, flushed per line. Share uses the system share sheet: **location hidden** (every position moved by one random offset, engine re-run, `Trace.anonymize`) for the public repo, or raw (private). |
 | Quick Settings tiles, launcher shortcuts | One tile per first two routes ("To work", "From work"): one tap opens the app and starts the route. Tapping while a trip runs just shows it. Long-press the app icon for the same. |
@@ -485,12 +485,22 @@ doesn't flash another colour while it opens.
 - **After "I'm awake"** (`awake`):
   - "Now", then what to do: get off and what comes next, or stay on after an early ring, and why.
   - Then While you slept as plain rows (tap one to share it), then Done.
-- **Routes** (`routes`): the search button opens **Find a bus** (PLAN Run 12, C3).
-  - Type where you're going, by stop name or number.
-  - You get the Auckland Transport buses that call at a stop within 600 m of you and then at it, with no change
-    (`TransitIndex.direct`): "866 towards Britomart · Get on at … · 290 m walk · 12 stops".
-  - Pick one, and the route "866 to Britomart" is made, with that stop.
-  - Two-bus trips come from sharing Google Maps directions.
+- **Routes** (`routes`): **Plan a trip** (PLAN Run 13, T4), like Google's:
+  - From (Your location by default) and To, each with suggestions as you type: Home and Work, addresses, then AT
+    stops. A swap button, and a **Leave now** chip that opens a clock for a later time.
+  - Rides from the bundled timetable (`Timetable`, `Planner`: RAPTOR, up to 3 buses, walks up to 800 m, changes
+    within 250 m): "7:38 → 8:20 · 42 min", bus chips "866 › 70", "Walk 4 min · Central Station at 7:42". The
+    earliest arrival first, then fewer changes, then the next departures. Times are the timetable's, not live.
+  - Tap a ride for its timeline (leave, walk, bus with stops and times, change with the wait, arrive), then **Use
+    this** or **Start now**. Using it makes a route whose stops are where you get off each bus, named "To <place>"
+    ("To work" updates that route rather than adding another).
+  - Pasting or sharing Google Maps directions fills From and To.
+  - With no routes yet, **Home and work** comes first (PLAN Run 13, T5): "Where's home?", "Where's work?" (an
+    address, or "I'm home now"), then the ride to work (leaving now) and home (leaving work at 5 pm). Each step can
+    be skipped. Now's empty state opens it too, and Settings → Home and work changes them.
+  - **Privacy:** home and work are kept in the phone's settings only, never in a log, the repo or a share. The
+    address text you type goes only to the phone's own geocoder (`Geocoder`, which is Google's on his phone), limited
+    to Auckland; planning itself is offline.
   - One row per route: "2 buses · 12 rides", or its problem as a red line ("Hill Ave needs a stop").
   - + makes "Route N" with Stop 1 and opens the map at once (PLAN Run 11, B1): save it and the route is ready. Back
     out and it's gone. No names to type.
@@ -524,6 +534,7 @@ doesn't flash another colour while it opens.
     it's where you get on.
   - Receiving only (`ShareIn`).
 - **Settings** (`settings`):
+  - Home and work: the two places, and the steps to change them (PLAN Run 13).
   - Quiet other notifications (during trips); Ring out loud after 60 s; Ask how the timing was.
   - Important contacts: the names, plus chat notification access for While you slept.
   - Report a missed alarm: shares the last trip log with locations hidden, and the last ring's report as the

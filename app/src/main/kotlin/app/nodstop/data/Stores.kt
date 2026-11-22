@@ -339,6 +339,24 @@ class Settings(context: Context) {
     fun setLastRouteId(id: String) { prefs.edit().putString(KEY_LAST_ROUTE, id).apply() }
 
     /** The first trip's start asked about a quiet trip (once, PLAN R2). */
+    /** Home and work (PLAN Run 13, T5): "lat,lng|title|sub", on the phone only (never in the repo or a log). */
+    data class Place(val lat: Double, val lng: Double, val title: String, val sub: String)
+
+    private fun place(key: String): Place? = prefs.getString(key, null)?.let { s ->
+        val f = s.split('|')
+        val ll = f[0].split(',')
+        runCatching { Place(ll[0].toDouble(), ll[1].toDouble(), f.getOrElse(1) { "" }, f.getOrElse(2) { "" }) }.getOrNull()
+    }
+    private fun setPlace(key: String, p: Place?) {
+        prefs.edit().apply {
+            if (p == null) remove(key) else putString(key, "${p.lat},${p.lng}|${p.title.replace('|', ' ')}|${p.sub.replace('|', ' ')}")
+        }.apply()
+    }
+    val home: Place? get() = place(KEY_HOME)
+    val work: Place? get() = place(KEY_WORK)
+    fun setHome(p: Place?) = setPlace(KEY_HOME, p)
+    fun setWork(p: Place?) = setPlace(KEY_WORK, p)
+
     /** The trip log whose verdict you dismissed on Now (PLAN A0): its lines aren't shown again. */
     val verdictSeen: String? get() = prefs.getString(KEY_VERDICT_SEEN, null)
     fun setVerdictSeen(file: String) { prefs.edit().putString(KEY_VERDICT_SEEN, file).apply() }
@@ -368,6 +386,8 @@ class Settings(context: Context) {
         const val KEY_QUIET_OFFERED = "quiet_trip_offered"
         const val KEY_SETUP_SEEN = "setup_seen"
         const val KEY_VERDICT_SEEN = "verdict_seen"
+        const val KEY_HOME = "place_home"
+        const val KEY_WORK = "place_work"
         const val KEY_LAST_ROUTE = "last_route_id"
         const val KEY_STARTS = "route_starts"
         const val KEY_VIPS = "wys_vip_names"

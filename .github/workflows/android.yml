@@ -35,6 +35,11 @@ jobs:
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GIT_SHA: ${{ github.sha }}
+      - name: Trip planner on the real timetable (PLAN Run 13; prints sizes and timings)
+        if: always()
+        run: |
+          f=app/build/test-results/testDebugUnitTest/TEST-app.nodstop.data.RealTimetableTest.xml
+          if [ -f "$f" ]; then sed -n '/<system-out>/,/<\/system-out>/p' "$f"; else echo "no planner results"; fi
       - name: Ring path on the JVM (PLAN Run 10, A2; a failure blocks the merge)
         run: ./gradlew :app:testDebugUnitTest -Pscreenshots --tests '*RingPathTest' --console=plain
       - name: Screenshots (PLAN U0; never blocks the APK)

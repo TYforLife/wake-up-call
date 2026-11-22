@@ -129,7 +129,8 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
                 }
             },
             skipRating = { app.settings.setPendingRating(null) },
-            addRoute = { newRoute(go) },
+            // No routes yet: home and work by address (PLAN Run 13, T5).
+            addRoute = { go(Screen.HomeWork) },
             sendReport = { reportMissedAlarm(ctx) },
             dismissLastTrip = { lastTrip?.first?.let { app.settings.setVerdictSeen(it) }; verdictTick++ },
         ),

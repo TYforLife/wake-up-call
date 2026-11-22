@@ -1,0 +1,104 @@
+package app.nodstop.ui.v2
+
+import app.nodstop.data.Planner
+import app.nodstop.engine.LatLng
+
+/** A place to plan from or to (PLAN Run 13, T3): home, work, an address, a stop, or where you are. */
+data class PlaceUi(val title: String, val sub: String, val pos: LatLng?, val kind: Kind) {
+    enum class Kind { HERE, HOME, WORK, ADDRESS, STOP }
+}
+
+/** One ride in the list, like Google's: "7:42 → 8:20", "38 min", the buses, and how it starts. */
+data class RideUi(val times: String, val minutes: String, val buses: List<String>, val sub: String)
+
+/** One line of a ride's timeline. */
+data class StepUi(val time: String, val title: String, val sub: String, val kind: Kind) {
+    enum class Kind { START, WALK, BUS, CHANGE, END }
+}
+
+/** The words of Plan a trip and of home and work (PLAN Run 13, T3-T5). Pure: tested on the JVM. */
+object PlanText {
+    /** "7:42", from seconds after midnight (a ride past midnight wraps). */
+    fun clock(s: Int): String { val m = ((s / 60) % 1440 + 1440) % 1440; return TripSheetText.hm(m / 60, m % 60) }
+
+    fun duration(minutes: Int): String = if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min".replace(" 0 min", "")
+
+    private fun walk(s: Int) = "${maxOf(1, (s + 59) / 60)} min"
+
+    fun ride(j: Planner.Journey, name: (Int) -> String): RideUi {
+        val first = j.buses.first()
+        return RideUi(
+            "${clock(j.leaveS)} → ${clock(j.arriveS)}",
+            duration(j.minutes),
+            j.buses.map { it.route },
+            listOfNotNull(
+                j.firstWalkS.takeIf { it >= 60 }?.let { "Walk ${walk(it)}" },
+                "${name(first.board)} at ${clock(first.departS)}",
+            ).joinToString(" · "),
+        )
+    }
+
+    /** The ride, step by step: leave, walk, each bus (board, stops, get off), changes, arrive. */
+    fun timeline(j: Planner.Journey, from: String, to: String, name: (Int) -> String): List<StepUi> {
+        val out = ArrayList<StepUi>()
+        out += StepUi(clock(j.leaveS), from, "Leave", StepUi.Kind.START)
+        var t = j.leaveS
+        for ((i, leg) in j.legs.withIndex()) when (leg) {
+            is Planner.Leg.Walk -> {
+                val where = when {
+                    leg.to == null -> to
+                    else -> name(leg.to)
+                }
+                out += StepUi(clock(t), "Walk ${walk(leg.seconds)}", "To $where · ${leg.meters.toInt()} m", StepUi.Kind.WALK)
+                t += leg.seconds
+            }
+            is Planner.Leg.Bus -> {
+                val prev = j.legs.getOrNull(i - 1)
+                if (prev is Planner.Leg.Bus) out += StepUi(clock(prev.arriveS), "Change at ${name(leg.board)}", "Wait ${walk(leg.departS - prev.arriveS)}", StepUi.Kind.CHANGE)
+                out += StepUi(
+                    clock(leg.departS), "${leg.route} towards ${leg.headsign}".trim(),
+                    "From ${name(leg.board)} · ${leg.stops} stop${if (leg.stops == 1) "" else "s"} · get off at ${name(leg.alight)} ${clock(leg.arriveS)}",
+                    StepUi.Kind.BUS,
+                )
+                t = leg.arriveS
+            }
+        }
+        out += StepUi(clock(j.arriveS), to, "Arrive", StepUi.Kind.END)
+        return out
+    }
+
+    /** "To work", "To Britomart": the new route's name. */
+    fun routeName(to: PlaceUi): String = when (to.kind) {
+        PlaceUi.Kind.WORK -> "To work"
+        PlaceUi.Kind.HOME -> "To home"
+        else -> "To ${to.title}"
+    }
+
+    /** "Leave now", "Leave at 8:30". */
+    fun timeChip(departS: Int?): String = departS?.let { "Leave at ${clock(it)}" } ?: "Leave now"
+
+    /** Suggestions for what you typed: home and work first (if they match), then stops, then addresses. */
+    fun suggestions(query: String, home: PlaceUi?, work: PlaceUi?, stops: List<PlaceUi>, addresses: List<PlaceUi>, here: Boolean): List<PlaceUi> {
+        val q = query.trim().lowercase()
+        val mine = listOfNotNull(home, work).filter { q.isEmpty() || it.title.lowercase().contains(q) || it.sub.lowercase().contains(q) }
+        val start = if (here && q.isEmpty()) listOf(PlaceUi("Your location", "Where you are now", null, PlaceUi.Kind.HERE)) else emptyList()
+        if (q.isEmpty()) return start + mine
+        return (start + mine + addresses.take(4) + stops.take(4)).distinctBy { it.title to it.sub }.take(8)
+    }
+
+    /** An address in a few words: "12 Queen Street, Auckland Central". */
+    fun addressLabel(number: String?, street: String?, suburb: String?, full: String?): Pair<String, String> {
+        val line = listOfNotNull(number, street).joinToString(" ").ifBlank { null }
+        return when {
+            line != null -> line to (suburb ?: "")
+            full != null -> full.substringBefore(',').trim() to full.substringAfter(',', "").trim()
+            else -> "Address" to ""
+        }
+    }
+
+    /** Settings' "Home and work" line. */
+    fun homeWork(home: String?, work: String?): String = when {
+        home == null && work == null -> "Set them to plan your commute"
+        else -> "${home ?: "No home"} · ${work ?: "No work"}"
+    }
+}
