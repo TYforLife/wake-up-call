@@ -32,6 +32,41 @@ follow that file's runbook for Run N, starting from the latest `main`.
 7. **The AI can only ring earlier.** The While You Slept briefing (DESIGN §10) never delays, cancels or
    silences a ring, and message text never reaches traces, logs, files or network code (invariants W1–W6).
 
+## Code quality
+
+The codebase is the biggest prompt every session reads, and whatever is in it gets copied as "how it's done
+here". A workaround merged today becomes the pattern three sessions from now. So:
+
+1. **Fix the cause, not the symptom.** No retry, delay, timer, flag or catch-all that makes a symptom go away
+   while its cause stays. If the clean fix is outside this PR, leave the code as it was and list it under
+   "Not fixed" in the PR, with the cause you found.
+2. **Escape hatches only go down.** Each file's count of `!!`, `@Suppress`, `runCatching` and `catch (` is pinned in
+   `app/src/test/resources/escape-hatches.txt`. Don't add one; when you remove one, lower its line. Raising a line
+   needs a reason under "Escape hatches" in the PR. Most of the legitimate ones are on the ring path, where a
+   failure must never stop a ring.
+3. **Comments say what the spec requires, never why a shortcut is fine.** Cite `DESIGN §n` when it helps. Comments
+   containing "workaround", "for now", "hack", "TODO" or "FIXME" fail CI.
+4. **Copy a nearby pattern only if it follows these rules.** If it doesn't, don't spread it; fix it if it's
+   small, otherwise note it under "Not fixed".
+5. **One way to do each thing.** Search for an existing helper before writing one, and extend it rather than
+   adding a second. Code that a change makes dead is deleted in the same PR, not kept "just in case".
+
+**Corrections become checks.** When Tae or a review corrects something, first ask whether a test could catch it
+next time. If it could, add that test in the same PR. Source-scanning tests like `ArchitectureTest` count, and
+need no new dependency. Prose here is the last resort, kept for things that need judgement. One correction fixes
+one case: record it in `docs/OWNER.md`, and don't turn it into a new hard rule unless he says it is one. Never
+loosen a check to get green. If a check is wrong, change it in its own commit and say why in the PR.
+
+| Rule | Checked by |
+| --- | --- |
+| 1. One ring path | `ArchitectureTest` (one `setAlarmClock`, audio only in the ring service), `RingPathTest` |
+| 2. Dead-man's switch, 4. ring earlier | `InvariantPropertyTest`, engine scenario tests, `ReplayTest` |
+| 3. Pure `:engine` and `:brief` | `PurityTest` in each module |
+| 7. The AI only rings earlier (W1–W6) | `UrgentTest`, `GuardrailsTest`, `NotifyIsolationTest`, `:brief` `PurityTest` |
+| Code quality 2 and 3 | `ArchitectureTest` |
+
+A rule without a check in this table is one a session can break unnoticed. When you add a rule, add its check.
+
 ## Commands
 
 ```bash

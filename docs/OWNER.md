@@ -71,6 +71,9 @@ new, or repeats something, add it here in the same PR.
 - One ring path, the dead-man's switch, and "ring earlier, never later" (`CLAUDE.md`). He has never asked to relax
   these.
 - Personal stops and ride logs never go in the repo.
+- **Clean code, no workarounds** (asked Nov 2026, after Lauren Tan's talk "All Code Is Slop (Except Mine)"). He
+  wants the codebase to stay clean as sessions pile up, so later sessions copy good patterns. Fix causes, not
+  symptoms. Turn his corrections into checks (`CLAUDE.md` "Code quality"), not more prose.
 
 ## What he'll probably say next (pre-empt these)
 - "Why do I have to open the app for that?" Anything shown in a notification should have its action there too.

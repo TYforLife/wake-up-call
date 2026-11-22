@@ -1,0 +1,51 @@
+# Escape hatches per file: path<TAB>kind<TAB>count. Checked by ArchitectureTest; counts may only go down.
+# Raising a line needs a reason under "Escape hatches" in the PR (CLAUDE.md "Code quality").
+app/src/main/kotlin/app/nodstop/App.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/Notifications.kt	runCatching	8
+app/src/main/kotlin/app/nodstop/Shortcuts.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/alarm/AlarmActivity.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/alarm/AlarmOverlay.kt	runCatching	3
+app/src/main/kotlin/app/nodstop/alarm/AlarmReceiver.kt	catch (	1
+app/src/main/kotlin/app/nodstop/alarm/AlarmReceiver.kt	runCatching	2
+app/src/main/kotlin/app/nodstop/alarm/AlarmScheduler.kt	catch (	1
+app/src/main/kotlin/app/nodstop/alarm/RestartReceiver.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/alarm/RingDiag.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/alarm/RingModeController.kt	runCatching	7
+app/src/main/kotlin/app/nodstop/alarm/RingService.kt	@Suppress	2
+app/src/main/kotlin/app/nodstop/alarm/RingService.kt	catch (	4
+app/src/main/kotlin/app/nodstop/alarm/RingService.kt	runCatching	16
+app/src/main/kotlin/app/nodstop/brief/BriefingCoordinator.kt	catch (	2
+app/src/main/kotlin/app/nodstop/brief/BriefingCoordinator.kt	runCatching	3
+app/src/main/kotlin/app/nodstop/brief/LiteRtLlm.kt	catch (	1
+app/src/main/kotlin/app/nodstop/brief/LiteRtLlm.kt	runCatching	5
+app/src/main/kotlin/app/nodstop/data/DataExport.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/data/MapsLink.kt	!!	1
+app/src/main/kotlin/app/nodstop/data/MapsLink.kt	runCatching	4
+app/src/main/kotlin/app/nodstop/data/SafeStore.kt	runCatching	3
+app/src/main/kotlin/app/nodstop/data/ShortLinks.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/data/Stores.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/data/TransitData.kt	runCatching	2
+app/src/main/kotlin/app/nodstop/data/TransitIndex.kt	!!	3
+app/src/main/kotlin/app/nodstop/map/CircleHandle.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/map/MapStyle.kt	runCatching	6
+app/src/main/kotlin/app/nodstop/map/PickerMap.kt	runCatching	2
+app/src/main/kotlin/app/nodstop/model/ModelManager.kt	!!	1
+app/src/main/kotlin/app/nodstop/model/ModelManager.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/notify/CaptureService.kt	@Suppress	1
+app/src/main/kotlin/app/nodstop/notify/CaptureService.kt	runCatching	1
+app/src/main/kotlin/app/nodstop/notify/DndController.kt	runCatching	2
+app/src/main/kotlin/app/nodstop/tile/RouteTiles.kt	@Suppress	1
+app/src/main/kotlin/app/nodstop/trip/LocationSource.kt	@Suppress	3
+app/src/main/kotlin/app/nodstop/trip/LocationSource.kt	runCatching	2
+app/src/main/kotlin/app/nodstop/trip/TripService.kt	@Suppress	1
+app/src/main/kotlin/app/nodstop/trip/TripService.kt	catch (	2
+app/src/main/kotlin/app/nodstop/trip/TripService.kt	runCatching	5
+app/src/main/kotlin/app/nodstop/ui/BriefingLabScreen.kt	catch (	2
+app/src/main/kotlin/app/nodstop/ui/BriefingLabScreen.kt	runCatching	3
+app/src/main/kotlin/app/nodstop/ui/DebugScreen.kt	!!	2
+app/src/main/kotlin/app/nodstop/ui/DebugScreen.kt	runCatching	4
+app/src/main/kotlin/app/nodstop/ui/ShareLine.kt	runCatching	2
+app/src/main/kotlin/app/nodstop/ui/v2/SetupHost.kt	runCatching	2
+app/src/main/kotlin/app/nodstop/ui/v2/Shell.kt	runCatching	3
+brief/src/main/kotlin/app/nodstop/brief/BriefParser.kt	runCatching	1
+brief/src/main/kotlin/app/nodstop/brief/Briefing.kt	runCatching	1
