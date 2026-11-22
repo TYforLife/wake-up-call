@@ -43,6 +43,8 @@ class RealTimetableTest {
                     "(${j.minutes} min) ${j.buses.joinToString(" > ") { it.route }}")
             }
             assertTrue(js.isNotEmpty(), "$name: no ride")
+            // A slow phone is several times slower than CI: keep each search under 1.5 s here.
+            assertTrue(ms < 1500, "$name: $ms ms")
             assertTrue(js.first().minutes < 120, "$name: ${js.first().minutes} min")
             for (j in js) {
                 assertTrue(j.leaveS >= 8 * 3600 - 60 && j.arriveS > j.leaveS, "$name: times")

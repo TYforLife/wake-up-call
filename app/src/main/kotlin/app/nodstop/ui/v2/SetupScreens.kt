@@ -70,6 +70,8 @@ data class SettingsUi(
     val liveOff: Boolean = false,
     /** The credit the bundled stop data asks for (CC BY 4.0, PLAN Run 12), when this build has it. */
     val credits: String? = null,
+    /** "12 Example Rd · 1 Queen St", or how to set them (PLAN Run 13, T5). */
+    val homeWork: String = "Set them to plan your commute",
 )
 
 class SettingsActions(
@@ -80,9 +82,10 @@ class SettingsActions(
     val report: () -> Unit = {},
     val live: () -> Unit = {},
     val debug: () -> Unit = {},
+    val homeWork: () -> Unit = {},
 )
 
-/** Settings: five rows; everything technical is in Debug, behind a long press on the build line (PLAN Run 9, M6). */
+/** Settings: six rows; everything technical is in Debug, behind a long press on the build line (PLAN Run 9, M6). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modifier) {
@@ -90,6 +93,7 @@ fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modi
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             ScreenTitle("Settings")
             Spacer(Modifier.height(12.dp))
+            ListRow("Home and work", ui.homeWork, onClick = a.homeWork, trailing = { Chevron() })
             SwitchRow("Quiet other notifications", "While the screen is off, on a trip", ui.quiet, a.quiet)
             SwitchRow("Ring out loud after 60 s", "If vibration didn't wake you", ui.speaker, a.speaker)
             SwitchRow("Ask how the timing was", "After each ring", ui.ask, a.ask)

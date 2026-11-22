@@ -33,7 +33,8 @@ import app.nodstop.ui.v2.RouteHost
 import app.nodstop.ui.v2.StopHost
 import app.nodstop.ui.v2.SetupHost
 import app.nodstop.ui.v2.ShareHost
-import app.nodstop.ui.v2.FindBusHost
+import app.nodstop.ui.v2.HomeWorkHost
+import app.nodstop.ui.v2.PlanHost
 import app.nodstop.ui.v2.ContactsHost
 import app.nodstop.ui.v2.SubScreen
 import app.nodstop.ui.v2.Tab
@@ -46,8 +47,10 @@ sealed interface Screen {
     data class Route(val routeId: String?) : Screen
     /** Set one bus's stop on the map. [fresh]: just added; backing out without saving removes it (PLAN B1). */
     data class Stop(val routeId: String, val leg: Int, val fresh: Boolean = false) : Screen
-    /** Find a trip by bus to a stop or place (PLAN Run 12, C3), optionally from a Google Maps link. */
-    data class FindBus(val link: String? = null) : Screen
+    /** Plan a trip with real times (PLAN Run 13, T4), optionally from a Google Maps link. */
+    data class Plan(val link: String? = null) : Screen
+    /** "Where's home? Where's work?" (PLAN Run 13, T5). */
+    data object HomeWork : Screen
     /** Shared from Google Maps (PLAN Run 12, C1). */
     data class Share(val text: String) : Screen
     data object Setup : Screen
@@ -144,7 +147,16 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendin
         is Screen.Stop -> NodstopV2Theme { SubScreen { StopHost(s.routeId, s.leg, s.fresh, back) } }
         Screen.Setup -> NodstopV2Theme { SubScreen { SetupHost(resumeTick, back) } }
         is Screen.Share -> NodstopV2Theme { SubScreen { ShareHost(s.text, go, back) } }
-        is Screen.FindBus -> NodstopV2Theme { SubScreen { FindBusHost(s.link, go, back) } }
+        is Screen.Plan -> NodstopV2Theme {
+            SubScreen {
+                PlanHost(
+                    "Plan a trip", null, null, null, s.link, null, fixed = false,
+                    onUsed = { r, start -> if (start) { TripService.startRoute(ctx, r.id); go(Screen.Trip) } else go(Screen.Route(r.id)) },
+                    back = back,
+                )
+            }
+        }
+        Screen.HomeWork -> NodstopV2Theme { SubScreen { HomeWorkHost(go, back) } }
         Screen.Contacts -> NodstopV2Theme { SubScreen { ContactsHost(resumeTick, back) } }
         else -> NodstopV2Theme {
             androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {

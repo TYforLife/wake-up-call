@@ -751,28 +751,28 @@ correct." Learning a trip by riding (onboarding A) is planned separately in `doc
   with times that only go forward.
 
 ### T3 Addresses
-- [ ] Address search with suggestions as you type, using Android's built-in `Geocoder`: free, no key, limited to
+- [x] Address search with suggestions as you type, using Android's built-in `Geocoder`: free, no key, limited to
   the Auckland region.
   - Results are mixed with AT stops ("Smales Farm Stop D") and with Home and Work.
   - "Your location" uses GPS.
   - The address text goes to the phone's geocoding provider, which is Google on his phone. DESIGN §5 says so.
-- [ ] The ranking and the labels are pure and tested.
+- [x] The ranking and the labels are pure and tested.
 
 ### T4 Plan a trip (Google-like)
-- [ ] From and To fields with suggestions, a swap button, the Leave now / Depart at chip, and the results list:
+- [x] From and To fields with suggestions, a swap button, the Leave now / Depart at chip, and the results list:
   - each ride shows times, total time, bus chips "866 › 70", and the walk and first departure;
   - tap a ride for its timeline: walk, wait, bus (stops, times), change, the arrival, and **Use this** or Start.
   - Using a ride creates a route whose stops are the get-off stops of each bus, named "To <place>".
-- [ ] It replaces Find a trip. Pasted or shared Google Maps directions fill From and To.
-- [ ] Screenshot tests: the form, the results, the timeline.
+- [x] It replaces Find a trip. Pasted or shared Google Maps directions fill From and To.
+- [x] Screenshot tests: the form, the results, the timeline.
 
 ### T5 Home and work, first run
-- [ ] First run, or Routes with no routes: the "Where's home?" and "Where's work?" steps from the walkpath, then
+- [x] First run, or Routes with no routes: the "Where's home?" and "Where's work?" steps from the walkpath, then
   picking rides for To work (leaving now) and From work (leaving at 5 pm), which creates both routes.
   - Every step has a Skip; skipping falls back to + and the map.
-- [ ] Home and work are saved in settings (never in the repo or a log), and changed in Settings → Home and work.
+- [x] Home and work are saved in settings (never in the repo or a log), and changed in Settings → Home and work.
   Plan a trip offers them as From and To.
-- [ ] Count taps in the PR. The goal is home and work typed once, plus 4 taps.
+- [x] Count taps in the PR. The goal is home and work typed once, plus 4 taps.
 
 **Test on phone (Run 13):**
 1. A fresh start: type home and work, and pick rides. Both routes exist with the right stops.

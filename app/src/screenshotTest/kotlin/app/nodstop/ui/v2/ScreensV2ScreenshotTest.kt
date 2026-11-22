@@ -197,16 +197,46 @@ class ScreensV2ScreenshotTest {
         )
     }
 
-    @Test fun find_bus() = shot("find-bus") {
-        FindBusScreen(
-            FindBusUi(
-                "", emptyList(), dest = "Harbour St",
-                options = listOf(
-                    BusOptionUi("866 towards Britomart", "Get on at Central Station · 290 m walk · 12 stops"),
-                    BusOptionUi("100 towards Harbour St", "Get on at Park Rd · 450 m walk · 9 stops"),
+    @Test fun plan() = shot("plan") {
+        PlanTripScreen(
+            PlanUi(
+                "Plan a trip", "Your location", "Work", time = "Leave now",
+                rides = listOf(
+                    RideUi("7:38 → 8:20", "42 min", listOf("866", "70"), "Walk 4 min · Central Station at 7:42"),
+                    RideUi("7:52 → 8:31", "39 min", listOf("82"), "Walk 6 min · Park Rd at 7:58"),
+                    RideUi("8:08 → 8:50", "42 min", listOf("866", "70"), "Walk 4 min · Central Station at 8:12"),
                 ),
             ),
-            FindBusActions(),
+            PlanActions(),
+        )
+    }
+
+    @Test fun ride() = shot("ride") {
+        RideScreen(
+            RideDetailUi(
+                "Work", "7:38 → 8:20 · 42 min", listOf("866", "70"),
+                listOf(
+                    StepUi("7:38", "Your location", "Leave", StepUi.Kind.START),
+                    StepUi("7:38", "Walk 4 min", "To Central Station · 300 m", StepUi.Kind.WALK),
+                    StepUi("7:42", "866 towards Britomart", "From Central Station · 12 stops · get off at Queen St 8:05", StepUi.Kind.BUS),
+                    StepUi("8:05", "Change at Queen St", "Wait 4 min", StepUi.Kind.CHANGE),
+                    StepUi("8:09", "70 towards Botany", "From Queen St · 5 stops · get off at Hill Ave 8:18", StepUi.Kind.BUS),
+                    StepUi("8:18", "Walk 2 min", "To Work · 120 m", StepUi.Kind.WALK),
+                    StepUi("8:20", "Work", "Arrive", StepUi.Kind.END),
+                ),
+            ),
+            RideActions(),
+        )
+    }
+
+    @Test fun home() = shot("home") {
+        PlacePickScreen(
+            PlacePickUi(
+                "Where's home?", "Type your address. Nodstop finds your buses and every stop to wake you at.", "12 Exam",
+                listOf(PlaceUi("12 Example Road", "Mount Example", null, PlaceUi.Kind.ADDRESS), PlaceUi("Example Rd", "Stop 1234 · 300 m", null, PlaceUi.Kind.STOP)),
+                "I'm home now",
+            ),
+            PlacePickActions(),
         )
     }
 }

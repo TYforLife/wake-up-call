@@ -71,7 +71,8 @@ fun SettingsTab(resumeTick: Int, go: (Screen) -> Unit) {
     val fix = rememberFixer { refresh.intValue++ }
     SettingsScreen(
         SettingsUi(quiet, speaker, ask, SetupText.contacts(vips), "Build ${BuildConfig.BUILD_NUMBER} · ${BuildConfig.GIT_SHA}", live?.ok == false,
-            credits = remember { app.nodstop.data.TransitData.attribution(ctx) }),
+            credits = remember { app.nodstop.data.TransitData.attribution(ctx) },
+            homeWork = remember(resumeTick) { PlanText.homeWork(s.home?.title, s.work?.title) }),
         SettingsActions(
             quiet = { on ->
                 s.setDndDuringTrips(on)
@@ -83,6 +84,7 @@ fun SettingsTab(resumeTick: Int, go: (Screen) -> Unit) {
             report = { reportMissedAlarm(ctx) },
             live = { live?.let(fix) },
             debug = { go(Screen.Debug) },
+            homeWork = { go(Screen.HomeWork) },
         ),
         Modifier.statusBarsPadding(),
     )
