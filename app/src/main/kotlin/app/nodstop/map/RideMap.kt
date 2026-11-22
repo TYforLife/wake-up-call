@@ -65,6 +65,7 @@ fun RideMap(
     val pin = layers.pins.firstOrNull { it.current && it.alarm }
     val currentPin by rememberUpdatedState(pin)
     val tap by rememberUpdatedState(onCircleTap)
+    val resize by rememberUpdatedState(onCircleResize)
 
     LaunchedEffect(colors.dark) {
         mapView.getMapAsync { m ->
@@ -100,13 +101,12 @@ fun RideMap(
     }
 
     Box(modifier) {
-        AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
-        // The handle on your stop's circle: drag it in or out (PLAN B4).
-        if (style != null && pin != null) CircleHandle(
-            map, pin.pos, preview ?: pin.zoneM, cameraTick, MapPalette.colors(colors.dark).me,
-            onDrag = { preview = it },
-            onDragEnd = { onCircleResize(pin, it) },
-        )
+        // Touch the circle's edge and drag to resize it; anywhere else moves the map (owner: "no dot").
+        val density = LocalContext.current.resources.displayMetrics.density
+        val edge = remember {
+            EdgeDrag(density, { map }, { currentPin?.let { it.pos to (preview ?: it.zoneM) } }, { preview = it }, { r -> currentPin?.let { resize(it, r) } }, { currentPin?.let { tap(it) } })
+        }
+        AndroidView(factory = { mapView.also { it.setOnTouchListener(edge) } }, modifier = Modifier.fillMaxSize())
     }
 
     LaunchedEffect(layers) { preview = null }

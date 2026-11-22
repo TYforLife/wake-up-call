@@ -177,7 +177,8 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
 - **Yours** (solid), set right on the map (PLAN Run 11, B4):
   - Tap inside your stop's circle for its sizes: Auto, 150, 250, 400 m, or the slider (50 m–2 km on a
     square-root scale, so most of it is under 1 km; `ZoneScale`).
-  - Or drag the dot on its edge in or out: the circle follows your finger, and the size is rounded like the
+  - Or touch its edge and drag in or out (no handle: a touch within a finger's width of the edge grabs it,
+    `EdgeDrag`): the circle follows your finger, and the size is rounded like the
     slider's (`CircleDrag`).
   - It's stored on that stop (`LegDraft.wakeRadiusM`), from the riding map or Set a stop. **A saved circle applies to a running trip at once**
   (`Input.UpdateLegs`: only circles, only for legs whose stop is unchanged; a circle you're already inside
@@ -466,7 +467,7 @@ doesn't flash another colour while it opens.
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
     - It has recentre, rotation and the compass, and opens framing you and your stop (`MapModel.frame`; the owner
       likes this).
-    - Tap your stop's circle for its sizes, or drag the dot on its edge (§2.6).
+    - Tap your stop's circle for its sizes, or touch its edge and drag (§2.6).
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45", and I'm off this bus.
     - Waiting: "4.1 km · waiting for the bus".
     - After changing buses: "Off at X · next stop", "Waiting for bus 2", and Skip this bus.
@@ -500,7 +501,7 @@ doesn't flash another colour while it opens.
   - One primary button for the next thing it needs ("Set Hill Ave"), or Start when it's ready.
   - Rename and Delete route (confirmed) are in the ⋯ menu. **No times.**
 - **Set a stop** (`stop`):
-  - The map (the same Google look) moves under a fixed red pin, and the wake circle follows it. Drag the dot on
+  - The map (the same Google look) moves under a fixed red pin, and the wake circle follows it. Touch and drag
     the circle's edge to size it, or tap the circle for the slider. Tap the stop's name to rename it.
   - The field at the top (PLAN Run 12) searches stops, or takes a link:
     - **Search:** a stop number ("3353") or name ("Smales Farm"), nearest first, from the bundled Auckland

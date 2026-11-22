@@ -34,4 +34,14 @@ class CircleDragTest {
         assertFalse(CircleDrag.inside(stop, 250.0, CircleDrag.edge(stop, 300.0)))
         assertTrue(CircleDrag.inside(stop, 250.0, CircleDrag.edge(stop, 260.0), slackM = 20.0))
     }
+
+    @Test
+    fun `touching the edge, a finger's width either side, grabs it - inside or outside doesn't`() {
+        assertTrue(CircleDrag.onEdge(distPx = 300.0, radiusPx = 300.0, tolPx = 80.0))
+        assertTrue(CircleDrag.onEdge(distPx = 230.0, radiusPx = 300.0, tolPx = 80.0))
+        assertTrue(CircleDrag.onEdge(distPx = 370.0, radiusPx = 300.0, tolPx = 80.0))
+        assertFalse(CircleDrag.onEdge(distPx = 100.0, radiusPx = 300.0, tolPx = 80.0))
+        assertFalse(CircleDrag.onEdge(distPx = 500.0, radiusPx = 300.0, tolPx = 80.0))
+    }
 }
+
