@@ -501,10 +501,8 @@ from a fresh install (Setup) and an update over the old app (data kept, Setup on
 Start them like the earlier runs:
 
 ```
-/goal Finish Run 10 in docs/PLAN.md and merge its PR
+/goal Finish Run 13 in docs/PLAN.md and merge its PR
 ```
-
-Then Run 11, then Run 12, the same way.
 
 ## Feedback round 3 (owner, 2026-11-20, after Run 9)
 
@@ -703,6 +701,94 @@ Couch test: the ring, Mute, Do Not Disturb and earbuds all **worked**. Done dire
   the stops are all present." A Google Maps link carries only the start and the end, never where you change
   buses, so pasting alone can't give the stops. Nodstop now works the trip out from AT's route patterns: up to
   3 buses, every get-off stop. Routes → Find a trip takes a search or pasted directions (`TransitIndex.trips`).
+
+## Run 13: Home and work, by address, with times (onboarding B)
+
+Prerequisite: feedback round 4 merged. The owner (2026-11-22): "Do B first. By address. If timetable is relevant,
+use now as the default and give a list of rides with estimated times, like Google does. Make it intuitive and
+correct." Learning a trip by riding (onboarding A) is planned separately in `docs/LEARN.md`.
+
+### The walkpath (what the owner does)
+1. **First run, or Routes with no routes:** "Where's home?" Type an address (suggestions as you type), or tap
+   "I'm home now". Then "Where's work?", the same way. That's all the typing there is.
+2. **Pick your rides:** "To work, leaving now" shows a list like Google's. Each ride has:
+   - the times, "7:42 → 8:20 · 38 min";
+   - the buses, "866 › 70";
+   - where to start, "Walk 4 min to Smales Farm Stop D, leaves 7:42".
+   Tap one to see its timeline, then **Use this**. The same follows for "From work", leaving at 5 pm.
+3. **Done:** To work and From work exist, with every stop where you get off, ready to start. Home and work are
+   saved (on the phone only) and can be changed in Settings.
+4. **Any time later:** Routes → **Plan a trip**.
+   - From (default: your location; or home, work, an address or a stop). To: an address, a stop, home or work.
+     There's a swap button.
+   - A time chip: **Leave now**, or tap it to pick a departure time.
+   - Results, a timeline, then Use this (save as a route) or **Start** (save and start the trip now).
+   - Pasting Google Maps directions fills From and To.
+
+### T1 The timetable, offline
+- [ ] `tools/gtfs_index.py` also writes the timetable:
+  - patterns as **exact stop sequences** (one per distinct sequence);
+  - each pattern's trips, stored as a departure time plus a shared per-stop time profile;
+  - each trip's service;
+  - the calendar (which services run on which dates, including exceptions).
+
+  All times are in seconds after midnight; GTFS times past 24:00 are kept.
+- [ ] The APK grows by **under 5 MB**. CI prints the index size, and the fixture feed gains times and a calendar.
+  CI still checks the script against its fixture.
+
+### T2 The journey planner (RAPTOR)
+- [ ] `Planner.plan(index, from, to, departAt, date)` is pure Kotlin and tested on the fixture. It uses round-based
+  RAPTOR:
+  - up to 3 buses;
+  - walking up to 800 m to the first stop and from the last stop, at 4.5 km/h;
+  - changes within 250 m, with 1 minute to change at the same stop;
+  - only services that run on that date, including trips after midnight.
+- [ ] **A list like Google's:** the earliest-arriving ride, then fewer-change alternatives, then the next
+  departures (search again just after each found departure), up to 5, sorted by departure time.
+  - Each ride shows its legs (walk, or a bus with board and alight stops and times), and its departure, arrival
+    and total time.
+- [ ] Tests:
+  - exact times on the fixture;
+  - one, two and three buses;
+  - waiting for the next trip;
+  - no service on a date;
+  - an after-midnight trip;
+  - nothing within walking distance;
+  - the list order.
+- [ ] **A real-data check in CI:** when the AT index is present, a JVM test plans 3 public trips between well-known
+  places (Britomart, Sky Tower and Smales Farm, at a weekday 8 am). Each must give at least one ride under 2 hours,
+  with times that only go forward.
+
+### T3 Addresses
+- [ ] Address search with suggestions as you type, using Android's built-in `Geocoder`: free, no key, limited to
+  the Auckland region.
+  - Results are mixed with AT stops ("Smales Farm Stop D") and with Home and Work.
+  - "Your location" uses GPS.
+  - The address text goes to the phone's geocoding provider, which is Google on his phone. DESIGN §5 says so.
+- [ ] The ranking and the labels are pure and tested.
+
+### T4 Plan a trip (Google-like)
+- [ ] From and To fields with suggestions, a swap button, the Leave now / Depart at chip, and the results list:
+  - each ride shows times, total time, bus chips "866 › 70", and the walk and first departure;
+  - tap a ride for its timeline: walk, wait, bus (stops, times), change, the arrival, and **Use this** or Start.
+  - Using a ride creates a route whose stops are the get-off stops of each bus, named "To <place>".
+- [ ] It replaces Find a trip. Pasted or shared Google Maps directions fill From and To.
+- [ ] Screenshot tests: the form, the results, the timeline.
+
+### T5 Home and work, first run
+- [ ] First run, or Routes with no routes: the "Where's home?" and "Where's work?" steps from the walkpath, then
+  picking rides for To work (leaving now) and From work (leaving at 5 pm), which creates both routes.
+  - Every step has a Skip; skipping falls back to + and the map.
+- [ ] Home and work are saved in settings (never in the repo or a log), and changed in Settings → Home and work.
+  Plan a trip offers them as From and To.
+- [ ] Count taps in the PR. The goal is home and work typed once, plus 4 taps.
+
+**Test on phone (Run 13):**
+1. A fresh start: type home and work, and pick rides. Both routes exist with the right stops.
+2. Compare Plan a trip's list with Google Maps for the same trip now: the same buses and times within a few
+   minutes.
+3. Leave now, and a later departure time.
+4. Paste Google directions into Plan a trip.
 
 ## Later (not for automated runs yet)
 These come after Gate C:

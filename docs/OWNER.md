@@ -71,6 +71,10 @@ new, or repeats something, add it here in the same PR.
   search or one paste. Prefer one action that does everything over several small ones.
 - The alarm must open full screen even while he's using the phone, not as a banner.
 
+## Onboarding (2026-11-22)
+- He wants starting to be effortless: "Home? Work?" by address, with rides and times like Google (Run 13). Later,
+  learning a trip by riding (`docs/LEARN.md`, its own session, worked on only when he says so).
+
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
   alone, and don't propose icon work.
