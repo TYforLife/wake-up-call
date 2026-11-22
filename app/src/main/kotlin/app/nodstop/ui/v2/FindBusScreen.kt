@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 data class FindBusUi(
     val query: String,
     val results: List<StopResultUi>,
+    /** "From where you are", or the start of pasted directions. */
+    val from: String = "From where you are",
     val dest: String? = null,
     val options: List<BusOptionUi> = emptyList(),
     val note: String? = null,
@@ -42,13 +44,14 @@ fun FindBusScreen(ui: FindBusUi, a: FindBusActions, modifier: Modifier = Modifie
     Column(modifier.fillMaxSize().padding(horizontal = 24.dp).padding(top = 12.dp, bottom = 24.dp).verticalScroll(rememberScrollState())) {
         TitleBar { IconCircle(NIcons.Back, "Back", a.back) }
         ScreenTitle(ui.dest?.let { "Buses to $it" } ?: "Where to?")
+        Hint(ui.from, Modifier.padding(bottom = 4.dp))
         if (ui.dest == null) {
             Box(
                 Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).clip(RoundedCornerShape(Tokens.RADIUS_BUTTON.dp)).background(c.fill)
                     .padding(horizontal = 16.dp).height(52.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                if (ui.query.isEmpty()) Text("Stop name or number", style = NType.body, color = c.muted)
+                if (ui.query.isEmpty()) Text("Stop, number, or a Google Maps link", style = NType.body, color = c.muted)
                 BasicTextField(
                     ui.query, a.query, singleLine = true, textStyle = NType.body.copy(color = c.fg), cursorBrush = SolidColor(c.fg),
                     modifier = Modifier.fillMaxWidth(),
@@ -58,7 +61,7 @@ fun FindBusScreen(ui: FindBusUi, a: FindBusActions, modifier: Modifier = Modifie
                 ListRow(r.title, r.sub, divider = i < ui.results.lastIndex, onClick = { a.pickDest(i) }, leading = { Icon(NIcons.Search, null, tint = c.faint) })
             }
         } else {
-            Lead("From a stop near you, no change of bus. Pick one and the route is ready.")
+            Lead("Pick one: every stop where you get off is added, and the route is ready.")
             ui.options.forEachIndexed { i, o ->
                 ListRow(o.title, o.sub, big = true, divider = i < ui.options.lastIndex, onClick = { a.pickOption(i) }, trailing = { Chevron() })
             }

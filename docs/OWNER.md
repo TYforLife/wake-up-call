@@ -63,6 +63,14 @@ new, or repeats something, add it here in the same PR.
 - If he reports a missed ring again: read Now's "Last trip" line and the `ringd` report in his log (he can tap
   Send), then add the case to `RingPathTest` before fixing it.
 
+## Round 4 (2026-11-22): what he said after the couch test
+- The ring, Mute, Do Not Disturb and earbuds worked. He tests only what he cares about ("not bothered" with
+  simulated trips and kill tests), so CI must cover the rest.
+- "No dot" on the circle: direct manipulation of the thing itself, never an extra handle.
+- Sharing a stop from Google Maps was "too much work". He wants a whole trip (all stops, up to 3 buses) from one
+  search or one paste. Prefer one action that does everything over several small ones.
+- The alarm must open full screen even while he's using the phone, not as a banner.
+
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
   alone, and don't propose icon work.

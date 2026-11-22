@@ -691,6 +691,19 @@ Prerequisite: Run 11 merged.
 3. Search "Smales Farm" and a stop number.
 4. Set up "From work" (three buses) with no typing beyond the search.
 
+## Feedback round 4 (owner, 2026-11-22, couch test after Run 12)
+
+Couch test: the ring, Mute, Do Not Disturb and earbuds all **worked**. Done directly in one PR:
+- [x] "Using another app when it rings: no ring screen, the banner pops up." The trick of opening the alarm screen
+  from a hidden window doesn't work on his phone. The ring is now drawn as a full-screen layer over the app
+  (`AlarmOverlay`), with hold to stop and volume down.
+- [x] "Don't make the circle edge with a dot. No dot. Touch and drag the edge to resize it." Done (`EdgeDrag`):
+  a touch within 28 dp of the edge grabs it, and any other touch moves the map.
+- [x] "Sharing a stop from Google Maps is too much work. Search a trip, or paste a trip from Google Maps, so that
+  the stops are all present." A Google Maps link carries only the start and the end, never where you change
+  buses, so pasting alone can't give the stops. Nodstop now works the trip out from AT's route patterns: up to
+  3 buses, every get-off stop. Routes → Find a trip takes a search or pasted directions (`TransitIndex.trips`).
+
 ## Later (not for automated runs yet)
 These come after Gate C:
 - privacy explanation and onboarding before the permission screens;

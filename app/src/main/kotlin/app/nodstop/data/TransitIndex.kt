@@ -63,7 +63,103 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>) {
         return out.values.sortedWith(compareBy({ it.board.distanceM }, { it.stopsToGo }, { it.route }))
     }
 
+    /** One bus of a trip: get on at [board], off at [alight] ([stops] stops later). */
+    data class Ride(val route: String, val headsign: String, val board: Int, val alight: Int, val stops: Int)
+
+    /**
+     * A trip by bus (PLAN feedback round 4: "search a trip so that the stops are all present"): the buses in order,
+     * and the walks: to the first stop, between buses, and from the last stop.
+     */
+    data class Trip(val rides: List<Ride>, val walkToM: Double, val walkBetweenM: Double, val walkFromM: Double) {
+        val buses: Int get() = rides.size
+        val stopsRidden: Int get() = rides.sumOf { it.stops }
+        /** Where you get off each bus: the route's stops, in order. */
+        val getOffs: List<Int> get() = rides.map { it.alight }
+    }
+
+    private val grid: Map<Long, IntArray> by lazy {
+        stops.indices.groupBy { cell(stops[it].pos.lat, stops[it].pos.lng) }.mapValues { it.value.toIntArray() }
+    }
+    private val stopPatterns: Array<List<Pair<Int, Int>>> by lazy {
+        val out = Array(stops.size) { ArrayList<Pair<Int, Int>>() }
+        patterns.forEachIndexed { pi, p -> p.stops.forEachIndexed { pos, s -> out[s] += pi to pos } }
+        Array(stops.size) { out[it] as List<Pair<Int, Int>> }
+    }
+
+    private fun cell(lat: Double, lng: Double): Long = (Math.floor(lat / CELL) .toLong() shl 32) xor (Math.floor(lng / CELL).toLong() and 0xffffffffL)
+
+    /** Stops within [radiusM] of [p], with their distances. */
+    fun near(p: LatLng, radiusM: Double): List<Pair<Int, Double>> {
+        val span = (radiusM / 111_000.0 / CELL).toInt() + 1
+        val cy = Math.floor(p.lat / CELL).toLong()
+        val cx = Math.floor(p.lng / CELL).toLong()
+        val out = ArrayList<Pair<Int, Double>>()
+        for (dy in -span..span) for (dx in -span * 2..span * 2) {
+            val key = ((cy + dy) shl 32) xor ((cx + dx) and 0xffffffffL)
+            grid[key]?.forEach { i -> val d = Geo.distanceM(p, stops[i].pos); if (d <= radiusM) out += i to d }
+        }
+        return out
+    }
+
+    /**
+     * Trips from [from] to [to] by up to [maxBuses] buses, from the route patterns alone (no timetable): rounds of
+     * "get on a bus, get off later", changing within [changeM] on foot. Cheapest first, where a stop ridden costs 1,
+     * each extra bus [BUS_COST] and each 100 m walked 1, one option per sequence of buses.
+     */
+    fun trips(from: LatLng, to: LatLng, walkM: Double = 600.0, endM: Double = 400.0, changeM: Double = 250.0, maxBuses: Int = 3, limit: Int = 5): List<Trip> {
+        val ends = near(to, endM).toMap()
+        if (ends.isEmpty()) return emptyList()
+        class Label(val cost: Double, val pattern: Int, val boardPos: Int, val alightPos: Int, val from: Int, val walkIn: Double, val prev: Label?)
+        val found = ArrayList<Pair<Double, Label>>()
+        // Where you can get on, and what it cost to get there.
+        var boardFrom = HashMap<Int, Pair<Double, Label?>>().apply { near(from, walkM).forEach { (i, d) -> put(i, d / 100 to null) } }
+        val walkIn = HashMap<Int, Double>().apply { near(from, walkM).forEach { (i, d) -> put(i, d) } }
+        for (round in 1..maxBuses) {
+            val reached = HashMap<Int, Label>()
+            for ((pi, p) in patterns.withIndex()) {
+                var best: Triple<Double, Int, Label?>? = null // (cost at position 0 equivalent, board position, previous)
+                for ((pos, s) in p.stops.withIndex()) {
+                    best?.let { (c0, bPos, prev) ->
+                        val cost = c0 + pos
+                        val cur = reached[s]
+                        if (cur == null || cost < cur.cost) {
+                            reached[s] = Label(cost, pi, bPos, pos, p.stops[bPos], walkIn[p.stops[bPos]] ?: 0.0, prev)
+                        }
+                    }
+                    boardFrom[s]?.let { (c, prev) ->
+                        val eq = c + (if (round > 1) BUS_COST else 0.0) - pos
+                        if (best == null || eq < best!!.first) best = Triple(eq, pos, prev)
+                    }
+                }
+            }
+            for ((s, l) in reached) ends[s]?.let { d -> found += (l.cost + d / 100) to l }
+            if (round == maxBuses) break
+            // Change buses: walk from where you got off to a stop nearby.
+            val next = HashMap<Int, Pair<Double, Label?>>()
+            walkIn.clear()
+            for ((s, l) in reached) for ((t, d) in near(stops[s].pos, changeM)) {
+                val c = l.cost + d / 100
+                if (next[t]?.first?.let { c < it } != false) { next[t] = c to l; walkIn[t] = d }
+            }
+            boardFrom = next
+        }
+        fun rides(l: Label): List<Pair<Ride, Double>> {
+            val p = patterns[l.pattern]
+            val ride = Ride(p.route, p.headsign, p.stops[l.boardPos], p.stops[l.alightPos], l.alightPos - l.boardPos)
+            return (l.prev?.let(::rides) ?: emptyList()) + (ride to l.walkIn)
+        }
+        return found.sortedBy { it.first }.map { (_, l) ->
+            val rs = rides(l)
+            Trip(rs.map { it.first }, rs.first().second, rs.drop(1).sumOf { it.second }, ends[rs.last().first.alight] ?: 0.0)
+        }.distinctBy { t -> t.rides.map { it.route to it.headsign } }.take(limit)
+    }
+
     companion object {
+        /** Grid cell for finding stops near a point, in degrees (about 330 m north to south). */
+        private const val CELL = 0.003
+        /** What changing to another bus costs, in stops ridden. */
+        const val BUS_COST = 8.0
+
         fun parse(stopsTsv: String, routesTsv: String): TransitIndex {
             val stops = stopsTsv.lineSequence().filter { it.isNotBlank() }.mapNotNull { l ->
                 val f = l.split('\t')

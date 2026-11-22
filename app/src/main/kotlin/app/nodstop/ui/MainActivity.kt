@@ -46,8 +46,8 @@ sealed interface Screen {
     data class Route(val routeId: String?) : Screen
     /** Set one bus's stop on the map. [fresh]: just added; backing out without saving removes it (PLAN B1). */
     data class Stop(val routeId: String, val leg: Int, val fresh: Boolean = false) : Screen
-    /** Find a direct bus to a stop (PLAN Run 12, C3). */
-    data object FindBus : Screen
+    /** Find a trip by bus to a stop or place (PLAN Run 12, C3), optionally from a Google Maps link. */
+    data class FindBus(val link: String? = null) : Screen
     /** Shared from Google Maps (PLAN Run 12, C1). */
     data class Share(val text: String) : Screen
     data object Setup : Screen
@@ -144,7 +144,7 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendin
         is Screen.Stop -> NodstopV2Theme { SubScreen { StopHost(s.routeId, s.leg, s.fresh, back) } }
         Screen.Setup -> NodstopV2Theme { SubScreen { SetupHost(resumeTick, back) } }
         is Screen.Share -> NodstopV2Theme { SubScreen { ShareHost(s.text, go, back) } }
-        Screen.FindBus -> NodstopV2Theme { SubScreen { FindBusHost(go, back) } }
+        is Screen.FindBus -> NodstopV2Theme { SubScreen { FindBusHost(s.link, go, back) } }
         Screen.Contacts -> NodstopV2Theme { SubScreen { ContactsHost(resumeTick, back) } }
         else -> NodstopV2Theme {
             androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {
