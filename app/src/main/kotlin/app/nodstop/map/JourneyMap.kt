@@ -7,7 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import app.nodstop.ui.v2.NColors
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -29,7 +29,7 @@ import org.maplibre.android.geometry.LatLng as MLatLng
  */
 @Composable
 fun JourneyMap(shape: JourneyShape.Shape, colors: NColors, modifier: Modifier = Modifier) {
-    val ctx = LocalContext.current
+    val density = LocalDensity.current.density
     val mapView = rememberMapView()
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
@@ -40,12 +40,11 @@ fun JourneyMap(shape: JourneyShape.Shape, colors: NColors, modifier: Modifier = 
             m.uiSettings.isTiltGesturesEnabled = false
             m.uiSettings.isAttributionEnabled = true
             m.uiSettings.isLogoEnabled = false
-            val px = ctx.resources.displayMetrics.density
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
                 val pal = MapPalette.colors(colors.dark)
                 MapStyle.applyGoogleLook(s, pal)
                 MapStyle.addBusStops(s, pal)
-                MapStyle.addImages(s, pal, px)
+                MapStyle.addImages(s, pal, density)
                 addLayers(s, pal)
                 style = s
             }
@@ -59,7 +58,7 @@ fun JourneyMap(shape: JourneyShape.Shape, colors: NColors, modifier: Modifier = 
         val pts = shape.all
         val m = map ?: return@LaunchedEffect
         if (pts.size >= 2) {
-            val px = (48 * ctx.resources.displayMetrics.density).toInt()
+            val px = (48 * density).toInt()
             m.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.Builder().includes(pts.map { MLatLng(it.lat, it.lng) }).build(), px))
         }
     }
