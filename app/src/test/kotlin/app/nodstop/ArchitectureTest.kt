@@ -74,8 +74,8 @@ class ArchitectureTest {
         val kinds = mapOf(
             "!!" to Regex("!!"),
             "@Suppress" to Regex("@Suppress"),
-            "runCatching" to Regex("""\brunCatching\b"""),
-            "catch-all" to Regex("""catch\s*\(\s*\w+\s*:\s*(Throwable|Exception|RuntimeException|Error)\s*\)"""),
+            // runCatching is a catch-all too (it catches Throwable): turning one into the other is neither better nor worse.
+            "catch-all" to Regex("""\brunCatching\b|catch\s*\(\s*\w+\s*:\s*(Throwable|Exception|RuntimeException|Error)\s*\)"""),
         )
         val baselineFile = File("src/test/resources/escape-hatches.txt")
         val baseline = baselineFile.readLines().filter { it.isNotBlank() && !it.startsWith("#") }.associate { line ->
