@@ -77,6 +77,9 @@ android {
             "LogNotTimber", // Timber isn't used: android.util.Log is the app's logger.
             "ChromeOsAbiSupport", // A phone app, built for arm64 only (see abiFilters).
             "UseKtx", // Style only, and explicit edit()…commit() keeps the must-be-on-disk writes visible.
+            // Its answer depends on the newest SDK installed on the machine, not on this code: a runner image update
+            // would turn CI red overnight. Raising targetSdk is its own change, tested on the phone.
+            "OldTargetApi",
         )
     }
 }
