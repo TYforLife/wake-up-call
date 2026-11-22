@@ -66,6 +66,7 @@ loosen a check to get green. If a check is wrong, change it in its own commit an
 | 3. Pure `:engine` and `:brief` | `PurityTest` in each module |
 | 7. The AI only rings earlier (W1–W6) | `UrgentTest`, `GuardrailsTest`, `NotifyIsolationTest`, `:brief` `PurityTest` |
 | Code quality 2 and 3 | `ArchitectureTest` |
+| Android pitfalls (permissions, Compose, leaks) | `:app:lintDebug`, warnings as errors, baseline in `app/lint-baseline.xml` |
 
 A rule without a check in this table is one a session can break unnoticed. When you add a rule, add its check.
 
@@ -76,6 +77,7 @@ A rule without a check in this table is one a session can break unnoticed. When 
 ./gradlew :brief:test                  # must pass before every push (While You Slept, pure Kotlin)
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:assembleDebug           # must succeed before every push
+./gradlew :app:lintDebug               # must pass before every push (new warnings fail; known ones in app/lint-baseline.xml)
 ```
 
 The Android SDK is at `$ANDROID_HOME` (`/opt/android-sdk`) in cloud sessions, installed by the

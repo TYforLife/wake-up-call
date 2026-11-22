@@ -53,7 +53,7 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
 3. **Each milestone, in order:**
    1. Implement it.
    2. Write its tests.
-   3. Run `./gradlew :engine:test :brief:test`, then `:app:testDebugUnitTest :app:assembleDebug`.
+   3. Run `./gradlew :engine:test :brief:test`, then `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`.
    4. Tick the milestone's boxes here.
    5. Make one conventional commit, then push.
 4. Keep `docs/DESIGN.md` in sync whenever behaviour or parameters change.

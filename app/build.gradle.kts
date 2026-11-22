@@ -66,6 +66,19 @@ android {
     sourceSets {
         getByName("test") { if (screenshots) java.srcDir("src/screenshotTest/kotlin") }
     }
+
+    // CLAUDE.md "Code quality": a new lint warning fails CI. The known ones are in lint-baseline.xml, each with its
+    // reason in the PR that added the baseline; fix one and it drops out.
+    lint {
+        warningsAsErrors = true
+        abortOnError = true
+        baseline = file("lint-baseline.xml")
+        disable += setOf(
+            "LogNotTimber", // Timber isn't used: android.util.Log is the app's logger.
+            "ChromeOsAbiSupport", // A phone app, built for arm64 only (see abiFilters).
+            "UseKtx", // Style only, and explicit edit()…commit() keeps the must-be-on-disk writes visible.
+        )
+    }
 }
 
 kotlin {
