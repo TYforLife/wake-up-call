@@ -53,22 +53,31 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
 3. **Each milestone, in order:**
    1. Implement it.
    2. Write its tests.
-   3. Run `./gradlew :engine:test :brief:test`, then `:app:testDebugUnitTest :app:assembleDebug`.
+   3. Run `./gradlew :engine:test :brief:test`, then `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`.
    4. Tick the milestone's boxes here.
    5. Make one conventional commit, then push.
 4. Keep `docs/DESIGN.md` in sync whenever behaviour or parameters change.
-5. **Open the PR.** Sections, in order:
+5. **Review your own diff** (`git diff origin/main`) as a reviewer would, against `CLAUDE.md` "Code quality":
+   - Does every fix remove a cause, or does it hide a symptom?
+   - Did you copy a pattern that breaks the rules?
+   - Is anything left dead?
+   - Did a correction from Tae get a check, not just a sentence?
+   Fix what you find before opening the PR.
+6. **Open the PR.** Sections, in order:
    - Summary
    - Milestones (one line each)
    - New dependencies and the reason for each
    - Trace changes, if any (and why)
+   - Escape hatches: any line raised in `escape-hatches.txt`, and why (omit if none)
+   - Not fixed: causes you found but left alone, and why (omit if none)
    - **Test on phone**: the run's phone checks plus the APK link
-6. **Merge only if the prompt says so,** and only with CI green on the PR's head commit.
-7. **Finish with a Done report:** every acceptance criterion of the run, each with its evidence (test
+7. **Merge only if the prompt says so,** and only with CI green on the PR's head commit.
+8. **Finish with a Done report:** every acceptance criterion of the run, each with its evidence (test
    name, command output or file path), plus the CI result.
-8. **Never:**
+9. **Never:**
    - work around the network allowlist;
-   - skip, weaken or disable a test;
+   - skip, weaken or disable a test, or loosen a check in `ArchitectureTest` or a `PurityTest` to get green;
+   - raise a line in `escape-hatches.txt` without a reason in the PR;
    - add a dependency outside the allowlist below;
    - add a second way to ring;
    - tick a checkpoint yourself;

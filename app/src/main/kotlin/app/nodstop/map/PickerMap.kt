@@ -12,7 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import app.nodstop.engine.LatLng
 import app.nodstop.ui.v2.NColors
@@ -52,7 +52,8 @@ fun PickerMap(
     /** Tapped a bus stop on the map: its name and where it is (PLAN Run 12, C2). */
     onBusStopTap: (String?, LatLng) -> Unit = { _, _ -> },
 ) {
-    val ctx = LocalContext.current
+    // Read through Compose so a display change (font or screen size) reaches the map too.
+    val density = LocalDensity.current.density
     val mapView = rememberMapView()
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
@@ -79,7 +80,7 @@ fun PickerMap(
             m.uiSettings.isCompassEnabled = true
             m.uiSettings.isAttributionEnabled = true
             m.uiSettings.isLogoEnabled = false
-            val px = ctx.resources.displayMetrics.density
+            val px = density
             m.uiSettings.setCompassMargins(0, (116 * px).toInt(), (16 * px).toInt(), 0)
             if (first) {
                 m.addOnCameraMoveListener {
@@ -96,11 +97,11 @@ fun PickerMap(
                     // A bus stop under your finger first: choose it (PLAN Run 12, C2).
                     val pt = m.projection.toScreenLocation(ll)
                     val r = 22 * px
-                    val f = runCatching { m.queryRenderedFeatures(RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), MapStyle.BUS_STOPS) }
-                        .getOrNull()?.firstOrNull()
+                    val f = m.queryRenderedFeatures(RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), MapStyle.BUS_STOPS).firstOrNull()
                     val g = f?.geometry() as? Point
                     if (f != null && g != null) {
-                        busStop(runCatching { f.getStringProperty("name") }.getOrNull(), LatLng(g.latitude(), g.longitude()))
+                        val name = if (f.hasNonNullValueForProperty("name")) f.getStringProperty("name") else null
+                        busStop(name, LatLng(g.latitude(), g.longitude()))
                         return@addOnMapClickListener true
                     }
                     val t = m.cameraPosition.target ?: return@addOnMapClickListener false
@@ -123,7 +124,6 @@ fun PickerMap(
 
     Box(modifier) {
         // Touch the circle's edge and drag to resize it; anywhere else moves the map (owner: "no dot").
-        val density = LocalContext.current.resources.displayMetrics.density
         val edge = remember {
             EdgeDrag(density, { map }, { target to zone }, { radius(it) }, { radius(it) }, { tap() })
         }

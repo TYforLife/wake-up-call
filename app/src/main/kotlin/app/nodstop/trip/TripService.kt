@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.util.Log
@@ -19,6 +18,8 @@ import app.nodstop.engine.CoordParser
 import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
+import app.nodstop.alarm.vibrateAsAlarm
+import app.nodstop.isolated
 import app.nodstop.brief.BriefingCoordinator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
@@ -92,7 +93,7 @@ class TripService : Service() {
     private val screen = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (trip == null) return
-            runCatching { DndController.update(this@TripService, tripRunning = true, screenOn = intent.action == Intent.ACTION_SCREEN_ON) }
+            DndController.update(this@TripService, tripRunning = true, screenOn = intent.action == Intent.ACTION_SCREEN_ON)
         }
     }
 
@@ -101,7 +102,7 @@ class TripService : Service() {
             val now = System.currentTimeMillis()
             input(Input.Tick(now))
             // Also every tick: the setting or its access may change mid-trip, and a screen broadcast can be missed.
-            if (trip != null) runCatching { DndController.update(this@TripService, tripRunning = true) }
+            if (trip != null) DndController.update(this@TripService, tripRunning = true)
             briefing?.onTick(now, lastScheduled)
             handler.postDelayed(this, TICK_MS)
         }
@@ -122,12 +123,13 @@ class TripService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // A notification button on a running trip: already in the foreground; don't flash "starting" over it.
         val button = intent?.action == ACTION_OFF || intent?.action == ACTION_STOP
-        if (!(button && trip != null)) try {
-            startForeground(Notifications.ID_TRIP, Notifications.tripStarting(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-        } catch (e: Exception) {
-            Log.e("Nodstop", "trip service could not start in the foreground", e)
-            stopSelf()
-            return START_NOT_STICKY
+        // Android refuses a location service without location access (SecurityException) or from the background.
+        if (!(button && trip != null)) {
+            val ok = isolated("trip in the foreground", false) {
+                startForeground(Notifications.ID_TRIP, Notifications.tripStarting(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+                true
+            }
+            if (!ok) { stopSelf(); return START_NOT_STICKY }
         }
         val now = System.currentTimeMillis()
         when (intent?.action) {
@@ -225,7 +227,7 @@ class TripService : Service() {
         src.start { fix -> notes.onFix(fix.tMs); input(Input.FixIn(fix.tMs, fix)) }
         handler.postDelayed(tick, TICK_MS)
         // Quiet trip: on now only if the screen is already off (a trip started from the tile, PLAN A4).
-        runCatching { DndController.update(this, tripRunning = true) }
+        DndController.update(this, tripRunning = true)
     }
 
     private fun input(i: Input) {
@@ -301,11 +303,9 @@ class TripService : Service() {
     /** One light buzz and a notification: the bus is at your stop. Not the alarm: no sound. */
     private fun nudge(legName: String?) {
         Notifications.atStop(this, legName)
-        runCatching {
-            val v = getSystemService(VibratorManager::class.java).defaultVibrator
-            val effect = VibrationEffect.createWaveform(longArrayOf(0, 180, 120, 180), -1)
-            if (Build.VERSION.SDK_INT >= 33) v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
-            else @Suppress("DEPRECATION") v.vibrate(effect)
+        isolated("at-stop buzz") {
+            getSystemService(VibratorManager::class.java).defaultVibrator
+                .vibrateAsAlarm(VibrationEffect.createWaveform(longArrayOf(0, 180, 120, 180), -1))
         }
     }
 
@@ -412,7 +412,7 @@ class TripService : Service() {
 
     override fun onDestroy() {
         routesJob?.cancel()
-        runCatching { unregisterReceiver(screen) }
+        unregisterReceiver(screen)
         // Do NOT cancel the alarm here: if the system destroys us, the scheduled alarm is the dead-man's switch.
         briefing?.stop(); briefing = null
         MessageStore.instance.stop()
@@ -498,7 +498,8 @@ class TripService : Service() {
         private fun send(ctx: Context, intent: Intent) {
             try {
                 ctx.startForegroundService(intent)
-            } catch (e: Exception) {
+            } catch (e: IllegalStateException) {
+                // ForegroundServiceStartNotAllowedException: Android won't start it from the background right now.
                 Log.e("Nodstop", "could not start the trip service", e)
             }
         }

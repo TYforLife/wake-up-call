@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -231,7 +232,7 @@ fun PlanHost(
 fun HomeWorkHost(go: (Screen) -> Unit, back: () -> Unit) {
     val ctx = LocalContext.current
     val settings = App.instance.settings
-    var step by remember { mutableStateOf(0) }
+    var step by remember { mutableIntStateOf(0) }
     var ix by remember { mutableStateOf<TransitIndex?>(null) }
     LaunchedEffect(Unit) { ix = TransitData.get(ctx) }
     val (here, _) = rememberHere()

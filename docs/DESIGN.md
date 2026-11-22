@@ -307,6 +307,7 @@ limits and stops, and time-correlated GPS error (AR(1), τ = 20 s, plus 1 m whit
     teeth check (violations without the failsafe or without `V_FLOOR`).
 12. Replay test: every `*.jsonl` in `engine/src/test/resources/traces/` reproduces its `out` lines
     (the folder starts empty); a synthetic trip also round-trips through the format.
+13. Purity: `:engine` main code has no Android, clocks, randomness, I/O or networking (`PurityTest`).
 
 Extra tests:
 - motorway then slow city (the 866 complaint): 64 s first ride, 44 s learned
@@ -333,6 +334,16 @@ tests. Nothing else without a reason written in the PR. Test builds include only
 code (the owner's phone), which keeps MapLibre to about +14 MB.
 
 `minSdk 31`, `targetSdk`/`compileSdk` 36. Package `app.nodstop`.
+
+- **Target stays at 36.** Targeting 37 (Android 17) lets an app play audio in the background only from a
+  foreground service with while-in-use capabilities. It waives that only for `USAGE_ALARM` audio with exact-alarm
+  access, and an alarm-started service isn't documented to have them, so the earbuds tone (`USAGE_MEDIA`) could be
+  muted without an error. It also requires read-only native libraries (MapLibre, LiteRT). Raising it needs an
+  Android 17 phone, `adb shell cmd audio set-enable-hardening enable`, and every ring case in `RingPathTest`.
+  `ArchitectureTest` pins it.
+- **Nothing is copied off the phone**: `allowBackup="false"` plus `data_extraction_rules.xml`, which excludes
+  everything from cloud backup and from phone-to-phone transfer. Moving phones is Debug → **Your data** (a file
+  you choose to share). `ArchitectureTest` checks both.
 
 ### Components
 

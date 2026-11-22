@@ -31,7 +31,7 @@ jobs:
           python3 tools/gtfs_index.py --out app/src/main/assets/gtfs
           cat app/src/main/assets/gtfs/meta.txt >> "$GITHUB_STEP_SUMMARY"
       - name: Test and build
-        run: ./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug --console=plain
+        run: ./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GIT_SHA: ${{ github.sha }}
@@ -69,7 +69,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
-          path: "**/build/reports/tests/"
+          path: |
+            **/build/reports/tests/
+            app/build/reports/lint-results-debug.html
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug

@@ -22,6 +22,8 @@ class NotifyIsolationTest {
             "java.net.", "Socket", "HttpURLConnection", "okhttp", "org.maplibre", "URL(",
             "android.util.Log", "Log.d(", "Log.i(", "Log.w(", "Log.e(", "println(",
             "java.io.File", "FileOutputStream", "openFileOutput", "writeText(", "TraceLogger", "SharedPreferences",
+            // `isolated` logs its failure, and a failure here could carry message text into the log.
+            "isolated(",
         )
         val files = sources("notify") + sources("brief")
         assertTrue(files.isNotEmpty(), "no notify sources under ${root.absolutePath}")

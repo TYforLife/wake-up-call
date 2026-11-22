@@ -3,6 +3,7 @@ package app.nodstop.alarm
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import app.nodstop.isolated
 import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.data.Restart
@@ -23,7 +24,7 @@ class RestartReceiver : BroadcastReceiver() {
         if (!plan.resume || trip == null) return
         plan.alarmAtMs?.let { app.scheduler.set(it) }
         val why = if (intent.action == Intent.ACTION_BOOT_COMPLETED) "the phone restarted" else "the app was updated"
-        runCatching {
+        isolated("trip log after restart") {
             app.traces.continueTrip(trip.traceFile)
             app.traces.note(System.currentTimeMillis(), "$why during the trip: alarm set again, resuming")
         }

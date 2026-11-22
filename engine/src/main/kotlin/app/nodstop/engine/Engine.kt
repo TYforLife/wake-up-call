@@ -388,9 +388,13 @@ class Engine(val cfg: Config = Config()) {
         val floor = if (learnedV != null) cfg.vFloor * cfg.learnedFloorFrac else cfg.vFloor
         // Whole-ride speed (PLAN U4): a bus that slows for a few lights near the end still counts as the
         // speed it's been doing. Only after boarding (walking to the stop says nothing about the bus).
-        val tripV = if (cfg.tripTauS <= 0) null else if (!s.boarded || short == null) s.tripV
-        else Eta.ewma(s.tripV, s.tripVMs, short, ft, cfg.tripTauS)
-        val tripVMs = if (tripV !== s.tripV) ft else s.tripVMs
+        val tripVUpdated = cfg.tripTauS > 0 && s.boarded && short != null
+        val tripV = when {
+            cfg.tripTauS <= 0 -> null
+            tripVUpdated && short != null -> Eta.ewma(s.tripV, s.tripVMs, short, ft, cfg.tripTauS)
+            else -> s.tripV
+        }
+        val tripVMs = if (tripVUpdated) ft else s.tripVMs
         // Off a learned route it joins the max (can only ring earlier); on one, past rides know the slow end better.
         val vEst = maxOf(floor, short ?: 0.0, learnedV ?: maxOf(peak ?: 0.0, tripV ?: 0.0))
         val etaS = dEff / vEst

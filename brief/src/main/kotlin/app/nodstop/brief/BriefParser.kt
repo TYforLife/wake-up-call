@@ -21,7 +21,8 @@ object BriefParser {
     fun parse(output: String, knownIds: Set<String>): Map<String, BriefLine> {
         val out = LinkedHashMap<String, BriefLine>()
         for (m in obj.findAll(output)) {
-            val o = runCatching { json.parseToJsonElement(m.value) as? JsonObject }.getOrNull() ?: continue
+            // The model's text, not ours: a brace pair that isn't JSON is skipped (SerializationException).
+            val o = try { json.parseToJsonElement(m.value) as? JsonObject } catch (_: IllegalArgumentException) { null } ?: continue
             val id = (o["c"] as? JsonPrimitive)?.contentOrNull?.trim() ?: continue
             if (id !in knownIds || id in out) continue
             val line = (o["line"] as? JsonPrimitive)?.contentOrNull?.replace(Regex("\\s+"), " ")?.trim() ?: continue

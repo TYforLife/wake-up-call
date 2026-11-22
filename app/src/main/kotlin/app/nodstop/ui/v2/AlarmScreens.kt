@@ -107,7 +107,7 @@ fun AlarmAwake(
                 PanelText.AfterWake.NEEDS_ACCESS -> ListRow(
                     "Turn on While you slept", "See what you missed next time", divider = false, onClick = onFix, trailing = { Chevron() },
                 )
-                else -> ListRow(PanelText.afterWakeText(kind), divider = false)
+                else -> ListRow(PanelText.afterWakeText(kind), null, divider = false)
             }
         }
         PrimaryButton("Done", onDone)

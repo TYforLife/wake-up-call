@@ -1,5 +1,7 @@
 package app.nodstop.brief
 
+import kotlin.coroutines.cancellation.CancellationException
+
 /** A checked model line for one conversation, valid for messages up to [coveredUntilMs]. */
 data class BriefedLine(val convKey: String, val text: String, val affectsYou: Boolean, val needsReply: Boolean, val coveredUntilMs: Long)
 
@@ -44,7 +46,13 @@ class Briefer(private val llm: Llm, private val tone: Tone = Tone.PLAIN) {
         byKey: Map<String, List<CapturedMessage>>,
     ): Map<String, BriefedLine> {
         val items = convs.map { it.id to plain.getValue(it.convKey).text }
-        val answer = runCatching { llm.generate(TeaPrompt.build(items), 40 + 60 * items.size) }.getOrNull() ?: return plain
+        val answer = try {
+            llm.generate(TeaPrompt.build(items), 40 + 60 * items.size)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null // any model failure: the plain lines stay (W2)
+        } ?: return plain
         val tea = BriefParser.parse(answer, items.map { it.first }.toSet())
         return plain.mapValues { (key, line) ->
             val c = convs.first { it.convKey == key }
