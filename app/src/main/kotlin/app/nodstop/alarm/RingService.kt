@@ -147,9 +147,9 @@ class RingService : Service() {
         // Best effort: also open the alarm screen directly (the full-screen intent covers the locked case).
         val open = { runCatching { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
         open()
-        // While you use another app (PLAN A1): with "Display over other apps", a window of ours on screen lets the
-        // alarm screen open over it, not only a banner. Give the window a moment to appear, then try again.
-        if (AlarmOverlay.show(this)) handler.postDelayed({ open() }, 400)
+        // While you use another app (owner, 2026-11-22: only the banner showed): the ring itself is drawn over that
+        // app, with "Display over other apps". Locked or screen off, the full-screen alarm above covers it.
+        AlarmOverlay.showIfInUse(this)
         return START_STICKY
     }
 

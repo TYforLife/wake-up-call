@@ -239,7 +239,7 @@ fun CircleSheet(ui: CircleSheetUi, onChange: (Double?) -> Unit, onDone: () -> Un
         } else {
             Text("Other size", style = NType.secondary, color = c.muted, modifier = Modifier.clickable { slider = true }.padding(vertical = 8.dp))
         }
-        Hint("Or drag the dot on the circle's edge.", Modifier.padding(bottom = 8.dp))
+        Hint("Or touch the circle's edge on the map and drag it.", Modifier.padding(bottom = 8.dp))
         PrimaryButton("Done", onDone)
     }
 }

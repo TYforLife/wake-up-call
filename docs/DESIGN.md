@@ -177,7 +177,8 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
 - **Yours** (solid), set right on the map (PLAN Run 11, B4):
   - Tap inside your stop's circle for its sizes: Auto, 150, 250, 400 m, or the slider (50 m–2 km on a
     square-root scale, so most of it is under 1 km; `ZoneScale`).
-  - Or drag the dot on its edge in or out: the circle follows your finger, and the size is rounded like the
+  - Or touch its edge and drag in or out (no handle: a touch within a finger's width of the edge grabs it,
+    `EdgeDrag`): the circle follows your finger, and the size is rounded like the
     slider's (`CircleDrag`).
   - It's stored on that stop (`LegDraft.wakeRadiusM`), from the riding map or Set a stop. **A saved circle applies to a running trip at once**
   (`Input.UpdateLegs`: only circles, only for legs whose stop is unchanged; a circle you're already inside
@@ -342,7 +343,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | `AlarmReceiver` | Rings with no conditions. First it posts the ring notification itself: full screen, insistent, on the alarm channel, which vibrates by itself. Then it starts `RingService`, which takes over the same notification ID. If the service can't start, the alarm is still on screen and buzzing, and the receiver re-arms the alarm a minute ahead (PLAN Run 10, A1). Sends `Rang` to the engine if the process is alive. |
 | `RestartReceiver` | After an app update (`MY_PACKAGE_REPLACED`) or a phone restart (`BOOT_COMPLETED`) during a trip (PLAN Run 10, A1): sets the saved alarm again at once (`Restart.plan`), or now if it passed while the phone was off. It then resumes tracking the same stop (`ACTION_RESUME`, not "awake for it"). It also posts "Your trip is still on, tap to keep tracking" in case Android refuses to start location tracking from the background. A stale or finished trip is dropped. |
 | `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the alarm channel. The channel has no sound, but it vibrates by itself, and the notification is insistent (PLAN Run 10). The service plays the audio and its own vibration, plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, the sound mode and Do Not Disturb at the start, whether it could buzz, when the speaker joined, how it was stopped, plus the alarm channel's state, "Display over other apps", quiet trip at the ring and a cold start) in the trip log (`ringd`; a ring that cold-started the app writes into the saved trip's log) and as the last-ring report that Settings → Report a missed alarm shares. |
-| `AlarmActivity` | Shows over the lock screen and turns the screen on. While you use another app, Android shows a ring only as a banner. With "Display over other apps", `RingService` puts up a one-pixel invisible window (`AlarmOverlay`) so it may open this screen over the app; the window goes when the screen shows or the ring ends. |
+| `AlarmActivity` | Shows over the lock screen and turns the screen on. While you use another app, Android shows a ring only as a banner. Android also no longer lets an app open its own screen from the background (the owner's couch test: only the banner showed). So with "Display over other apps", `AlarmOverlay` draws the ring itself as a full-screen layer over the app you're using: "Wake up", hold to stop, volume down held to stop. This happens only while the phone is unlocked with its screen on and Nodstop isn't in front (`AlarmOverlay.shouldShow`, tested). The layer goes when the ring stops. |
 | Alarm channel | `Notifications.ensureAlarmChannel`, at every app start and every ring (never while a ring shows). The channel must be high importance and vibrating, and must get through Do Not Disturb whenever Nodstop has that access. Android only honours "bypass Do Not Disturb" if the access existed when the channel was made, and keeps a channel's settings, so a channel that falls short is replaced with a new ID (`AlarmChannel`, tested). |
 | `AlarmActivity` (ack) | **Ways to say "I'm awake"**: hold anywhere on the bottom half for 1 s (it fills up and buzzes), hold volume down for 1.5 s (works by feel, in a pocket), or the **I'm awake** button on the alarm notification (for when you're using the phone and it shows as a banner). If Nodstop itself is open, the alarm takes over its screen (0.6 s hold). A tap, a pocket brush, back, or a quick volume press does nothing. Shows the stop, why it rang (No GPS, GPS lost, passed your stop), and earbuds/vibration. **With no trip service alive** (a cold start after a kill), "I'm awake" resumes the same leg from the saved trip: awake for it if the ring was for this stop, still tracking it if it was an early safety ring. Started from a visible screen, so Android allows it. |
 | `LocationSource` | Interface. `FusedLocationSource` (real; also last-known and one-shot "Use my location") and `SimulatedLocationSource` (a pretend bus in real time: halts 90 s at stop 1, drives 3 km to stop 2, halts 2 min, then keeps going, for couch tests). |
@@ -466,7 +467,7 @@ doesn't flash another colour while it opens.
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
     - It has recentre, rotation and the compass, and opens framing you and your stop (`MapModel.frame`; the owner
       likes this).
-    - Tap your stop's circle for its sizes, or drag the dot on its edge (§2.6).
+    - Tap your stop's circle for its sizes, or touch its edge and drag (§2.6).
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45", and I'm off this bus.
     - Waiting: "4.1 km · waiting for the bus".
     - After changing buses: "Off at X · next stop", "Waiting for bus 2", and Skip this bus.
@@ -500,7 +501,7 @@ doesn't flash another colour while it opens.
   - One primary button for the next thing it needs ("Set Hill Ave"), or Start when it's ready.
   - Rename and Delete route (confirmed) are in the ⋯ menu. **No times.**
 - **Set a stop** (`stop`):
-  - The map (the same Google look) moves under a fixed red pin, and the wake circle follows it. Drag the dot on
+  - The map (the same Google look) moves under a fixed red pin, and the wake circle follows it. Touch and drag
     the circle's edge to size it, or tap the circle for the slider. Tap the stop's name to rename it.
   - The field at the top (PLAN Run 12) searches stops, or takes a link:
     - **Search:** a stop number ("3353") or name ("Smales Farm"), nearest first, from the bundled Auckland

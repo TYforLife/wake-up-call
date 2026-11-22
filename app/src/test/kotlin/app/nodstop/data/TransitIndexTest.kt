@@ -12,8 +12,8 @@ class TransitIndexTest {
 
     @Test
     fun `the index reads - stops with numbers and positions, route patterns in order`() {
-        assertEquals(6, ix.stops.size)
-        assertEquals(3, ix.patterns.size)
+        assertEquals(8, ix.stops.size)
+        assertEquals(5, ix.patterns.size)
         val museum = ix.patterns.first { it.route == "100" && it.headsign == "Test Museum" }
         assertEquals(listOf("Test Harbour Station A", "Test Queen St", "Test Museum", "Test Park Rd"), museum.stops.map { ix.stops[it].name })
     }
@@ -55,4 +55,37 @@ class TransitIndexTest {
         // Nothing within walking distance: no options.
         assertTrue(ix.direct(LatLng(-36.70, 174.60), harbour).isEmpty())
     }
+
+    private fun at(name: String) = ix.stops.first { it.name == name }.pos
+    private fun names(t: TransitIndex.Trip) = t.getOffs.map { ix.stops[it].name }
+
+    @Test
+    fun `a trip with one bus - the same as a direct bus, with where you get off`() {
+        val t = ix.trips(at("Test Queen St"), at("Test Museum"))
+        assertEquals(listOf("100"), t.first().rides.map { it.route })
+        assertEquals(listOf("Test Museum"), names(t.first()))
+    }
+
+    @Test
+    fun `two buses - change at the stop where they meet, and the route's stops are where you get off each bus`() {
+        val t = ix.trips(at("Test Farm Stop D"), at("Test Hill Ave")).first()
+        assertEquals(listOf("866", "70"), t.rides.map { it.route })
+        assertEquals(listOf("Test Harbour Station A", "Test Hill Ave"), names(t))
+        assertEquals(2, t.buses)
+    }
+
+    @Test
+    fun `three buses, like From work - every stop you get off at is there`() {
+        val t = ix.trips(at("Test Farm Stop D"), at("Test Domain Gate")).first()
+        assertEquals(listOf("866", "100", "22"), t.rides.map { it.route })
+        assertEquals(listOf("Test Queen St", "Test Museum", "Test Domain Gate"), names(t))
+        assertEquals(listOf("Test Farm Stop D", "Test Queen St", "Test Museum"), t.rides.map { ix.stops[it.board].name })
+    }
+
+    @Test
+    fun `no trip - too far to walk to any stop, or more buses than allowed`() {
+        assertTrue(ix.trips(LatLng(-36.70, 174.60), at("Test Hill Ave")).isEmpty())
+        assertTrue(ix.trips(at("Test Farm Stop D"), at("Test Domain Gate"), maxBuses = 2).isEmpty())
+    }
 }
+

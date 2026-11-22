@@ -59,6 +59,7 @@ fun PickerMap(
     val zone by rememberUpdatedState(zoneM)
     val report by rememberUpdatedState(onCentre)
     val tap by rememberUpdatedState(onCircleTap)
+    val radius by rememberUpdatedState(onRadius)
     val busStop by rememberUpdatedState(onBusStopTap)
     var cameraTick by remember { mutableIntStateOf(0) }
     var target by remember { mutableStateOf(start) }
@@ -121,9 +122,12 @@ fun PickerMap(
     }
 
     Box(modifier) {
-        AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
-        // The handle on the circle's edge: drag it in or out; the size saves with the stop (PLAN B4).
-        if (style != null) CircleHandle(map, target, zoneM, cameraTick, MapPalette.colors(colors.dark).me, onDrag = onRadius, onDragEnd = onRadius)
+        // Touch the circle's edge and drag to resize it; anywhere else moves the map (owner: "no dot").
+        val density = LocalContext.current.resources.displayMetrics.density
+        val edge = remember {
+            EdgeDrag(density, { map }, { target to zone }, { radius(it) }, { radius(it) }, { tap() })
+        }
+        AndroidView(factory = { mapView.also { it.setOnTouchListener(edge) } }, modifier = Modifier.fillMaxSize())
     }
 
     LaunchedEffect(style, zoneM) {
