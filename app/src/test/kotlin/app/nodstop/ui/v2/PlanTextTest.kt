@@ -56,6 +56,7 @@ class PlanTextTest {
         assertEquals("To Queen St", PlanText.routeName(stop))
         assertEquals("Leave now", PlanText.timeChip(null))
         assertEquals("Leave at 8:30", PlanText.timeChip(hm(8, 30)))
+        assertEquals("Arrive by 8:30", PlanText.timeChip(TimeChoice(arrive = true, atS = hm(8, 30))))
         assertEquals("12 Queen Street" to "Auckland Central", PlanText.addressLabel("12", "Queen Street", "Auckland Central", null))
         assertEquals("Britomart" to "Auckland", PlanText.addressLabel(null, null, null, "Britomart, Auckland"))
         assertEquals("Set them to plan your commute", PlanText.homeWork(null, null))

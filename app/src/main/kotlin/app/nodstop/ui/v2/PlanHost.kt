@@ -1,7 +1,5 @@
 package app.nodstop.ui.v2
 
-import android.app.TimePickerDialog
-import android.content.DialogInterface
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -27,6 +25,8 @@ import app.nodstop.data.Timetable
 import app.nodstop.data.TransitData
 import app.nodstop.data.TransitIndex
 import app.nodstop.engine.LatLng
+import app.nodstop.map.JourneyMap
+import app.nodstop.map.JourneyShape
 import app.nodstop.trip.FusedLocationSource
 import app.nodstop.trip.TripService
 import app.nodstop.ui.Screen
@@ -108,7 +108,8 @@ fun PlanHost(
     var to by remember { mutableStateOf(initialTo) }
     var editing by remember { mutableStateOf(if (initialTo == null && !fixed && link == null) PlanField.TO else null) }
     var query by remember { mutableStateOf("") }
-    var depart by remember { mutableStateOf(departS) }
+    var time by remember { mutableStateOf(TimeChoice(atS = departS)) }
+    var picking by remember { mutableStateOf(false) }
     var rides by remember { mutableStateOf<List<Planner.Journey>?>(null) }
     var selected by remember { mutableStateOf<Int?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
@@ -144,13 +145,15 @@ fun PlanHost(
 
     val fromPos = from.pos ?: here
     val toPos = to?.let { it.pos ?: here }
-    LaunchedEffect(fromPos, toPos, depart, tt, ix) {
+    LaunchedEffect(fromPos, toPos, time, tt, ix) {
         rides = null
         val i = ix ?: return@LaunchedEffect
         val t = tt ?: return@LaunchedEffect
         if (fromPos == null || toPos == null) return@LaunchedEffect
-        val leave = depart ?: LocalTime.now().toSecondOfDay()
-        rides = withContext(Dispatchers.Default) { Planner.plan(i, t, fromPos, toPos, LocalDate.now(), leave) }
+        val at = time.atS ?: LocalTime.now().toSecondOfDay()
+        rides = withContext(Dispatchers.Default) {
+            if (time.arrive) Planner.arriveBy(i, t, fromPos, toPos, LocalDate.now(), at) else Planner.plan(i, t, fromPos, toPos, LocalDate.now(), at)
+        }
     }
     val suggestions = rememberSuggestions(query, ix, here, withHere = editing == PlanField.FROM)
 
@@ -176,6 +179,10 @@ fun PlanHost(
             ),
             RideActions(back = { selected = null }, use = { use(sel, false) }, start = { use(sel, true) }),
             Modifier.statusBarsPadding().navigationBarsPadding(),
+            map = if (fromPos != null && toPos != null) { m ->
+                val shape = remember(sel) { JourneyShape.of(sel, fromPos, toPos, { i.stops[it].pos }, { i.stops[it].name }) }
+                JourneyMap(shape, LocalN.current, m)
+            } else null,
         )
         return
     }
@@ -184,7 +191,7 @@ fun PlanHost(
     PlanTripScreen(
         PlanUi(
             title, from.title, to?.title.orEmpty(), editing, query,
-            suggestions, PlanText.timeChip(depart),
+            suggestions, PlanText.timeChip(time),
             if (i == null || rs == null) emptyList() else rs.map { j -> PlanText.ride(j) { i.stops[it].name } },
             note = note ?: when {
                 loaded && (i == null || tt == null) -> "Trip planning isn't in this build yet: it needs the bundled timetable."
@@ -192,6 +199,7 @@ fun PlanHost(
                 to == null -> null
                 fromPos == null && located == false -> "Couldn't find where you are. Check Location, or choose where you start."
                 fromPos == null || rs == null -> "Finding rides…"
+                rs.isEmpty() && time.arrive -> "No buses get there by then (up to 3 buses). Try a later time."
                 rs.isEmpty() -> "No buses at this time (up to 3 buses). Try a later time."
                 tapUses -> "Tap the ride you usually take."
                 else -> null
@@ -207,17 +215,12 @@ fun PlanHost(
                 editing = null; query = ""
             },
             swap = { val f = from; to?.let { from = it }; to = f },
-            time = {
-                val now = LocalTime.now()
-                val s = depart ?: now.toSecondOfDay()
-                TimePickerDialog(ctx, { _, h, m -> depart = h * 3600 + m * 60 }, s / 3600, s % 3600 / 60, true).apply {
-                    setButton(DialogInterface.BUTTON_NEUTRAL, "Leave now") { _, _ -> depart = null }
-                }.show()
-            },
+            time = { picking = true },
             ride = { n -> if (tapUses) rides?.getOrNull(n)?.let { use(it, false) } else selected = n },
         ),
         Modifier.statusBarsPadding().navigationBarsPadding(),
     )
+    if (picking) TimeDialog(time, LocalTime.now().toSecondOfDay(), onDone = { time = it; picking = false }, onDismiss = { picking = false })
 }
 
 /**

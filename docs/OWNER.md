@@ -74,6 +74,11 @@ new, or repeats something, add it here in the same PR.
 ## Onboarding (2026-11-22)
 - He wants starting to be effortless: "Home? Work?" by address, with rides and times like Google (Run 13). Later,
   learning a trip by riding (`docs/LEARN.md`, its own session, worked on only when he says so).
+- Plan a trip, first try: "somewhat works... I doubt its truth". It gave a ride Google never would (off at a far
+  stop, then a 13-minute walk). He judges the planner against Google Maps for his real commute, so test new planner
+  work against well-known public trips in CI, and against Google's habits: changes cost time, walks are short, one
+  walk at a time.
+- He wants **Arrive by** as well as Leave at, and **the ride on a map** when he taps it.
 
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon

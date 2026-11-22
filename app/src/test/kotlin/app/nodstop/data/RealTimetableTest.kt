@@ -29,15 +29,19 @@ class RealTimetableTest {
         val museum = LatLng(-36.8604, 174.7778)
         val smales = LatLng(-36.7790, 174.7470)
         val takapuna = LatLng(-36.7870, 174.7700)
+        val westlake = LatLng(-36.7785, 174.7501)
+        val hospital = LatLng(-36.8601, 174.7697)
         for ((name, from, to) in listOf(
             Triple("Britomart to Smales Farm", britomart, smales),
             Triple("Auckland Museum to Britomart", museum, britomart),
             Triple("Takapuna to Britomart", takapuna, britomart),
+            Triple("Westlake Boys High School to Auckland City Hospital", westlake, hospital),
         )) {
             val s = System.nanoTime()
             val js = Planner.plan(ix, tt, from, to, day, 8 * 3600)
             val ms = (System.nanoTime() - s) / 1_000_000
             println("$name on $day: ${js.size} rides in $ms ms")
+            if (name.startsWith("Westlake")) assertTrue(js.any { j -> j.buses.any { it.route == "866" } }, "$name: the 866 (Smales Farm to the hospital)")
             js.forEach { j ->
                 println("  ${j.leaveS / 3600}:${"%02d".format(j.leaveS % 3600 / 60)} -> ${j.arriveS / 3600}:${"%02d".format(j.arriveS % 3600 / 60)} " +
                     "(${j.minutes} min) ${j.buses.joinToString(" > ") { it.route }}")
@@ -48,8 +52,17 @@ class RealTimetableTest {
             assertTrue(js.first().minutes < 120, "$name: ${js.first().minutes} min")
             for (j in js) {
                 assertTrue(j.leaveS >= 8 * 3600 - 60 && j.arriveS > j.leaveS, "$name: times")
+                // One walk at a time (owner's feedback: a far stop, then a 13-minute walk).
+                j.legs.zipWithNext().forEach { (a, b) -> assertTrue(!(a is Planner.Leg.Walk && b is Planner.Leg.Walk), "$name: two walks in a row") }
+                assertTrue((j.legs.last() as Planner.Leg.Walk).meters <= Planner.ACCESS_M * Planner.DETOUR + 1, "$name: the last walk")
                 j.buses.zipWithNext().forEach { (a, b) -> assertTrue(b.departS >= a.arriveS, "$name: change goes back in time") }
             }
         }
+        val s = System.nanoTime()
+        val by = Planner.arriveBy(ix, tt, westlake, hospital, day, 9 * 3600)
+        println("Westlake to the hospital, arrive by 9:00: ${by.size} rides in ${(System.nanoTime() - s) / 1_000_000} ms, the last leaving " +
+            "${by.lastOrNull()?.let { "${it.leaveS / 3600}:${"%02d".format(it.leaveS % 3600 / 60)} arriving ${it.arriveS / 3600}:${"%02d".format(it.arriveS % 3600 / 60)}" }}")
+        assertTrue(by.isNotEmpty() && by.all { it.arriveS <= 9 * 3600 }, "arrive by")
+        assertTrue(by.last().arriveS >= 8 * 3600 + 30 * 60, "arrive by: the last ride gets there late enough to be the last")
     }
 }

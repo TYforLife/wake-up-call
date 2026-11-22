@@ -16,6 +16,11 @@ data class StepUi(val time: String, val title: String, val sub: String, val kind
     enum class Kind { START, WALK, BUS, CHANGE, END }
 }
 
+/** When: leave now ([atS] null), leave at [atS], or arrive by [atS] (seconds after midnight). */
+data class TimeChoice(val arrive: Boolean = false, val atS: Int? = null) {
+    val now: Boolean get() = atS == null
+}
+
 /** The words of Plan a trip and of home and work (PLAN Run 13, T3-T5). Pure: tested on the JVM. */
 object PlanText {
     /** "7:42", from seconds after midnight (a ride past midnight wraps). */
@@ -74,8 +79,14 @@ object PlanText {
         else -> "To ${to.title}"
     }
 
-    /** "Leave now", "Leave at 8:30". */
-    fun timeChip(departS: Int?): String = departS?.let { "Leave at ${clock(it)}" } ?: "Leave now"
+    /** "Leave now", "Leave at 8:30", "Arrive by 8:30". */
+    fun timeChip(departS: Int?): String = timeChip(TimeChoice(atS = departS))
+
+    fun timeChip(t: TimeChoice): String = when {
+        t.atS == null -> "Leave now"
+        t.arrive -> "Arrive by ${clock(t.atS)}"
+        else -> "Leave at ${clock(t.atS)}"
+    }
 
     /** Suggestions for what you typed: home and work first (if they match), then stops, then addresses. */
     fun suggestions(query: String, home: PlaceUi?, work: PlaceUi?, stops: List<PlaceUi>, addresses: List<PlaceUi>, here: Boolean): List<PlaceUi> {
