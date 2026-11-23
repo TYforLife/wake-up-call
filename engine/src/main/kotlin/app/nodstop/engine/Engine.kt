@@ -53,6 +53,8 @@ data class EngineState(
     val ackMs: Long? = null,
     /** Waiting for the first fix to pick which leg you're on (Start with autoLeg). */
     val pickLeg: Boolean = false,
+    /** Stops the pick skipped (leg index, distance at the pick), watched in case one was still ahead. */
+    val skipWatch: List<Pair<Int, Double>> = emptyList(),
     /** Since when you've been in the stop's circle at walking pace, after "I'm awake" (quick get-off). */
     val quickSinceMs: Long? = null,
     /** The stop you just left by a quick get-off, watched in case you were still on the bus. */
@@ -134,6 +136,16 @@ class Engine(val cfg: Config = Config()) {
     }
 
     // ---- legs ----
+
+    /**
+     * What this ride teaches its stop: the way there, from after the previous stop of the trip (DESIGN §2.3). A ride
+     * that started before it (the previous leg skipped) must not teach this stop the way past it.
+     */
+    private fun learn(st: EngineState, trail: List<Sample>): LearnedUpdate? {
+        val leg = st.leg ?: return null
+        val prev = st.legs.getOrNull(st.legIndex - 1)?.stop
+        return LearnedUpdate(leg.dest, Learning.buildTrack(Learning.after(trail, prev, cfg.pickAtStopM), leg.dest))
+    }
 
     private fun advance(s: EngineState, nowMs: Long): EngineState =
         if (s.legIndex + 1 < s.legs.size) enterLeg(s, s.legIndex + 1, nowMs)
@@ -347,10 +359,29 @@ class Engine(val cfg: Config = Config()) {
         if (s0.phase !in ACTIVE) return s0
         if (!accepts(s0, input)) return s0
         // Started mid-trip (e.g. already on the second bus): jump to the leg you're actually on.
-        val s = if (!s0.pickLeg) s0 else {
-            val k = LegPicker.pick(s0.legs, input.fix.pos, cfg)
-            if (k == s0.legIndex) s0.copy(pickLeg = false)
-            else enterLeg(s0.copy(lastPos = input.fix.pos), k, input.tMs).copy(pickLeg = false, lastFixMs = s0.lastFixMs)
+        val p = input.fix.pos
+        val s = when {
+            s0.pickLeg -> {
+                val k = LegPicker.pick(s0.legs, p, cfg)
+                if (k == s0.legIndex) s0.copy(pickLeg = false)
+                else {
+                    // Skipped stops far from here are watched: a bus coming up to one means it was ahead.
+                    val watch = (0 until k).map { it to Geo.distanceM(p, s0.legs[it].stop) }.filter { it.second > cfg.pickAtStopM }
+                    enterLeg(s0.copy(lastPos = p), k, input.tMs).copy(pickLeg = false, lastFixMs = s0.lastFixMs, skipWatch = watch)
+                }
+            }
+            s0.skipWatch.isNotEmpty() -> {
+                // The earliest skipped stop you're now coming up to: that leg after all, ringing now (it's close, and
+                // this leg's speed is unknown so far: rule 4). With no speed yet, the next fixes can't push it later.
+                val back = s0.skipWatch.firstOrNull { (j, d0) ->
+                    val d = Geo.distanceM(p, s0.legs[j].stop)
+                    d <= cfg.skipWatchM && d <= d0 - cfg.skipApproachM
+                }
+                if (back == null || !s0.legs[back.first].alarmEnabled) s0
+                else enterLeg(s0.copy(lastPos = p), back.first, input.tMs)
+                    .copy(lastFixMs = s0.lastFixMs, alarmAtMs = input.tMs, alarmReason = AlarmReason.WAKE)
+            }
+            else -> s0
         }
         val leg = s.leg ?: return s
         val now = input.tMs
@@ -475,7 +506,7 @@ class Engine(val cfg: Config = Config()) {
             }
             if (dwellSince != null && ft - dwellSince >= cfg.alightDwellS * 1000) {
                 // Learned only if this ride really reached your pin (PLAN U4): not where you got off or stopped.
-                if (boarded && minD <= cfg.learnPassM) e.learned = LearnedUpdate(leg.dest, Learning.buildTrack(trail, leg.dest))
+                if (boarded && minD <= cfg.learnPassM) e.learned = learn(st, trail)
                 return advance(st, now)
             }
             // Quick get-off (PLAN U3): awake, in the stop's circle, at walking pace for a few seconds.
@@ -484,7 +515,7 @@ class Engine(val cfg: Config = Config()) {
                 val walking = nearStop <= radius && slow10 != null && slow10 < cfg.alightSlowKmh / 3.6
                 val since = if (walking) s.quickSinceMs ?: ft else null
                 if (since != null && ft - since >= cfg.quickAlightS * 1000) {
-                    if (boarded && minD <= cfg.learnPassM) e.learned = LearnedUpdate(leg.dest, Learning.buildTrack(trail, leg.dest))
+                    if (boarded && minD <= cfg.learnPassM) e.learned = learn(st, trail)
                     return quickAdvance(st.copy(quickSinceMs = null), now, ft, leg.stop)
                 }
                 st = st.copy(quickSinceMs = since)

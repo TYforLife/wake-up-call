@@ -106,6 +106,15 @@ object MapModel {
         }, mapOf("yours" to JsonPrimitive(p.zoneIsYours), "current" to JsonPrimitive(p.current)))
     })
 
+    /**
+     * The circles a trip shows (owner's feedback): the stop it's watching now, then the stops still to come on the
+     * same route, fainter (the `current` property). Stops already behind you aren't circled. Off a trip: none.
+     */
+    fun tripZones(l: Layers): List<Pin> {
+        val now = l.pins.firstOrNull { it.current } ?: return emptyList()
+        return l.pins.filter { it.routeId == now.routeId && it.legIndex >= now.legIndex }
+    }
+
     /** Points the camera should frame first: you and the current stop, else every pin. */
     fun frame(me: LatLng?, layers: Layers): List<LatLng> {
         val current = layers.pins.filter { it.current }.map { it.pos }

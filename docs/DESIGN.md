@@ -115,6 +115,12 @@ the cold path cancels it.
   early). So starting late, already on the second bus, or forgetting leg 1 all work. Boarding needs only
   8 s of movement, so starting while already on a moving bus shows "On the bus" within seconds.
   A route's ⋯ menu also has **Start from <stop>** to choose the leg yourself.
+  The pick never skips a stop that's still ahead (owner's missed ring, 2026-11-23):
+  - a learned route that still passes an earlier stop picks that earlier stop;
+  - a stop's learned ride starts after the previous stop, so a ride from home never teaches stop 2 the way
+    through stop 1;
+  - a stop the pick skipped is watched for the rest of that leg. Coming within 400 m of it, at least 150 m
+    closer than at the pick, switches back to it and rings at once.
 
 ### 2.2 What this buys
 
@@ -476,8 +482,10 @@ doesn't flash another colour while it opens.
       their names. At night it uses Google's navy night map.
     - It shows only this trip's stops: your stop as Google's red pin with its circle shaded blue, the others as
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
+    - The stops still to come have their circles too, fainter (`MapModel.tripZones`). Stops behind you have none.
+    - A scale bar, top left, like Google's (`Scale`: the longest round distance under 96 dp).
     - It has recentre, rotation and the compass, and opens framing you and your stop (`MapModel.frame`; the owner
-      likes this).
+      likes this). After you change buses it frames you and the next stop again, even if you'd moved the map.
     - Tap your stop's circle for its sizes, or touch its edge and drag (§2.6).
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45", and I'm off this bus.
     - Waiting: "4.1 km · waiting for the bus".

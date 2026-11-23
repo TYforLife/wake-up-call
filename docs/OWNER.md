@@ -80,6 +80,14 @@ new, or repeats something, add it here in the same PR.
   walk at a time.
 - He wants **Arrive by** as well as Leave at, and **the ride on a map** when he taps it.
 
+## 2026-11-23
+- **Another missed ring at the first stop:** "Fucking sick of all non-alarms." Whatever he did during the trip
+  (used other apps, resized a circle), it must still ring. A missed ring is the worst bug this app can have. Treat
+  any report of one as top priority, and fix the cause, with a test.
+- He keeps a **backlog** with Claude: `docs/BACKLOG.md`. Add every new ask to it as he makes it.
+- Product direction: Auckland and AT only for now, region by region later, each region with a kind little joke.
+- He compares everything with Google Maps: walking routes, the stop to get off at, times.
+
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
   alone, and don't propose icon work.
