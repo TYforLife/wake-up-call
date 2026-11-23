@@ -207,7 +207,7 @@ class ScreensV2ScreenshotTest {
 
     @Test fun sounds() = shot("sounds") {
         SoundsScreen(
-            SoundsUi(listOf("Beeps" to false, "Chime" to false, "Rising" to true, "Your own sound" to false), "None yet: choose a file below"),
+            SoundsUi(listOf("Beeps" to false, "Chime" to false, "Rising" to false, "Pūkeko" to true, "Your own sound" to false), "None yet: choose a file below"),
             SoundsActions(),
         )
     }

@@ -381,6 +381,11 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
 
 **The tone** is the sound chosen in Settings → Alarm sound (BACKLOG 3, `Sounds`):
 - Built in: Beeps (the default), Chime and Rising. They're made in code, so there's no file to go missing.
+- Pūkeko: the owner's own recordings, in the app (`res/raw/pukeko_*.pcm`, made by `tools/pukeko_sounds.py`): a
+  ~22 s morning recording, crossfaded to loop, and three single screams. Each ring mixes them afresh
+  (`Sounds.pukeko`): the morning twice (~44 s, then it loops), with a scream at random every 1.5–5 s, and
+  sometimes a reply 0.25–0.7 s after; each a random one of the three, a little higher or lower and nearer or
+  further. Made loud, overlaps rounded off. If the recordings can't be read, the beeps.
 - Or your own file (mp3, wav, m4a, anything the phone can play), via the system file picker. It's decoded once
   when you pick it (`AlarmSound.import`): mixed to mono, resampled to 44.1 kHz, the first 20 s kept, leading
   silence trimmed and made as loud as it can be. It's stored in the app's files.

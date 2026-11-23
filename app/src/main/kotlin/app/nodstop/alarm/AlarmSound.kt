@@ -7,9 +7,11 @@ import android.media.MediaFormat
 import android.net.Uri
 import android.util.Log
 import app.nodstop.App
+import app.nodstop.R
 import java.io.File
 import java.io.IOException
 import java.nio.ByteOrder
+import kotlin.random.Random
 
 /**
  * Which sound the alarm plays (BACKLOG 3), and your own sound file. A file you pick is decoded here once, checked
@@ -22,6 +24,7 @@ object AlarmSound {
     /** The samples to ring with now. Never fails: anything wrong is the beeps. */
     fun pcm(ctx: Context): ShortArray {
         val id = Sounds.Id.of(App.instance.settings.alarmSound.value)
+        if (id == Sounds.Id.PUKEKO) return pukeko(ctx) ?: Sounds.builtIn(Sounds.Id.BEEPS)
         if (id != Sounds.Id.CUSTOM) return Sounds.builtIn(id)
         val stored = try {
             file(ctx).takeIf { it.exists() }?.readBytes()?.let(Sounds::decode)
@@ -30,6 +33,19 @@ object AlarmSound {
             null
         }
         return stored ?: Sounds.builtIn(Sounds.Id.BEEPS)
+    }
+
+    /** The Pūkeko recordings, in the app itself, mixed afresh for this ring ([Sounds.pukeko]). Null if unreadable. */
+    private fun pukeko(ctx: Context): ShortArray? {
+        fun raw(id: Int) = ctx.resources.openRawResource(id).use { it.readBytes() }.let(Sounds::decode)
+        return try {
+            val bed = raw(R.raw.pukeko_bed) ?: return null
+            val chirps = listOf(R.raw.pukeko_chirp1, R.raw.pukeko_chirp2, R.raw.pukeko_chirp3).mapNotNull(::raw)
+            Sounds.pukeko(bed, chirps, Random.Default)
+        } catch (e: IOException) {
+            Log.w("Nodstop", "pūkeko recordings unreadable: the beeps instead", e)
+            null
+        }
     }
 
     sealed interface Imported {

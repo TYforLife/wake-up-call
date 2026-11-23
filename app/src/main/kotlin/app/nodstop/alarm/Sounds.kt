@@ -6,12 +6,14 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.sin
+import kotlin.math.tanh
+import kotlin.random.Random
 
 /**
  * The alarm's sounds (BACKLOG 3), as 16-bit mono PCM at [RATE] that `Tone` loops. The built-in ones are made here
- * (no sound file to go missing); your own is decoded once when you pick it ([prepare]) and stored ([encode]), so a
- * ring only ever reads a file it already checked. Anything wrong with it at ring time: the beeps. Pure: tested on
- * the JVM.
+ * (no sound file to go missing); Pūkeko is mixed here from recordings in the app ([pukeko]); your own is decoded once
+ * when you pick it ([prepare]) and stored ([encode]), so a ring only ever reads a file it already checked. Anything
+ * wrong with it at ring time: the beeps. Pure: tested on the JVM.
  */
 object Sounds {
     const val RATE = 44_100
@@ -22,6 +24,8 @@ object Sounds {
         BEEPS("Beeps"),
         CHIME("Chime"),
         RISING("Rising"),
+        /** Real pūkeko recordings (the owner's): a morning chorus with screams at random ([pukeko]). */
+        PUKEKO("Pūkeko"),
         CUSTOM("Your own sound");
 
         companion object {
@@ -29,8 +33,9 @@ object Sounds {
         }
     }
 
+    /** Made in code. Pūkeko and your own are recordings, unknown here: the beeps. */
     fun builtIn(id: Id): ShortArray = when (id) {
-        Id.BEEPS, Id.CUSTOM -> beeps()
+        Id.BEEPS, Id.PUKEKO, Id.CUSTOM -> beeps()
         Id.CHIME -> chime()
         Id.RISING -> rising()
     }
@@ -82,6 +87,51 @@ object Sounds {
             out[rep * sweep + i] = clip(sin(phase) * env * 0.9)
         }
         return out
+    }
+
+    /** One scream in the Pūkeko mix: which chirp, when it starts (s), how fast it plays (pitch) and how loud. */
+    data class Call(val chirp: Int, val atS: Double, val speed: Double, val gain: Double)
+
+    /**
+     * When the screams come in a Pūkeko mix [lengthS] long, as a pūkeko flock wakes up: one every 1.5–5 s, and now
+     * and then a reply 0.25–0.7 s after the last, over it. Each is one of [chirps] at random, a little higher or lower
+     * (another bird) and nearer or further away.
+     */
+    fun pukekoCalls(lengthS: Double, chirps: Int, random: Random): List<Call> {
+        if (chirps < 1) return emptyList()
+        val calls = ArrayList<Call>()
+        var at = random.nextDouble(0.0, 1.5)
+        while (at < lengthS) {
+            calls += Call(random.nextInt(chirps), at, random.nextDouble(0.92, 1.08), random.nextDouble(0.45, 0.9))
+            at += if (random.nextDouble() < 0.2) random.nextDouble(0.25, 0.7) else random.nextDouble(1.5, 5.0)
+        }
+        return calls
+    }
+
+    /** How many times the bed plays in one Pūkeko loop: the screams on it differ each time round. */
+    const val PUKEKO_PASSES = 2
+
+    /**
+     * Pūkeko (DESIGN §5): the morning recording [bed] (already loop-ready) plays [PUKEKO_PASSES] times under single
+     * screams from [chirps] at random ([pukekoCalls]), so each ring is different. A scream that runs past the end
+     * carries on at the start, so the loop has no seam. Made loud, with overlaps rounded off rather than clipped.
+     */
+    fun pukeko(bed: ShortArray, chirps: List<ShortArray>, random: Random): ShortArray {
+        val len = bed.size * PUKEKO_PASSES
+        val mix = FloatArray(len) { bed[it % bed.size] * 0.6f }
+        for (c in pukekoCalls(len / RATE.toDouble(), chirps.size, random)) {
+            val chirp = chirps[c.chirp]
+            val start = n(c.atS)
+            for (i in 0 until (chirp.size / c.speed).toInt()) {
+                val x = i * c.speed
+                val a = x.toInt().coerceAtMost(chirp.size - 1)
+                val b = (a + 1).coerceAtMost(chirp.size - 1)
+                mix[(start + i) % len] += ((chirp[a] + (chirp[b] - chirp[a]) * (x - a)) * c.gain).toFloat()
+            }
+        }
+        val peak = mix.maxOf { abs(it) }.toDouble().coerceAtLeast(1.0)
+        val k = 1.5
+        return ShortArray(len) { clip(0.95 * tanh(k * mix[it] / peak) / tanh(k)) }
     }
 
     /**
