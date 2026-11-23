@@ -33,6 +33,17 @@ class TextsTest {
     }
 
     @Test
+    fun `started past a stop - the sheet says so and offers that stop, never "off at" a bus you weren't on`() {
+        val riding = TripSheetText.of(trip(status().copy(pickedPast = 1)), clock)
+        assertEquals("Started past Central Station" to "Start at Central Station", riding.skipped to riding.skippedAction)
+        val waiting = TripSheetText.of(trip(status(phase = Phase.WAITING).copy(pickedPast = 1)), clock)
+        assertEquals("Get off at", waiting.eyebrow)
+        assertEquals("Start at Central Station", waiting.skippedAction)
+        assertEquals(null, TripSheetText.of(trip(status()), clock).skipped)
+        assertEquals(null, TripSheetText.of(trip(status(phase = Phase.AWAKE).copy(pickedPast = 1)), clock).skipped)
+    }
+
+    @Test
     fun `riding with your own circle - the alarm says it's at the circle, before the stop's time`() {
         val t = trip(status()).copy(legRadii = listOf(null, 400.0))
         assertEquals("Alarm about 7:45 · at your 400 m circle", TripSheetText.of(t, clock).alarm)

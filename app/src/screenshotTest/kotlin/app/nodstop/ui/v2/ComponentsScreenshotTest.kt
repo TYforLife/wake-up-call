@@ -59,6 +59,10 @@ class ComponentsScreenshotTest {
     @Test fun trip_sheet() = shot("trip_sheet") {
         TripSheet(TripSheetUi("Get off at", "Harbour St", "6 min · 2.3 km", false, "Alarm about 7:45", false, "I'm off this bus"), {})
         TripSheet(TripSheetUi("Get off at", "Harbour St", "2.9 km · 40 s ago", true, "GPS lost. Alarm at 7:44 at the latest.", true, "I'm off this bus"), {})
+        TripSheet(
+            TripSheetUi("Get off at", "Harbour St", "12 min · 6.1 km", false, "Alarm about 7:52", false, "I'm off this bus", "Started past Central Station", "Start at Central Station"),
+            {},
+        )
     }
 
     @Test fun hold_and_tabs() = shot("hold_and_tabs") {

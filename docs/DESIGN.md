@@ -120,7 +120,10 @@ the cold path cancels it.
   - a stop's learned ride starts after the previous stop, so a ride from home never teaches stop 2 the way
     through stop 1;
   - a stop the pick skipped is watched for the rest of that leg. Coming within 400 m of it, at least 150 m
-    closer than at the pick, switches back to it and rings at once.
+    closer than at the pick, switches back to it and rings at once;
+  - a skip is never silent: the trip sheet says "Started past Smales Farm" and offers **Start at Smales Farm**,
+    which starts the same trip again from that stop, with no pick (`Status.pickedPast`, BACKLOG 5). The sheet stays
+    open while it shows.
 
 ### 2.2 What this buys
 

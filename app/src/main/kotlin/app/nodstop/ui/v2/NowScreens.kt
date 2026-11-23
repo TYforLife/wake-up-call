@@ -157,6 +157,8 @@ fun NowRiding(
     onExpandedChange: (Boolean) -> Unit = {},
     /** Shown instead of the trip sheet, e.g. a stop's circle sizes (PLAN B4). */
     overlay: (@Composable () -> Unit)? = null,
+    /** The sheet's "Start at <stop>" when the trip began past a stop (BACKLOG 5). */
+    onSkipped: () -> Unit = {},
 ) {
     Column(modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -187,7 +189,8 @@ fun NowRiding(
         Box(Modifier.offsetUp(28).animateContentSize().then(drag)) {
             when {
                 overlay != null -> overlay()
-                expanded || compact == null -> TripSheet(sheet, onAction)
+                // Started past a stop: the full sheet, so it's seen (BACKLOG 5).
+                expanded || compact == null || sheet.skipped != null -> TripSheet(sheet, onAction, onSkipped = onSkipped)
                 else -> CompactTripSheet(compact, onAction, onExpand = { onExpandedChange(true) })
             }
         }
