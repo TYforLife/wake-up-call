@@ -2,34 +2,75 @@ package app.nodstop.data
 
 import android.content.Context
 import android.util.Log
+import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import java.io.File
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
 
 /**
- * Walking along real footpaths (BACKLOG 1): OpenStreetMap's walkable ways around one end of a trip, from the Overpass
- * API, kept in the app's cache for [KEEP_DAYS]. Only that area is sent (a square about 2 km across, like the map
- * tiles the map already loads), with a generic client name; never a name or an address. Offline, or if Overpass
- * doesn't answer: null, and the planner walks straight lines × 1.25 as before.
+ * Walking along real footpaths (BACKLOG 1 and 27): OpenStreetMap's walkable ways around a place, from the Overpass
+ * API, kept in the app's cache. Only that area is sent (a square of a few km, like the map tiles the map already
+ * loads), with a generic client name; never a name or an address.
+ *
+ * The straight line is the last resort, so each walk tries, in order: the cached paths (younger than [KEEP_DAYS]),
+ * each Overpass server, the cached paths however old (a failed refresh never loses them), and the foot router
+ * ([FootRouter]). Only when all of those fail is it null, and the planner walks straight lines × 1.25, saying so.
  */
 object Footpaths {
-    /** The main Overpass server, then a public mirror when it's busy or refuses (it sometimes does). */
-    private val SERVERS = listOf("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter")
-    /** Around each end: the planner's walks start within 800 m (straight), so 1 km covers their way there. */
-    private const val RADIUS_M = 1_000.0
+    /** The main Overpass server, then public mirrors for when it's busy or refuses (it sometimes does). */
+    internal val SERVERS = listOf(
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    )
     private const val KEEP_DAYS = 30L
+    /**
+     * Room around a walk's reach: a cached place is used for any place within about 100 m of it ([key]), so the box
+     * must reach as far from every one of those.
+     */
+    const val SLACK_M = 150.0
 
-    suspend fun walks(ctx: Context, p: LatLng): Planner.Walks? = withContext(Dispatchers.IO) {
-        val json = cached(ctx, p) ?: fetch(p)?.also { save(ctx, p, it) } ?: return@withContext null
+    /** The square fetched for walks of up to [reachM] from a place. */
+    fun radius(reachM: Double) = reachM + SLACK_M
+
+    /** Where a place's paths are cached: its position to 3 decimals (about 100 m), and how far walks reach. */
+    internal fun key(p: LatLng, reachM: Double) = "%d_%.3f_%.3f".format(Locale.US, reachM.toInt(), p.lat, p.lng)
+
+    /**
+     * Walks from [p] of up to [reachM], to [targets] (the stops it may walk to, nearest first; the foot router is
+     * asked only for those). Null only when no source answers.
+     */
+    suspend fun walks(ctx: Context, p: LatLng, reachM: Double, targets: List<LatLng>): Planner.Walks? = withContext(Dispatchers.IO) {
+        val f = file(ctx, p, reachM)
+        val json = fresh(f) ?: fetch(p, reachM)?.also { save(f, it) } ?: f.takeIf { it.exists() }?.readText()
+        json?.let { graph(it, p, reachM) }
+            ?: targets.take(FootRouter.MAX_TARGETS).takeIf { it.isNotEmpty() }?.let { FootRouter.walks(p, it) }
+    }
+
+    /** Fetches the paths for [places] (a place and its walks' reach) that aren't cached yet, or are old. */
+    suspend fun prefetch(ctx: Context, places: List<Pair<LatLng, Double>>) = withContext(Dispatchers.IO) {
+        for ((p, reach) in places) {
+            val f = file(ctx, p, reach)
+            if (!isFresh(f)) fetch(p, reach)?.let { save(f, it) }
+        }
+    }
+
+    /**
+     * The places your commute walks from, to have their paths before you plan: home and work, and each stop of a
+     * route where you get off and change buses (every stop but the last).
+     */
+    fun commute(home: LatLng?, work: LatLng?, routes: List<Route>): List<Pair<LatLng, Double>> =
+        listOfNotNull(home, work).map { it to Planner.MAX_WALK_M } +
+            routes.flatMap { r -> r.legs.dropLast(1).mapNotNull { CoordParser.parse(it.coords) } }.distinct().map { it to Planner.CHANGE_WALK_M }
+
+    private suspend fun graph(json: String, p: LatLng, reachM: Double): Planner.Walks? = withContext(Dispatchers.Default) {
         try {
-            withContext(Dispatchers.Default) { WalkGraph.parse(json).from(p) }
+            WalkGraph.parse(json).from(p, reachM)
         } catch (e: SerializationException) {
             Log.w("Nodstop", "footpaths: unreadable reply", e)
             null
@@ -39,56 +80,28 @@ object Footpaths {
         }
     }
 
-    /** One file per place, by its position to about 100 m (home and work come back to the same file). */
-    private fun file(ctx: Context, p: LatLng) =
-        File(File(ctx.cacheDir, "footpaths").apply { mkdirs() }, "%.3f_%.3f.json".format(Locale.US, p.lat, p.lng))
+    private fun file(ctx: Context, p: LatLng, reachM: Double) =
+        File(File(ctx.cacheDir, "footpaths").apply { mkdirs() }, "${key(p, reachM)}.json")
 
-    private fun cached(ctx: Context, p: LatLng): String? {
-        val f = file(ctx, p)
-        val fresh = f.exists() && System.currentTimeMillis() - f.lastModified() < KEEP_DAYS * 86_400_000L
-        return if (fresh) f.readText() else null
-    }
+    private fun isFresh(f: File) = f.exists() && System.currentTimeMillis() - f.lastModified() < KEEP_DAYS * 86_400_000L
+    private fun fresh(f: File): String? = if (isFresh(f)) f.readText() else null
 
-    private fun save(ctx: Context, p: LatLng, json: String) {
+    private fun save(f: File, json: String) {
         try {
-            file(ctx, p).writeText(json)
+            f.writeText(json)
         } catch (e: IOException) {
             Log.w("Nodstop", "footpaths: not cached", e)
         }
     }
 
-    private fun fetch(p: LatLng): String? {
-        val body = "data=" + URLEncoder.encode(WalkGraph.query(p, RADIUS_M), "UTF-8")
-        return SERVERS.firstNotNullOfOrNull { fetch(it, body) }
-    }
-
     /**
      * The footpaths, not a refusal: a refusal is an HTML page, or a 200 whose JSON carries a "remark" (a timeout or
-     * an error) instead of the ways. Only these are cached.
+     * an error) instead of the ways. Only these are used and cached.
      */
     internal fun usable(reply: String): Boolean = reply.contains("\"elements\"") && !reply.contains("\"remark\"") && reply.contains("\"way\"")
 
-    /** The reply, if it's the footpaths: a refusal is a short message, not a 200 with elements. */
-    private fun fetch(server: String, body: String): String? {
-        return try {
-            val c = (URL(server).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                connectTimeout = 10_000
-                readTimeout = 30_000
-                setRequestProperty("User-Agent", "Nodstop")
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            }
-            try {
-                c.outputStream.use { it.write(body.toByteArray()) }
-                if (c.responseCode != 200) null
-                else c.inputStream.bufferedReader().use { it.readText() }.takeIf(::usable)
-            } finally {
-                c.disconnect()
-            }
-        } catch (e: IOException) {
-            Log.w("Nodstop", "footpaths: no answer", e)
-            null
-        }
+    private fun fetch(p: LatLng, reachM: Double): String? {
+        val body = "data=" + URLEncoder.encode(WalkGraph.query(p, radius(reachM)), "UTF-8")
+        return SERVERS.firstNotNullOfOrNull { Http.post(it, body)?.takeIf(::usable) }
     }
 }
