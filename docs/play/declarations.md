@@ -92,12 +92,12 @@ the screen recorder: a **simulated trip** (Settings → Debug) shows everything 
 
 ## Battery optimisation (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`)
 
-**Don't declare it: the app won't ask for it once the follow-up PR lands.** Google's list of acceptable uses covers
-VoIP or chat apps that can't use FCM, safety apps, task automation and some companion devices. Alarm apps aren't on it.
-Google also says alarms set with `setAlarmClock` "continue to fire normally" in Doze, which is how Nodstop rings. So
-the exemption isn't part of the core function, and the request would likely be rejected. The follow-up PR drops the
-permission. The Setup row then opens Nodstop's **App info**, where the user taps **Battery → Unrestricted** (on Samsung
-that is the same switch).
+**Nothing to declare: the app doesn't ask for it.** Google's list of acceptable uses covers VoIP or chat apps that
+can't use FCM, safety apps, task automation and some companion devices. Alarm apps aren't on it. Google also says
+alarms set with `setAlarmClock` "continue to fire normally" in Doze, which is how Nodstop rings. So the exemption
+isn't part of the core function, and a request would likely be rejected. The Setup row **Keep running** opens
+Nodstop's **App info** instead, where the user taps **Battery → Unrestricted**. On Samsung that is the same switch,
+and `isIgnoringBatteryOptimizations` still reports it, with no permission needed.
 
 ## Notification access (While You Slept, optional)
 

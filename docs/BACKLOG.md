@@ -56,8 +56,8 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
         both install side by side. Ticked once Tae has installed from Play (steps 1–8).
   - [x] The Play declarations DESIGN §8 lists are written (`docs/play/declarations.md`): exact alarm and full-screen
         intent (an alarm app), location foreground service (with what the demo video must show). The
-        battery-optimisation request would likely be refused (alarm apps aren't on Google's list), so the app opens
-        App info → Battery instead (its own PR).
+        battery-optimisation request would likely be refused (alarm apps aren't on Google's list), so the app no
+        longer asks for it: Keep running opens App info → Battery → Unrestricted instead.
   - [x] A privacy policy page (`docs/privacy.md`). "Your location never leaves the phone" holds for trips, but not
         for Plan a trip, which sends its start and end points (your position when you start from here) to
         OpenStreetMap's footpath and walking-route services. The policy says so. Making the slogan true again means

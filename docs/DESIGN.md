@@ -483,7 +483,7 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
 `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`,
 `FOREGROUND_SERVICE_LOCATION`, `FOREGROUND_SERVICE_SYSTEM_EXEMPTED`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`,
 `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`, `WAKE_LOCK`, `VIBRATE`,
-`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `MODIFY_AUDIO_SETTINGS` (media volume during the ring),
+`MODIFY_AUDIO_SETTINGS` (media volume during the ring),
 `POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `ACTIVITY_RECOGNITION` ("in a vehicle" / "on foot", asked
 only by Debug → Learn spike, `docs/LEARN.md`), `RECEIVE_BOOT_COMPLETED` (a trip's alarm survives a
 restart), `INTERNET` (map tiles; and, only when you paste or share a `maps.app.goo.gl` short link, that link is sent to
@@ -506,10 +506,13 @@ doesn't flash another colour while it opens.
 
 - **Setup** (`setup`): "Before your first ride", one list:
   - Notifications; Over the lock screen (full-screen intent); Exact alarms; Buzz on Mute (Do Not Disturb access);
-    Location while riding; Over other apps ("Display over other apps", Run 10).
+    Location while riding.
   - An Alarm notifications row only when the alarm channel is turned off or down.
   - Each row has an Allow that asks for the permission or opens its settings page.
-  - On Samsung, a Keep running (battery Unrestricted) row and the steps no API can check:
+  - Keep running (battery Unrestricted), always on Samsung, elsewhere only while it's off. Allow opens Nodstop's App
+    info, where you tap Battery → Unrestricted. The app doesn't ask for the exemption directly: Play allows that
+    only where Doze breaks the core function, and `setAlarmClock` rings through Doze (`docs/play/declarations.md`).
+  - On Samsung, the steps no API can check:
     - Settings → Apps → Nodstop → Battery → Unrestricted
     - Settings → Battery → Background usage limits → Never sleeping apps → add Nodstop
     - Never Force stop Nodstop: Android cancels its alarms when you do.
