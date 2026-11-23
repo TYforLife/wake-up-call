@@ -100,6 +100,12 @@ new, or repeats something, add it here in the same PR.
   recordings (a 20 s morning and three ~1.5 s screams) and asked for the morning looping with screams "happening
   stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
 
+## 2026-11-23 (product review)
+- He asked for a product director's view: what makes the app harder to use, and a backlog with acceptance criteria
+  that later sessions can pick up, thinking for the rider rather than about feasibility. It's in `docs/BACKLOG.md`
+  ("The goal", "What's holding the app back", items 10–26, decision D1). He wanted the goal written down where every
+  session reads it: it's the top of that file, linked from `CLAUDE.md`.
+
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
   alone, and don't propose icon work.

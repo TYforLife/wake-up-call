@@ -4,8 +4,10 @@ Android app that wakes the owner (Tae) before his bus stop so he can sleep on th
 The full spec is in `docs/DESIGN.md`. Read it before any work; it wins over your instincts.
 Read `docs/OWNER.md` too: who Tae is, what he has already asked for, and what not to touch. Add to it
 whenever he asks for something new or repeats himself.
+The product goal, what's holding the app back, and the backlog (with acceptance criteria) are in `docs/BACKLOG.md`.
 The work queue is `docs/PLAN.md`. A prompt like `/goal Finish Run N in docs/PLAN.md and open its PR` means:
 follow that file's runbook for Run N, starting from the latest `main`.
+`/goal Build backlog item N in docs/BACKLOG.md` means the same runbook, for that item.
 
 ## How this project is worked on
 
