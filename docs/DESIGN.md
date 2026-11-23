@@ -527,6 +527,15 @@ doesn't flash another colour while it opens.
       - the one you're heading for, with "~7:46" and its bus;
       - the ones after it, with the timetable's arrival and departure when Plan a trip knows their bus
         (`Departures.ride`, after a 2-minute change).
+  - **The time left on the bus** (owner, 2026-11-24: "the ETAs are very off… I know my bus times") is worked out
+    from the timetable when Plan a trip knows the bus and where you got on (`Departures.remainingS`, in
+    `TripService.busEta`):
+    - you're placed on the line of its stops (within 400 m);
+    - the run due at that point about now (within 30 min) gives the time left from there to your stop.
+
+    Your real position holds the delay so far, and the timetable gives the rest. It's shown in "6 min", "stop ~7:46",
+    the journey list and the notification. Otherwise it's the engine's display ETA (past rides × today's pace, else
+    recent speed). The alarm keeps the engine's own, deliberately earlier estimate.
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45 · stop ~7:46", and I'm off
     this bus. The alarm is meant to come first. With your own circle it says so: "Alarm about 7:42 at your 400 m
     circle · stop ~7:46".
