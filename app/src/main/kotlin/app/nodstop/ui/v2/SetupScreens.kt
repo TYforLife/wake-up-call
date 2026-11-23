@@ -72,6 +72,8 @@ data class SettingsUi(
     val credits: String? = null,
     /** "12 Example Rd · 1 Queen St", or how to set them (PLAN Run 13, T5). */
     val homeWork: String = "Set them to plan your commute",
+    /** "Beeps", "Pūkeko", "Your own sound: wake.mp3". */
+    val sound: String = "Beeps",
 )
 
 class SettingsActions(
@@ -83,6 +85,7 @@ class SettingsActions(
     val live: () -> Unit = {},
     val debug: () -> Unit = {},
     val homeWork: () -> Unit = {},
+    val sound: () -> Unit = {},
 )
 
 /** Settings: six rows; everything technical is in Debug, behind a long press on the build line (PLAN Run 9, M6). */
@@ -94,6 +97,7 @@ fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modi
             ScreenTitle("Settings")
             Spacer(Modifier.height(12.dp))
             ListRow("Home and work", ui.homeWork, onClick = a.homeWork, trailing = { Chevron() })
+            ListRow("Alarm sound", ui.sound, onClick = a.sound, trailing = { Chevron() })
             SwitchRow("Quiet other notifications", "While the screen is off, on a trip", ui.quiet, a.quiet)
             SwitchRow("Ring out loud after 60 s", "If vibration didn't wake you", ui.speaker, a.speaker)
             SwitchRow("Ask how the timing was", "After each ring", ui.ask, a.ask)
@@ -140,5 +144,49 @@ fun ContactsScreen(names: List<String>, readingOk: Boolean, a: ContactsActions, 
             )
             Pill("Add", { if (text.isNotBlank()) { a.add(text.trim()); text = "" } })
         }
+    }
+}
+
+// ---- Alarm sound (from Settings, BACKLOG 3) ----
+
+data class SoundsUi(
+    /** Each sound's name and whether it's the one, in order (the last is your own). */
+    val options: List<Pair<String, Boolean>>,
+    /** Your own sound's file, or how to add one. */
+    val ownLine: String,
+    val note: String? = null,
+    /** Off while a trip runs: a test ring would replace the trip's alarm. */
+    val canTry: Boolean = true,
+)
+
+class SoundsActions(
+    val back: () -> Unit = {},
+    val pick: (Int) -> Unit = {},
+    val chooseFile: () -> Unit = {},
+    val tryIt: () -> Unit = {},
+)
+
+/** The alarm's sound: four built in, or your own file. "Try it" is a real test ring through the alarm. */
+@Composable
+fun SoundsScreen(ui: SoundsUi, a: SoundsActions, modifier: Modifier = Modifier) {
+    val c = LocalN.current
+    Column(modifier.fillMaxSize().padding(horizontal = 24.dp).padding(top = 12.dp, bottom = 24.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            TitleBar { IconCircle(NIcons.Back, "Back", a.back) }
+            ScreenTitle("Alarm sound")
+            Lead("In your earbuds, with vibration, as always. Without earbuds it only vibrates.")
+            ui.options.forEachIndexed { i, (name, on) ->
+                ListRow(
+                    name, if (i == ui.options.lastIndex) ui.ownLine else null, onClick = { a.pick(i) },
+                    trailing = { if (on) Icon(NIcons.Check, "Chosen", tint = c.fg) },
+                )
+            }
+            ListRow("Choose a file…", "mp3, wav or m4a; the first 20 s loop", onClick = a.chooseFile, divider = false, trailing = { Chevron() })
+            ui.note?.let { Hint(it, Modifier.fillMaxWidth().padding(top = 12.dp)) }
+        }
+        if (ui.canTry) {
+            PrimaryButton("Try it", a.tryIt)
+            Hint("Rings the real alarm in 5 s. Hold to stop it.", Modifier.fillMaxWidth().padding(top = 8.dp), center = true)
+        } else Hint("Try it after your trip: it would replace the trip's alarm.", Modifier.fillMaxWidth(), center = true)
     }
 }

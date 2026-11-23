@@ -7,6 +7,15 @@ data class SetupRowUi(val id: String, val title: String, val subtitle: String, v
 
 /** The words on Setup (mockup `setup`) and Settings (mockup `settings`). Pure. */
 object SetupText {
+    /** Settings' "Alarm sound" line: the sound's name, or your file's. */
+    fun sound(id: String?, customName: String?): String {
+        val s = app.nodstop.alarm.Sounds.Id.of(id)
+        return if (s == app.nodstop.alarm.Sounds.Id.CUSTOM) "Your own: ${customName ?: "a file"}" else s.label
+    }
+
+    /** "12 s", "20 s". */
+    fun seconds(s: Double): String = "${Math.round(s)} s"
+
     /**
      * The mockup's rows, in its order, then Over other apps (Run 10), the alarm channel (only when it's off),
      * battery (always on Samsung) and volume (only when it's a problem).

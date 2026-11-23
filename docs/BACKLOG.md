@@ -25,12 +25,6 @@ at the bottom.
    - **Waiting on Tae:** an AT API key, which is free from AT's developer portal. He enters it in Settings, and it's kept on
      the phone, never in the repo.
    - Rule 6: live data may only make an alarm earlier. GPS stays the fallback.
-3. [ ] **Alarm sounds.**
-   - A range of built-in sounds, plus your own mp3 or wav file. The file is picked with the system file
-     picker and copied into the app.
-   - Maybe region sounds, such as a crying pūkeko.
-   - The ring still goes only through `RingService` (rule 1). The earbuds-and-vibration rules stay, and a file
-     that can't play falls back to the default sound.
 
 ## Later
 - Learning a trip by riding it (Track A, `docs/LEARN.md`), worked on only when he says so.
@@ -51,4 +45,6 @@ at the bottom.
 - [x] **After changing buses, the map frames you and the next stop again.**
 - [x] **Walking along real footpaths (2026-11-23).** OpenStreetMap's paths around each end, by Overpass, cached
   30 days. Real walks near Auckland City Hospital were 1.4–2× the straight line.
+- [x] **Alarm sounds.** Beeps, Chime, Rising, Pūkeko, or your own mp3/wav/m4a (the first 20 s loop). The beeps
+  if your file can't play. "Try it" is a real test ring.
 - [x] **Say when a trip starts past a stop.** "Started past Smales Farm", with **Start at Smales Farm**.

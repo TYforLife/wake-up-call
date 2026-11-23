@@ -16,6 +16,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.nodstop.App
+import app.nodstop.alarm.AlarmSound
+import app.nodstop.alarm.Sounds
+import app.nodstop.trip.TripService
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import app.nodstop.BuildConfig
 import app.nodstop.notify.DndController
 import app.nodstop.ui.Readiness
@@ -73,7 +84,8 @@ fun SettingsTab(resumeTick: Int, go: (Screen) -> Unit) {
     SettingsScreen(
         SettingsUi(quiet, speaker, ask, SetupText.contacts(vips), "Build ${BuildConfig.BUILD_NUMBER} · ${BuildConfig.GIT_SHA}", live?.ok == false,
             credits = remember { app.nodstop.data.TransitData.attribution(ctx) },
-            homeWork = remember(resumeTick) { PlanText.homeWork(s.home?.title, s.work?.title) }),
+            homeWork = remember(resumeTick) { PlanText.homeWork(s.home?.title, s.work?.title) },
+            sound = SetupText.sound(s.alarmSound.collectAsState().value, s.customSoundName)),
         SettingsActions(
             quiet = { on ->
                 s.setDndDuringTrips(on)
@@ -86,6 +98,7 @@ fun SettingsTab(resumeTick: Int, go: (Screen) -> Unit) {
             live = { live?.let(fix) },
             debug = { go(Screen.Debug) },
             homeWork = { go(Screen.HomeWork) },
+            sound = { go(Screen.Sounds) },
         ),
         Modifier.statusBarsPadding(),
     )
@@ -121,3 +134,51 @@ fun reportMissedAlarm(ctx: Context) {
 private fun open(ctx: Context, i: Intent) {
     ctx.openIfPossible(i)
 }
+
+/** The alarm's sound (BACKLOG 3): pick one, add your own file, try it as a real ring. */
+@Composable
+fun SoundsHost(back: () -> Unit) {
+    val ctx = LocalContext.current
+    val s = App.instance.settings
+    val chosen by s.alarmSound.collectAsState()
+    val trip by TripService.status.collectAsState()
+    val scope = rememberCoroutineScope()
+    var note by remember { mutableStateOf<String?>(null) }
+    val ids = Sounds.Id.entries
+    val hasOwn = s.customSoundName != null || chosen == Sounds.Id.CUSTOM.name
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        note = "Reading the file…"
+        scope.launch {
+            val name = withContext(Dispatchers.IO) { displayName(ctx, uri) }
+            val r = withContext(Dispatchers.IO) { AlarmSound.import(ctx, uri, name) }
+            note = when (r) {
+                is AlarmSound.Imported.Ok -> "Your sound is set: ${SetupText.seconds(r.seconds)}, looping."
+                is AlarmSound.Imported.Failed -> r.why
+            }
+        }
+    }
+    SoundsScreen(
+        SoundsUi(
+            ids.map { it.label to (Sounds.Id.of(chosen) == it && (it != Sounds.Id.CUSTOM || hasOwn)) },
+            if (hasOwn) s.customSoundName ?: "Your file" else "None yet: choose a file below",
+            note, canTry = trip == null,
+        ),
+        SoundsActions(
+            back = back,
+            pick = { i ->
+                val id = ids[i]
+                if (id == Sounds.Id.CUSTOM && !hasOwn) picker.launch(arrayOf("audio/*")) else { s.setAlarmSound(id.name); note = null }
+            },
+            chooseFile = { picker.launch(arrayOf("audio/*")) },
+            tryIt = { App.instance.scheduler.set(System.currentTimeMillis() + 5_000); note = "Ringing in 5 s." },
+        ),
+        Modifier.statusBarsPadding().navigationBarsPadding(),
+    )
+}
+
+/** The file's name as the picker shows it ("wake.mp3"), for Settings. */
+private fun displayName(ctx: Context, uri: Uri): String? =
+    ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+        if (c.moveToFirst()) c.getString(0) else null
+    }

@@ -220,6 +220,16 @@ class Settings(context: Context) {
         prefs.edit().putBoolean(KEY_SPEAKER, on).apply(); _speakerLastResort.value = on
     }
 
+    private val _alarmSound = MutableStateFlow(prefs.getString(KEY_SOUND, null))
+    /** The alarm's sound (`Sounds.Id` name; null: the beeps), BACKLOG 3. */
+    val alarmSound: StateFlow<String?> = _alarmSound
+    /** Your own sound's file name, for Settings. */
+    val customSoundName: String? get() = prefs.getString(KEY_SOUND_NAME, null)
+
+    fun setAlarmSound(id: String, customName: String? = customSoundName) {
+        prefs.edit().putString(KEY_SOUND, id).putString(KEY_SOUND_NAME, customName).apply(); _alarmSound.value = id
+    }
+
     private val _pendingRating = MutableStateFlow(readRating())
     val pendingRating: StateFlow<PendingRating?> = _pendingRating
 
@@ -404,6 +414,8 @@ class Settings(context: Context) {
         const val KEY_RING_PREV_FILTER = "ring_prev_filter"
         const val KEY_DND_SET = "dnd_set_by_us"
         const val KEY_DND_PREV = "dnd_previous_filter"
+        const val KEY_SOUND = "alarm_sound"
+        const val KEY_SOUND_NAME = "alarm_sound_name"
         const val KEY_SPEAKER = "speaker_last_resort"
         const val KEY_RATING = "pending_rating"
     }

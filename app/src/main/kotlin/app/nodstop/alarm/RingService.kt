@@ -77,6 +77,8 @@ class RingService : Service() {
     private var inUse = false
     /** When the speaker joins this ring, or null for never (RingMode.speakerAfterMs). */
     private var speakerAfterMs: Long? = null
+    /** The chosen sound (BACKLOG 3), read once per ring; the beeps if anything about it is wrong. */
+    private var sound: ShortArray? = null
 
     private val loop = object : Runnable {
         override fun run() {
@@ -152,6 +154,7 @@ class RingService : Service() {
 
     private fun begin() {
         ringing = true
+        sound = isolated("alarm sound (the beeps instead)", null) { AlarmSound.pcm(this) }
         overshoot = false
         startedAt = SystemClock.elapsedRealtime()
         val pm = getSystemService(PowerManager::class.java)
@@ -221,7 +224,7 @@ class RingService : Service() {
                 AudioRoute.EARBUDS -> {
                     alarmTrack?.pause()
                     setVolume(AudioManager.STREAM_MUSIC, step.volumePct)
-                    val t = mediaTrack ?: Tone.track(AudioAttributes.USAGE_MEDIA).also { tr ->
+                    val t = mediaTrack ?: toneTrack(AudioAttributes.USAGE_MEDIA).also { tr ->
                         tr.addOnRoutingChangedListener({ r -> if (isPhoneSpeaker(r.routedDevice)) tr.pause() }, handler)
                         mediaTrack = tr
                     }
@@ -232,7 +235,7 @@ class RingService : Service() {
                 AudioRoute.SPEAKER -> {
                     mediaTrack?.pause()
                     setVolume(AudioManager.STREAM_ALARM, step.volumePct)
-                    val t = alarmTrack ?: Tone.track(AudioAttributes.USAGE_ALARM).also { alarmTrack = it }
+                    val t = alarmTrack ?: toneTrack(AudioAttributes.USAGE_ALARM).also { alarmTrack = it }
                     if (t.playState != AudioTrack.PLAYSTATE_PLAYING) t.play()
                 }
                 AudioRoute.NONE -> {
@@ -243,6 +246,10 @@ class RingService : Service() {
         }
         _state.value = RingUi(legName, overshoot, startedAt, step, hs != null, test, if (overshoot) AlarmReason.OVERSHOOT else reason)
     }
+
+    /** The chosen sound; if the phone won't take it (too long for a static track), the beeps. */
+    private fun toneTrack(usage: Int): AudioTrack =
+        sound?.let { s -> isolated("own sound track (the beeps instead)", null) { Tone.track(usage, s) } } ?: Tone.track(usage)
 
     private fun isPhoneSpeaker(d: AudioDeviceInfo?): Boolean =
         d != null && (d.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || d.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE ||
