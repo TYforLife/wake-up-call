@@ -111,6 +111,15 @@ new, or repeats something, add it here in the same PR.
 - He likes Auckland flavour (Pūkeko, region jokes) and asked for more product-level ideas like it: BACKLOG
   "Product directions", P1–P7, for him to pick.
 
+## Play Store (2026-11-23, BACKLOG F35)
+- "Is there no approval required? And I can publish, and update the application frequently? That'd be so nice." He
+  wants Play updates as often as merges, with no review queue for himself. Internal testing gives him that; the public
+  needs a 12-tester, 14-day closed test first. The plain answer and his steps are in `docs/play/README.md`.
+- Every merge to `main` goes to his internal testing track (CI). The `debug-latest` APK is now a separate app,
+  **Nodstop dev** (`app.nodstop.debug`), so trying a PR never touches his Play install.
+- Still his call: the final name and application ID (Nodstop / `app.nodstop`), which can't change after the first
+  upload. Ask once in the report, and don't pick them for him.
+
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
   alone, and don't propose icon work.
