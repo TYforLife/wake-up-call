@@ -510,9 +510,23 @@ doesn't flash another colour while it opens.
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
     - The stops still to come have their circles too, fainter (`MapModel.tripZones`). Stops behind you have none.
     - A scale bar, top left, like Google's (`Scale`: the longest round distance under 96 dp).
+    - Every leg's way (owner, 2026-11-24): the one you're on in route blue, the others grey (`MapModel.legPaths`):
+      - the bus's stops from the timetable, when Plan a trip knows the bus (`Departures.path`);
+      - else the newest learned ride to that stop;
+      - else a straight line from the stop before.
+
+      Learned rides aren't drawn separately on a trip.
     - It has recentre, rotation and the compass, and opens framing you and your stop (`MapModel.frame`; the owner
       likes this). After you change buses it frames you and the next stop again, even if you'd moved the map.
     - Tap your stop's circle for its sizes, or touch its edge and drag (§2.6).
+  - The sheet has three heights (owner, 2026-11-24). Drag it up or down; touching the map folds it:
+    - folded: one line, for the map;
+    - the sheet below;
+    - pulled all the way up: the sheet and **Your journey**, every stop in order (`JourneyText`):
+      - done;
+      - the one you're heading for, with "~7:46" and its bus;
+      - the ones after it, with the timetable's arrival and departure when Plan a trip knows their bus
+        (`Departures.ride`, after a 2-minute change).
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45 · stop ~7:46", and I'm off
     this bus. The alarm is meant to come first. With your own circle it says so: "Alarm about 7:42 at your 400 m
     circle · stop ~7:46".

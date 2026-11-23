@@ -123,6 +123,7 @@ fun RideMap(
     LaunchedEffect(style, layers) {
         val s = style ?: return@LaunchedEffect
         s.getSourceAs<GeoJsonSource>("ride-tracks")?.setGeoJson(MapModel.tracksJson(layers))
+        s.getSourceAs<GeoJsonSource>("ride-legs")?.setGeoJson(MapModel.legPathsJson(layers))
         s.getSourceAs<GeoJsonSource>("ride-pins")?.setGeoJson(MapModel.pinsJson(layers))
     }
     LaunchedEffect(style, layers, preview) {
@@ -190,7 +191,7 @@ internal const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 
 private fun addRideLayers(s: Style, c: MapPalette.Colors) {
     val empty = """{"type":"FeatureCollection","features":[]}"""
-    for (id in listOf("ride-zone", "ride-tracks", "ride-pins", "ride-me")) s.addSource(GeoJsonSource(id, empty))
+    for (id in listOf("ride-zone", "ride-legs", "ride-tracks", "ride-pins", "ride-me")) s.addSource(GeoJsonSource(id, empty))
     val blue = c.me.toInt()
     // Your stop's circle: a light blue disc, as Google shades an area. The trip's later stops: the same, fainter.
     val current = Expression.eq(Expression.get("current"), true)
@@ -205,6 +206,21 @@ private fun addRideLayers(s: Style, c: MapPalette.Colors) {
             PropertyFactory.lineOpacity(Expression.switchCase(current, Expression.literal(0.6f), Expression.literal(0.25f))),
         ),
     )
+    // The trip's legs (owner, 2026-11-24): the others grey under, the one you're on in route blue on a darker edge.
+    s.addLayer(
+        LineLayer("nod-legs-other", "ride-legs").withProperties(
+            PropertyFactory.lineColor(c.otherStop.toInt()), PropertyFactory.lineWidth(4.5f), PropertyFactory.lineOpacity(0.7f),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+        ).withFilter(Expression.eq(Expression.get("current"), false)),
+    )
+    for ((id, col, w) in listOf(Triple("nod-legs-casing", c.routeCasing, 8f), Triple("nod-legs-now", c.route, 5.5f))) {
+        s.addLayer(
+            LineLayer(id, "ride-legs").withProperties(
+                PropertyFactory.lineColor(col.toInt()), PropertyFactory.lineWidth(w),
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            ).withFilter(Expression.eq(Expression.get("current"), true)),
+        )
+    }
     // The learned route: Google's route blue on a darker edge.
     for ((id, col, w) in listOf(Triple("nod-track-casing", c.routeCasing, 8f), Triple("nod-track", c.route, 5.5f))) {
         s.addLayer(

@@ -129,4 +129,14 @@ class PlannerTest {
         assertTrue(Departures.next(ix, tt, at("Test Farm Stop D"), "866", LocalDate.of(2026, 12, 25), hm(6, 50)).isEmpty(), "Christmas")
         assertTrue(Departures.next(ix, tt, at("Test Farm Stop D"), "70", wednesday, hm(6, 50)).isEmpty(), "not this stop's bus")
     }
+
+    @Test
+    fun `a leg's bus path and its timetabled ride, for the trip map and the journey list`() {
+        val path = Departures.path(ix, tt, "866", at("Test Farm Stop D"), at("Test Queen St"))!!
+        assertEquals(at("Test Farm Stop D"), path.first())
+        assertEquals(at("Test Queen St"), path.last())
+        assertEquals(hm(7, 0) to hm(7, 20), Departures.ride(ix, tt, "866", at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(6, 50)))
+        assertEquals(hm(7, 30) to hm(7, 50), Departures.ride(ix, tt, "866", at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(7, 2)))
+        assertEquals(null, Departures.path(ix, tt, "866", at("Test Queen St"), at("Test Farm Stop D")), "not that way")
+    }
 }

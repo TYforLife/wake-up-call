@@ -176,5 +176,27 @@ class TextsTest {
         assertEquals("Central Station · waiting for the bus", CompactSheetText.of(trip(status(phase = Phase.WAITING, leg = 0), leg = 0), clock).line)
         assertEquals("Get off at Harbour St", CompactSheetText.of(trip(status(phase = Phase.AWAKE)), clock).line)
     }
-}
 
+    @Test
+    fun `the journey, pulled up - done, the stop you're heading for with its time, the next with the timetable's`() {
+        val legs = listOf(
+            app.nodstop.data.LegDraft("Central Station", "-36.8, 174.7", bus = "871", boardName = "Wairau Road"),
+            app.nodstop.data.LegDraft("Harbour St", "-36.85, 174.76", bus = "866", boardName = "Stop A"),
+            app.nodstop.data.LegDraft("Hill Ave", "-36.86, 174.77"),
+        )
+        val ui = trip(status(eta = 300.0), leg = 0, legs = listOf("Central Station", "Harbour St", "Hill Ave"))
+        val at740 = 7 * 3600 + 40 * 60
+        val rows = JourneyText.of(ui, legs, at740) { i, from -> if (i == 1) (from + 60) to (from + 1_500) else null }
+        assertEquals(
+            listOf(
+                JourneyRowUi("~7:45", "Central Station", "871 from Wairau Road · next stop", JourneyRowUi.State.NOW),
+                JourneyRowUi("~8:12", "Harbour St", "866 from Stop A · leaves 7:48", JourneyRowUi.State.LATER),
+                JourneyRowUi("", "Hill Ave", "Stop 3", JourneyRowUi.State.LATER),
+            ),
+            rows,
+        )
+        val later = JourneyText.of(trip(status(eta = null), leg = 1, legs = listOf("Central Station", "Harbour St", "Hill Ave")), legs, at740)
+        assertEquals(JourneyRowUi.State.DONE, later[0].state)
+        assertEquals("Now", later[1].time)
+    }
+}

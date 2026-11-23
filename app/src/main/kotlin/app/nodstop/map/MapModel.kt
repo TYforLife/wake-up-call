@@ -40,7 +40,24 @@ object MapModel {
     data class Layers(
         val pins: List<Pin>,
         val tracks: List<List<LatLng>>,
+        /** During a trip: each leg's way, the one you're on in route blue, the rest grey (owner, 2026-11-24). */
+        val legPaths: List<LegPath> = emptyList(),
     )
+
+    data class LegPath(val points: List<LatLng>, val current: Boolean)
+
+    /**
+     * Each leg's way for the trip map: the bus's stops from the timetable when Plan a trip knows the bus, else the
+     * newest learned ride to that stop, else a straight line from the stop before (or from [start]).
+     */
+    fun legPaths(stops: List<LatLng>, current: Int, start: LatLng?, bus: (Int) -> List<LatLng>?, learned: (Int) -> List<LatLng>?): List<LegPath> =
+        stops.indices.mapNotNull { i ->
+            val from = if (i == 0) start else stops[i - 1]
+            val pts = bus(i)?.takeIf { it.size >= 2 } ?: learned(i)?.takeIf { it.size >= 2 } ?: from?.let { listOf(it, stops[i]) }
+            pts?.let { LegPath(it, i == current) }
+        }
+
+    fun legPathsJson(l: Layers): String = collection(l.legPaths.map { feature(line(it.points), mapOf("current" to JsonPrimitive(it.current))) })
 
     /**
      * Which routes the map shows (PLAN R4): during a trip, only that trip's; otherwise the one you picked,
