@@ -52,4 +52,12 @@ class WalkGraphTest {
         assertTrue(q.contains("motorway") && q.contains("!~") && q.contains("out skel qt"))
         assertTrue(q.contains("-36.86898") && q.contains("-36.85102"), q)
     }
+
+    @Test
+    fun `only real footpaths are kept - not a refusal page, nor a reply that timed out`() {
+        assertTrue(Footpaths.usable(json))
+        assertTrue(!Footpaths.usable("<html><body>Too many requests</body></html>"))
+        assertTrue(!Footpaths.usable("""{"elements":[],"remark":"runtime error: Query timed out"}"""))
+        assertTrue(!Footpaths.usable("""{"elements":[]}"""), "nothing to walk on")
+    }
 }

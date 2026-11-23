@@ -20,7 +20,8 @@ import java.util.Locale
  * doesn't answer: null, and the planner walks straight lines × 1.25 as before.
  */
 object Footpaths {
-    private const val URL_OVERPASS = "https://overpass-api.de/api/interpreter"
+    /** The main Overpass server, then a public mirror when it's busy or refuses (it sometimes does). */
+    private val SERVERS = listOf("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter")
     /** Around each end: the planner's walks start within 800 m (straight), so 1 km covers their way there. */
     private const val RADIUS_M = 1_000.0
     private const val KEEP_DAYS = 30L
@@ -58,8 +59,19 @@ object Footpaths {
 
     private fun fetch(p: LatLng): String? {
         val body = "data=" + URLEncoder.encode(WalkGraph.query(p, RADIUS_M), "UTF-8")
+        return SERVERS.firstNotNullOfOrNull { fetch(it, body) }
+    }
+
+    /**
+     * The footpaths, not a refusal: a refusal is an HTML page, or a 200 whose JSON carries a "remark" (a timeout or
+     * an error) instead of the ways. Only these are cached.
+     */
+    internal fun usable(reply: String): Boolean = reply.contains("\"elements\"") && !reply.contains("\"remark\"") && reply.contains("\"way\"")
+
+    /** The reply, if it's the footpaths: a refusal is a short message, not a 200 with elements. */
+    private fun fetch(server: String, body: String): String? {
         return try {
-            val c = (URL(URL_OVERPASS).openConnection() as HttpURLConnection).apply {
+            val c = (URL(server).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 doOutput = true
                 connectTimeout = 10_000
@@ -69,7 +81,8 @@ object Footpaths {
             }
             try {
                 c.outputStream.use { it.write(body.toByteArray()) }
-                if (c.responseCode != 200) null else c.inputStream.bufferedReader().use { it.readText() }
+                if (c.responseCode != 200) null
+                else c.inputStream.bufferedReader().use { it.readText() }.takeIf(::usable)
             } finally {
                 c.disconnect()
             }

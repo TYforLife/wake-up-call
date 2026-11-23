@@ -97,6 +97,8 @@ fun PlanHost(
     tapUses: Boolean = false,
     onUsed: (Route, Boolean) -> Unit,
     back: () -> Unit,
+    /** First run: skip this ride step (PLAN Run 13, T5). */
+    skip: (() -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val app = App.instance
@@ -214,6 +216,7 @@ fun PlanHost(
                 else -> null
             },
             canSwap = !fixed,
+            canSkip = skip != null,
         ),
         PlanActions(
             back = back,
@@ -226,6 +229,7 @@ fun PlanHost(
             swap = { val f = from; to?.let { from = it }; to = f },
             time = { picking = true },
             ride = { n -> if (tapUses) rides?.getOrNull(n)?.let { use(it, false) } else selected = n },
+            skip = { skip?.invoke() },
         ),
         Modifier.statusBarsPadding().navigationBarsPadding(),
     )
@@ -282,6 +286,7 @@ fun HomeWorkHost(go: (Screen) -> Unit, back: () -> Unit) {
                     departS = departS, link = null, routeName = if (toWork) "To work" else "From work", fixed = true, tapUses = true,
                     onUsed = { r, start -> if (start) { TripService.startRoute(ctx, r.id); go(Screen.Trip) } else if (toWork) next() else done() },
                     back = { step -= 1 },
+                    skip = { if (toWork) next() else done() },
                 )
             }
         }
