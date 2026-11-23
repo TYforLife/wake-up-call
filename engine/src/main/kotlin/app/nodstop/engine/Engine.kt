@@ -104,10 +104,10 @@ class Engine(val cfg: Config = Config()) {
                 ).let { st -> if (input.lastKnown != null) st.copy(lastFixMs = null) else st }
                     .let { st -> if (input.autoLeg && input.legs.size > 1 && !input.awakeOnFirst) st.copy(pickLeg = true) else st }
 
-            is Input.FixIn -> keepUrgent(s, onFix(s, input, e))
+            is Input.FixIn -> hold(s, keepUrgent(s, onFix(s, input, e)), input.tMs)
             is Input.Tick -> s
             is Input.Urgent -> onUrgent(s, input.tMs)
-            is Input.UpdateLegs -> updateLegs(s, input)
+            is Input.UpdateLegs -> hold(s, updateLegs(s, input), input.tMs)
             // While ringing, the alarm re-arms itself RERING ahead (DESIGN §2): if anything kills the ring before
             // "I'm awake", the system rings again. Each re-ring pushes it on; the ack replaces it.
             is Input.Rang -> when (s.phase) {
@@ -260,6 +260,28 @@ class Engine(val cfg: Config = Config()) {
         return if (r > 0) nowMs + (r * 1000).roundToLong() else null
     }
 
+    // ---- the system alarm (DESIGN §2, "The system alarm") ----
+
+    /**
+     * Keeps the pending alarm where it is when moving it could only make it ring later. Android fires an app's alarm
+     * no sooner than 5 s after it is set, and each set replaces the last ([SystemAlarm]): an alarm set again on every
+     * fix while it is due never rings. So:
+     * - a ring that is due (you're close, inside your circle, past your stop, an urgent message) stays until it rings,
+     *   or you act (I'm awake, I'm off this bus, Stop);
+     * - any alarm due within those 5 s stays when the new one would be due within them too.
+     * Within the same leg only. Only an alarm that rings because fixes stopped (GPS lost, No GPS, the next leg's) can
+     * still be pushed later by a fix: that fix is the news it was waiting for.
+     */
+    private fun hold(prev: EngineState, next: EngineState, nowMs: Long): EngineState {
+        val held = prev.alarmAtMs ?: return next
+        // A ring's reason belongs to its leg (acking "you passed your stop" ends that leg): a new leg sets its own.
+        if (prev.phase !in ARMED || next.phase !in ARMED || prev.legIndex != next.legIndex) return next
+        val soon = nowMs + SystemAlarm.MIN_FUTURE_MS
+        val due = held <= nowMs && prev.alarmReason !in NO_NEWS
+        val bothSoon = held <= soon && next.alarmAtMs.let { it != null && it <= soon }
+        return if (due || bothSoon) next.copy(alarmAtMs = held, alarmReason = prev.alarmReason) else next
+    }
+
     // ---- route edits during a trip (PLAN U3) ----
 
     private fun updateLegs(s: EngineState, input: Input.UpdateLegs): EngineState {
@@ -272,9 +294,8 @@ class Engine(val cfg: Config = Config()) {
         val pos = st.lastPos
         val zone = leg.wakeRadiusM
         val inside = zone != null && pos != null && Geo.distanceM(pos, leg.stop) <= zone
-        val due = st.alarmAtMs?.let { it <= input.tMs } == true
         val onBus = st.boarded || (st.lastSpeed ?: 0.0) >= cfg.boardKmh / 3.6
-        return if (st.phase in setOf(Phase.WAITING, Phase.RIDING) && leg.alarmEnabled && onBus && inside && !due) {
+        return if (st.phase in setOf(Phase.WAITING, Phase.RIDING) && leg.alarmEnabled && onBus && inside) {
             st.copy(alarmAtMs = input.tMs, alarmReason = AlarmReason.WAKE)
         } else st
     }
@@ -290,7 +311,7 @@ class Engine(val cfg: Config = Config()) {
 
     /** Ring now for an urgent message, while there is a trip to protect and urgent rings are left. */
     private fun onUrgent(s: EngineState, nowMs: Long): EngineState {
-        if (s.phase !in URGENT_PHASES || s.urgentRings >= cfg.maxUrgentRings) return s
+        if (s.phase !in ARMED || s.urgentRings >= cfg.maxUrgentRings) return s
         val current = s.alarmAtMs
         // Already due anyway: that ring comes first and says why.
         if (current != null && current <= nowMs) return s
@@ -306,7 +327,7 @@ class Engine(val cfg: Config = Config()) {
      */
     private fun keepUrgent(prev: EngineState, next: EngineState): EngineState {
         val urgentAt = prev.alarmAtMs.takeIf { prev.alarmReason == AlarmReason.URGENT } ?: return next
-        if (next.phase !in URGENT_PHASES) return next
+        if (next.phase !in ARMED) return next
         val computed = next.alarmAtMs
         if (computed != null && computed <= urgentAt) return next.copy(beforeUrgentAtMs = null, beforeUrgentReason = null)
         return next.copy(
@@ -536,8 +557,14 @@ class Engine(val cfg: Config = Config()) {
         var alarm = min(wakeAt, failsafe)
         var reason = if (wakeAt <= failsafe) AlarmReason.WAKE else AlarmReason.FAILSAFE
         // No speed information yet (start of a leg, or back from a dropout): a fix may pull the alarm earlier, never later.
-        val current = s.alarmAtMs
-        if (short == null && current != null && current < alarm) { alarm = current; reason = s.alarmReason ?: reason }
+        // While an urgent ring is pending, the stop's own alarm is the one it set aside (keepUrgent), not the urgent one.
+        // The trip's first fix replaces the failsafe armed from the last known position (DESIGN §2): with an old
+        // position that one is already due at Start, and keeping it would ring as you set off.
+        val urgent = s.alarmReason == AlarmReason.URGENT
+        val current = if (urgent) s.beforeUrgentAtMs else s.alarmAtMs
+        val currentReason = if (urgent) s.beforeUrgentReason else s.alarmReason
+        val firstFix = s.lastFixMs == null
+        if (short == null && current != null && current < alarm && !firstFix) { alarm = current; reason = currentReason ?: reason }
         // Your own wake zone (DESIGN §2.6). Aim at its edge too (PLAN R3): the estimate and the failsafe for the
         // circle, with no extra lead (the circle is your margin). Only ever earlier than the stop's own times.
         val zone = leg.wakeRadiusM
@@ -628,7 +655,10 @@ class Engine(val cfg: Config = Config()) {
 
     companion object {
         private val ACTIVE = setOf(Phase.WAITING, Phase.RIDING, Phase.RINGING, Phase.AWAKE)
-        private val URGENT_PHASES = setOf(Phase.WAITING, Phase.RIDING, Phase.AWAKE)
+        /** Phases in which the scheduled alarm rings when it fires. */
+        private val ARMED = setOf(Phase.WAITING, Phase.RIDING, Phase.AWAKE)
+        /** Alarms that ring because no fix came: a new fix may push them later. */
+        private val NO_NEWS = setOf(AlarmReason.FAILSAFE, AlarmReason.NEXT_LEG, AlarmReason.NO_GPS)
         internal fun round1(x: Double): Double = (x * 10).roundToInt() / 10.0
     }
 }

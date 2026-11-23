@@ -21,7 +21,8 @@ follow that file's runbook for Run N, starting from the latest `main`.
 ## Architecture rules (non-negotiable)
 
 1. **One ring path.** Only `AlarmManager.setAlarmClock` → `AlarmReceiver` → `RingService` rings.
-   "Ring now" means scheduling at `now`. Never add a second way to make sound for the main alarm.
+   "Ring now" means scheduling at `now` (Android rings it 5 s later; DESIGN §2 "The system alarm").
+   Never add a second way to make sound for the main alarm. Set the alarm only through `SystemAlarm.update`.
 2. **Dead-man's switch.** Whenever a stop is left to protect, exactly one system alarm is scheduled,
    at `min(wakeAt, failsafeAt)` (DESIGN §2). The receiver rings unconditionally. Never add logic that
    lets a cold-started receiver skip or defer the ring.
@@ -65,6 +66,7 @@ loosen a check to get green. If a check is wrong, change it in its own commit an
 | --- | --- |
 | 1. One ring path | `ArchitectureTest` (one `setAlarmClock`, audio only in the ring service), `RingPathTest` |
 | 2. Dead-man's switch, 4. ring earlier | `InvariantPropertyTest`, `SkipPropertyTest` (a stop skipped at Start still rings), engine scenario tests, `ReplayTest` |
+| The alarm rings the way Android fires it (5 s floor, each set replaces the last; a due ring is never moved) | `Harness` in every engine test, `SystemAlarmTest` |
 | 3. Pure `:engine` and `:brief` | `PurityTest` in each module |
 | 7. The AI only rings earlier (W1–W6) | `UrgentTest`, `GuardrailsTest`, `NotifyIsolationTest`, `:brief` `PurityTest` |
 | Code quality 2 and 3 | `ArchitectureTest` |

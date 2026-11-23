@@ -62,6 +62,13 @@ new, or repeats something, add it here in the same PR.
   - Added `RingPathTest` in CI, and a "Last trip" verdict on Now.
 - If he reports a missed ring again: read Now's "Last trip" line and the `ringd` report in his log (he can tap
   Send), then add the case to `RingPathTest` before fixing it.
+- **2026-11-23, 4th missed first stop (Smales Farm):** "you claimed a fix and it didn't… I do not accept lie
+  anymore… if the previous fix overlaps, you're probably wrong." He was right: #43 and #50 fixed the leg pick, which
+  wasn't it. The cause was Android: an app's alarm fires no sooner than 5 s after it is set, and each set replaces
+  the last, so the due alarm, set again on every 2-s fix, never fired (DESIGN §2 "The system alarm"). The tests
+  never saw it because their harness rang alarms instantly. Lesson: **a test harness that models the OS must model
+  it as the OS really is**, from the Android source, not as we'd like it. Before calling a ring fixed, ask what the
+  tests assume about Android and check that against AOSP.
 
 ## Round 4 (2026-11-22): what he said after the couch test
 - The ring, Mute, Do Not Disturb and earbuds worked. He tests only what he cares about ("not bothered" with

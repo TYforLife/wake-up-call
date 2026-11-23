@@ -24,7 +24,7 @@ class UpdateLegsTest {
         val at = TestRoute.ms(T0, sim.timeWhen(sim.destAlongM - 1_000))
         val (_, inputs) = trip(listOf(Input.UpdateLegs(at + 1, listOf(Trips.leg(dest).copy(wakeRadiusM = 1_200.0)))))
         val r = Harness(cfg).run(inputs)
-        assertEquals(at + 1, r.rings.first())
+        assertEquals(SystemAlarm.firesAt(at + 1, at + 1), r.rings.first(), "now, as Android rings it: 5 s later")
         assertEquals(AlarmReason.WAKE, r.ringReasons.first())
     }
 
