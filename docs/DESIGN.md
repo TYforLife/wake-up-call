@@ -91,10 +91,11 @@ first stop (a short hop with good GPS: due, then pushed 5 s out every 2 s until 
   stop's own timing, your circle, "you passed your stop" and urgent messages. Only alarms that ring because fixes
   stopped (GPS lost, No GPS, the next leg's safety alarm) can still be pushed later by a fix: that fix is the news they
   were waiting for (`Engine.hold`).
-- **Any alarm due within 5 s stays** when the new one would be due within them too: Android can't ring a re-set one
-  sooner.
+- **An alarm due within 5 s stays** when the new one is due within them too: set again, it would ring 5 s from now,
+  later than either (rule 4: err early). A bus slower than `V_FLOOR` is estimated at `V_FLOOR`, so its ring can land
+  a few seconds before your circle.
 - **The shell sets exactly what the engine asks**, except that it never replaces a pending alarm with a sooner time
-  Android would fire later (`SystemAlarm.update`).
+  Android would fire later (`SystemAlarm.update`): inside its last 5 s, a sooner time set again would ring later.
 - The engine tests ring the alarm this way too (`Harness`), so every scenario and property test checks it. With the
   old behaviour and the faithful harness, 25 of them failed, the owner's morning among them (`SystemAlarmTest`).
 
@@ -206,20 +207,32 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
   - Or touch its edge and drag in or out (no handle: a touch within a finger's width of the edge grabs it,
     `EdgeDrag`): the circle follows your finger, and the size is rounded like the
     slider's (`CircleDrag`).
-  - It's stored on that stop (`LegDraft.wakeRadiusM`), from the riding map or Set a stop. **A saved circle applies to a running trip at once**
-  (`Input.UpdateLegs`: only circles, only for legs whose stop is unchanged; a circle you're already inside
-  rings now; property-tested never to make an alarm later). A simulated trip's stops can be set too (for
-  that trip only). Once you're on the bus and inside
-  it, it rings, unless the timing rang first: **whichever comes first**, so it can only ring earlier.
-  "On the bus" is boarding detected **or bus speed right now** (≥ 15 km/h over the last 15 s), so a
-  trip started on a crawling bus, where boarding was never detected, still rings on entry (PLAN R3).
-  From outside the circle, the estimate and the failsafe also aim at **its edge**, with no extra lead
-  (the circle is your margin): `ft + (d − r) / v_est` and `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`,
-  each taken only if earlier. GPS already runs at 1–2 s for the whole trip, so no faster checking is
-  needed near the circle; a GPS gap is covered by the failsafe (tested: a gap from 60 s before the edge
-  still rings before it). Waiting at a stop inside the zone doesn't ring until you're on the bus.
-  Property-tested: with a circle, the first ring is never later than without one (300 random trips). Shrinking a
-  circle mid-trip, even to 50 m, never rings later than having no circle (200 random trips, PLAN B4).
+  - It's stored on that stop of that route (`LegDraft.wakeRadiusM`), from the riding map or Set a stop: per stop
+    and per route ("the ring is per station and per trip", owner 2026-11-24). Another route's circle at the same stop
+    is that route's.
+- **A saved circle applies to a running trip at once.** `Route.circlesFor` takes the trip's own route's circles, and
+  `Input.UpdateLegs` changes only circles, only for legs whose stop is unchanged. A circle you're already inside
+  rings now. A simulated trip's stops can be set too, for that trip only.
+- **Your circle decides where it rings** (owner, 2026-11-24: "the alarm woke me outside the ring"):
+  - It rings when the bus enters it. "On the bus" means boarding detected **or bus speed right now** (≥ 15 km/h over
+    the last 15 s), so a trip started on a crawling bus, where boarding was never detected, still rings on entry
+    (PLAN R3).
+  - The stop's own timing then uses the **30 s minimum lead** (`Config.minLeadS`, `Engine.wakeLead`) instead of 45 s.
+    It only rings first for a circle so small that the bus is less than 30 s from the stop at its edge: about
+    250 m at 30 km/h, 375 m at 45 km/h. The circle sheet says so.
+  - Before, a circle only ever added an earlier ring, so the stop's 45 s timing (about 500–600 m out at 40–50 km/h)
+    rang before every circle of the sizes offered (150–400 m).
+  - From outside the circle, the estimate and the failsafe also aim at **its edge**, with no extra lead:
+    `ft + (d − r) / v_est` and `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`.
+    - Recomputed at every fix (1–2 s), the estimate fires at most a fix early while GPS is fine.
+    - A GPS gap is covered: a gap from 60 s before the edge still rings before it.
+  - Waiting at a stop inside the zone doesn't ring until you're on the bus.
+- **Property-tested.** The 30 s minimum's invariant holds (`InvariantPropertyTest` at a 30 s lead).
+  - With a circle, the first ring is never later than the same trip with no circle at a 30 s lead (300 random
+    trips).
+  - With steady GPS it comes at the edge: from 4 s before to 3 s after entering, for circles reached at least 60 s
+    out.
+  - Shrinking or editing a circle mid-trip never rings later than that minimum (200 and 500 random trips).
 
 ### Why the approximations err early
 

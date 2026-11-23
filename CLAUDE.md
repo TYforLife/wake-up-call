@@ -65,7 +65,7 @@ loosen a check to get green. If a check is wrong, change it in its own commit an
 | Rule | Checked by |
 | --- | --- |
 | 1. One ring path | `ArchitectureTest` (one `setAlarmClock`, audio only in the ring service), `RingPathTest` |
-| 2. Dead-man's switch, 4. ring earlier | `InvariantPropertyTest`, `SkipPropertyTest` (a stop skipped at Start still rings), engine scenario tests, `ReplayTest` |
+| 2. Dead-man's switch, 4. ring earlier | `InvariantPropertyTest`, `SkipPropertyTest` (a stop skipped at Start still rings), `WakeZoneEdgeTest` and `UpdateLegsTest` (your circle never rings later than the 30 s minimum), engine scenario tests, `ReplayTest` |
 | The alarm rings the way Android fires it (5 s floor, each set replaces the last; a due ring is never moved) | `Harness` in every engine test, `SystemAlarmTest` |
 | 3. Pure `:engine` and `:brief` | `PurityTest` in each module |
 | 7. The AI only rings earlier (W1–W6) | `UrgentTest`, `GuardrailsTest`, `NotifyIsolationTest`, `:brief` `PurityTest` |

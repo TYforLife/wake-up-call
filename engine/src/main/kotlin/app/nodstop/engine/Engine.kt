@@ -202,6 +202,14 @@ class Engine(val cfg: Config = Config()) {
     /** This stop's lead: tuned by your too-early / too-late ratings, within 30-90 s; else LEAD. */
     fun leadFor(leg: Leg): Double = leg.learned?.leadS?.coerceIn(cfg.minLeadS, cfg.maxLeadS) ?: cfg.leadS
 
+    /**
+     * The lead the stop's own timing rings with (DESIGN §2.6, owner 2026-11-24: "the alarm woke me outside the ring").
+     * With your own circle the circle is your margin: it rings when the bus enters it, and the stop's timing only
+     * steps in at the shortest lead the invariant holds for ([Config.minLeadS], 30 s), for a circle so small the bus
+     * would be closer than that at its edge. Without one: [leadFor].
+     */
+    fun wakeLead(leg: Leg): Double = if (leg.wakeRadiusM != null) cfg.minLeadS else leadFor(leg)
+
     // ---- ack ----
 
     private fun onAck(s: EngineState, nowMs: Long): EngineState {
@@ -263,14 +271,15 @@ class Engine(val cfg: Config = Config()) {
     // ---- the system alarm (DESIGN §2, "The system alarm") ----
 
     /**
-     * Keeps the pending alarm where it is when moving it could only make it ring later. Android fires an app's alarm
-     * no sooner than 5 s after it is set, and each set replaces the last ([SystemAlarm]): an alarm set again on every
-     * fix while it is due never rings. So:
+     * Keeps the pending alarm where it is when moving it would make it ring later. Android fires an app's alarm no
+     * sooner than 5 s after it is set, and each set replaces the last ([SystemAlarm]): moved on every fix while it is
+     * due, it never rings. So:
      * - a ring that is due (you're close, inside your circle, past your stop, an urgent message) stays until it rings,
      *   or you act (I'm awake, I'm off this bus, Stop);
-     * - any alarm due within those 5 s stays when the new one would be due within them too.
-     * Within the same leg only. Only an alarm that rings because fixes stopped (GPS lost, No GPS, the next leg's) can
-     * still be pushed later by a fix: that fix is the news it was waiting for.
+     * - an alarm due within those 5 s stays when the new one is due within them too: set again, it would ring 5 s
+     *   from now, later than either (rule 4: err early).
+     * Within the same leg only. An alarm that rings because fixes stopped (GPS lost, No GPS, the next leg's) can still
+     * be pushed later by a fix: that fix is the news it was waiting for.
      */
     private fun hold(prev: EngineState, next: EngineState, nowMs: Long): EngineState {
         val held = prev.alarmAtMs ?: return next
@@ -350,7 +359,7 @@ class Engine(val cfg: Config = Config()) {
         if (target != null && pos != null && ft != null) {
             val leg = st.legs[target]
             val ownLeg = target == st.legIndex && st.phase != Phase.AWAKE
-            val lead = leadFor(leg)
+            val lead = wakeLead(leg)
             var fresh = failsafeAt(ft, Geo.distanceM(pos, leg.stop), if (ownLeg) maxOf(cfg.leadS, lead) else cfg.leadS)
             var freshReason = if (ownLeg) AlarmReason.FAILSAFE else AlarmReason.NEXT_LEG
             val eta = st.lastEtaS
@@ -551,7 +560,7 @@ class Engine(val cfg: Config = Config()) {
 
         // WAITING or RIDING on an alarm-on leg.
         // Per-stop lead, tuned by your ratings (30-90 s); the failsafe never uses less than the default.
-        val lead = leadFor(leg)
+        val lead = wakeLead(leg)
         val wakeAt = ft + ((etaS - lead) * 1000).roundToLong()
         val failsafe = failsafeAt(ft, straight, maxOf(cfg.leadS, lead))
         var alarm = min(wakeAt, failsafe)
@@ -565,8 +574,9 @@ class Engine(val cfg: Config = Config()) {
         val currentReason = if (urgent) s.beforeUrgentReason else s.alarmReason
         val firstFix = s.lastFixMs == null
         if (short == null && current != null && current < alarm && !firstFix) { alarm = current; reason = currentReason ?: reason }
-        // Your own wake zone (DESIGN §2.6). Aim at its edge too (PLAN R3): the estimate and the failsafe for the
-        // circle, with no extra lead (the circle is your margin). Only ever earlier than the stop's own times.
+        // Your own wake zone (DESIGN §2.6): it rings when the bus enters it. The estimate and the dead-man's switch
+        // aim at its edge (no extra lead: the circle is your margin). Recomputed at every fix (1-2 s), the estimate
+        // fires at most a fix early while GPS is fine; if fixes stop, they ring before the bus reaches the edge.
         val zone = leg.wakeRadiusM
         // From outside it only: waiting at a stop that's already inside your circle must not ring before the bus.
         if (zone != null && straight > zone) {

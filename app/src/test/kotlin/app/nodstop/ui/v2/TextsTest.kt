@@ -68,6 +68,9 @@ class TextsTest {
         // Own 400 m circle, 2.34 km out: the bus reaches it at 1940/2340 of the time left.
         val circled = trip(status(alarmAt = 0L)).copy(legRadii = listOf(null, 400.0))
         assertEquals("Alarm about 7:45 at your 400 m circle · stop ~7:46", TripSheetText.of(circled, real, at740).alarm)
+        // A circle the bus reaches less than 30 s before the stop: the 30 s minimum (6:12 - 0:30 after 7:40 = 7:45:42).
+        val tiny = trip(status(alarmAt = 0L, d = 2_340.0, eta = 372.0)).copy(legRadii = listOf(null, 50.0))
+        assertEquals("Alarm about 7:45 at your 50 m circle · stop ~7:46", TripSheetText.of(tiny, real, at740).alarm)
     }
 
     @Test

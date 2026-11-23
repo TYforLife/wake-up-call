@@ -8,8 +8,8 @@ import kotlin.math.max
  *
  * `AlarmManagerService.setImpl`: an app's alarm never fires sooner than [MIN_FUTURE_MS] after it is set
  * (`MIN_FUTURITY`), and setting it again first deletes the pending one. So "ring now" fires 5 s later, and setting a
- * due alarm again pushes it another 5 s out. The engine never moves an alarm that is due (`Engine.hold`), and the
- * shell never replaces a pending alarm with one that would fire later than the engine asks ([update]).
+ * due alarm again pushes it another 5 s out. The engine never moves a ring that is due (`Engine.hold`), and the
+ * shell never replaces a pending alarm with a sooner one Android would fire later ([update]).
  */
 object SystemAlarm {
     /** Android's `MIN_FUTURITY` default: the soonest an app's alarm fires after it is set. */

@@ -6,7 +6,10 @@ import org.junit.jupiter.api.Test
 import kotlin.math.roundToLong
 import kotlin.random.Random
 
-/** PLAN R3: your circle rings when the bus enters it, and never makes any ring later. */
+/**
+ * PLAN R3; owner, 2026-11-24 ("the alarm woke me outside the ring"): your circle rings when the bus enters it, not
+ * before, and never later than the shortest lead the invariant holds for (30 s).
+ */
 class WakeZoneEdgeTest {
     private fun kmh(v: Double) = v / 3.6
 
@@ -51,7 +54,8 @@ class WakeZoneEdgeTest {
     }
 
     @Test
-    fun `a circle can only ring earlier - 300 random trips`() {
+    fun `a circle rings no later than the 30 s minimum, and with steady GPS at its edge, not outside - 300 random trips`() {
+        var atEdge = 0
         for (seed in 1..300) {
             val rnd = Random(seed)
             val (path, destAlong) = Path.random(rnd, rnd.nextDouble(2_000.0, 12_000.0))
@@ -59,10 +63,21 @@ class WakeZoneEdgeTest {
             val sim = Sim(path, destAlong) { kmh(v) }.run()
             val zone = rnd.nextDouble(50.0, 2_000.0)
             val dest = path.at(destAlong)
-            val plan = FixPlan(dropouts = if (rnd.nextBoolean()) listOf(rnd.nextDouble(0.0, 300.0).let { it..(it + rnd.nextDouble(10.0, 200.0)) }) else emptyList())
-            val without = Harness().run(plan.inputs(sim, T0, listOf(Leg("S", dest)), Random(seed))).rings.firstOrNull()
-            val with = Harness().run(plan.inputs(sim, T0, listOf(Leg("S", dest, wakeRadiusM = zone)), Random(seed))).rings.firstOrNull()
-            if (without != null) assertTrue(with != null && with <= without, "seed $seed zone ${zone.toInt()} m: $with vs $without")
+            val gap = rnd.nextBoolean()
+            val plan = FixPlan(dropouts = if (gap) listOf(rnd.nextDouble(0.0, 300.0).let { it..(it + rnd.nextDouble(10.0, 200.0)) }) else emptyList())
+            val at30 = Leg("S", dest, learned = Learned(dest, emptyList(), 0, Config().minLeadS))
+            val minimum = Harness().run(plan.inputs(sim, T0, listOf(at30), Random(seed))).rings.firstOrNull()
+            val ring = Harness().run(plan.inputs(sim, T0, listOf(Leg("S", dest, wakeRadiusM = zone)), Random(seed))).rings.firstOrNull()
+            if (minimum != null) assertTrue(ring != null && ring <= minimum, "seed $seed zone ${zone.toInt()} m: $ring vs the 30 s minimum $minimum")
+            // Steady GPS, and a circle the bus reaches well before the 30 s minimum: it rings at the edge, not outside.
+            val entryS = (0..(sim.arrivalS * 10).toInt()).map { it / 10.0 }.firstOrNull { Geo.distanceM(sim.posAt(it), dest) <= zone } ?: continue
+            if (!gap && sim.arrivalS - entryS >= 60.0 && ring != null) {
+                val entry = T0 + (entryS * 1000).roundToLong()
+                assertTrue(ring >= entry - 4_000, "seed $seed zone ${zone.toInt()} m: rang ${(entry - ring) / 1000.0} s before entering it")
+                assertTrue(ring <= entry + 3_000, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
+                atEdge++
+            }
         }
+        assertTrue(atEdge > 50, "only $atEdge trips checked at the edge")
     }
 }

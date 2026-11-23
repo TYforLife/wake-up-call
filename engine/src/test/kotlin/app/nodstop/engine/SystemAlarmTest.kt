@@ -76,17 +76,17 @@ class SystemAlarmTest {
 
     @Test
     fun `a due alarm stays where it is until it rings`() {
-        // On the bus inside your circle: due now. The fixes after it must not move it (each would push it 5 s out).
+        // On the bus 600 m out, you draw a 900 m circle around yourself: due now. The fixes before Android fires it
+        // (5 s later) must not move it: each would push it another 5 s out.
         val m = Morning()
-        var dueAt: Long? = null
-        ride(m, 7, radius = 400.0).steps.forEach { st ->
-            val before = st.before.alarmAtMs
-            if (st.input is Input.FixIn && st.before.phase in Harness.ALARM_PHASES && before != null && before <= st.input.tMs) {
-                dueAt = dueAt ?: before
-                assertEquals(before, st.state.alarmAtMs, "a fix at ${st.input.tMs} moved a due alarm")
-            }
-        }
-        assertTrue(dueAt != null, "the alarm was due at some fix")
+        val at = TestRoute.ms(T0, m.sim.timeWhen(m.first - 600))
+        val circle = Input.UpdateLegs(at, m.legs(radius = 900.0))
+        val inputs = (FixPlan(untilS = m.sim.arrivalS + 180).inputs(m.sim, T0, m.legs(), Random(7)) + circle).sortedBy { it.tMs }
+        val r = Harness(cfg).run(inputs, ackAfterMs = 10_000)
+        val fixesWhileDue = r.steps.filter { it.input is Input.FixIn && it.input.tMs > at && it.input.tMs < at + SystemAlarm.MIN_FUTURE_MS }
+        assertTrue(fixesWhileDue.isNotEmpty(), "fixes arrive before Android fires it")
+        fixesWhileDue.forEach { assertEquals(at, it.state.alarmAtMs, "a fix at ${it.input.tMs - T0} moved a due alarm") }
+        assertEquals(SystemAlarm.firesAt(at, at), r.rings.first(), "it rings when Android fires it")
     }
 
     @Test
