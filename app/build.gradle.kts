@@ -11,6 +11,8 @@ plugins {
 val screenshots = providers.gradleProperty("screenshots").isPresent
 
 val runNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").map { it.toInt() }.getOrElse(1)
+val releaseKeystore: String? = providers.environmentVariable("RELEASE_KEYSTORE_FILE").orNull
+val releaseKeyPassword: String? = providers.environmentVariable("RELEASE_KEYSTORE_PASSWORD").orNull
 val gitSha: String = providers.environmentVariable("GIT_SHA").map { it.take(7) }.orElse(
     providers.exec {
         commandLine("git", "rev-parse", "--short=7", "HEAD")
@@ -30,7 +32,8 @@ android {
         versionName = "0.1.$runNumber"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         buildConfigField("int", "BUILD_NUMBER", "$runNumber")
-        // Test builds only target 64-bit ARM phones (the owner's Samsung): keeps MapLibre's native code ~9 MB, not ~35.
+        // 64-bit ARM only (the owner's Samsung), in the debug APK and the Play build alike: keeps MapLibre's native code
+        // ~9 MB, not ~35. A public release adds the other ABIs (DESIGN §8).
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -42,10 +45,25 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // The Play upload key (DESIGN §6): only ever in GitHub secrets. CI decodes it to a temporary file and passes its
+        // path and password here; anywhere else the release build is unsigned.
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = releaseKeyPassword
+                keyAlias = "upload"
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
-        debug { signingConfig = signingConfigs.getByName("debug") }
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+            // The debug APK installs next to the Play build: its own ID ("Nodstop dev"), so neither replaces the other.
+            applicationIdSuffix = ".debug"
+        }
+        release { signingConfig = signingConfigs.findByName("release") }
     }
 
     buildFeatures {
@@ -118,4 +136,12 @@ dependencies {
         debugImplementation(libs.compose.ui.test.manifest)
     }
     testRuntimeOnly(libs.junit.launcher)
+}
+
+// ArchitectureTest scans the whole repo (key files, manifests, workflows), not only the source sets. Declaring the repo as
+// an input means a cached test result can never hide a file committed since.
+tasks.withType<Test>().configureEach {
+    inputs.files(
+        rootProject.fileTree(rootDir) { exclude("**/build/**", ".gradle/**", ".git/**", ".kotlin/**", ".idea/**", "app/src/main/assets/gtfs/**") }
+    ).withPropertyName("repoScannedByArchitectureTest").withPathSensitivity(PathSensitivity.RELATIVE)
 }
