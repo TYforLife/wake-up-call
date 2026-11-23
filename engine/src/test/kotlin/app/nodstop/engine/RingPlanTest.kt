@@ -39,4 +39,13 @@ class RingPlanTest {
         assertEquals(RingStep(AudioRoute.SPEAKER, 60, Buzz.MAX), RingPlan.step(0, true, true, false, speakerAfterMs = 0, speakerPct = 60))
         assertEquals(RingStep(AudioRoute.SPEAKER, 100, Buzz.MAX), RingPlan.step(60_000, false, true, false), "a real ring: full")
     }
+
+    @Test fun `your alarm volume scales the earbud ladder, still rising, never below 10 percent, vibration unchanged`() {
+        assertEquals(RingStep(AudioRoute.EARBUDS, 20, Buzz.GENTLE), RingPlan.step(0, true, false, false, volumePct = 50))
+        assertEquals(RingStep(AudioRoute.EARBUDS, 35, Buzz.STRONG), RingPlan.step(15_000, true, false, false, volumePct = 50))
+        assertEquals(RingStep(AudioRoute.EARBUDS, 50, Buzz.MAX), RingPlan.step(30_000, true, false, false, volumePct = 50))
+        assertEquals(10, RingPlan.step(0, true, false, false, volumePct = 0).volumePct, "never silent")
+        assertEquals(RingStep(AudioRoute.NONE, 0, Buzz.GENTLE), RingPlan.step(0, false, false, false, volumePct = 50), "no earbuds: vibration only")
+        assertEquals(100, RingPlan.step(60_000, false, true, false, volumePct = 30).volumePct, "the last-resort speaker stays full")
+    }
 }

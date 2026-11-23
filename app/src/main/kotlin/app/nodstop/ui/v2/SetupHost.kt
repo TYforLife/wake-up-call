@@ -167,6 +167,7 @@ fun SoundsHost(back: () -> Unit) {
             ids.map { it.label to (Sounds.Id.of(chosen) == it && (it != Sounds.Id.CUSTOM || hasOwn)) },
             if (hasOwn) s.customSoundName ?: "Your file" else "None yet: choose a file below",
             note, canTry = trip == null,
+            volume = s.alarmVolume.collectAsState().value, testOnSpeaker = s.testOnSpeaker.collectAsState().value,
         ),
         SoundsActions(
             back = back,
@@ -176,8 +177,9 @@ fun SoundsHost(back: () -> Unit) {
             },
             chooseFile = { picker.launch(arrayOf("audio/*")) },
             // The real ring path, now (rule 1: "ring now" is scheduling at now).
-            tryIt = { s.setTestOnSpeaker(false); App.instance.scheduler.set(System.currentTimeMillis()) },
-            trySpeaker = { s.setTestOnSpeaker(true); App.instance.scheduler.set(System.currentTimeMillis()) },
+            tryIt = { App.instance.scheduler.set(System.currentTimeMillis()) },
+            volume = s::setAlarmVolume,
+            testOnSpeaker = s::setTestOnSpeaker,
         ),
         Modifier.statusBarsPadding().navigationBarsPadding(),
     )

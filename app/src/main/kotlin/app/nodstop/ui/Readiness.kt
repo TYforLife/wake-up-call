@@ -36,7 +36,6 @@ object Readiness {
             title.startsWith("Live trip") -> LIVE
             title.startsWith("While you slept") -> WYS
             title.startsWith("Alarm volume") -> VOLUME
-            title.startsWith("Display over other apps") -> OVERLAY
             title.startsWith("Alarm notifications") -> ALARM_CHANNEL
             else -> title
         }
@@ -51,7 +50,6 @@ object Readiness {
     const val LIVE = "live"
     const val WYS = "wys"
     const val VOLUME = "volume"
-    const val OVERLAY = "overlay"
     const val ALARM_CHANNEL = "alarm_channel"
 
     /** Required checks that aren't green: what Home counts and Readiness lists first. */
@@ -122,11 +120,6 @@ object Readiness {
                 "If your phone is on Mute or Do Not Disturb, the alarm switches it to vibrate for the ring and puts it " +
                     "back after \"I'm awake\". Needs Do Not Disturb access.",
                 Fix.Open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)),
-            ),
-            Check(
-                "Display over other apps", Settings.canDrawOverlays(ctx),
-                "So the alarm screen opens even while you're using another app, not only a banner.",
-                Fix.Open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkg(ctx))),
             ),
             alarmChannelCheck(ctx, nm),
             Check(

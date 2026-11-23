@@ -15,6 +15,8 @@ object RingPlan {
     const val STAGE_1_MS = 15_000L
     const val STAGE_2_MS = 30_000L
     const val SPEAKER_AFTER_MS = 60_000L
+    /** The quietest the earbuds go, whatever the volume setting. */
+    const val MIN_PCT = 10
     private val earbudVolume = intArrayOf(40, 70, 100)
     private val buzz = arrayOf(Buzz.GENTLE, Buzz.STRONG, Buzz.MAX)
 
@@ -24,6 +26,8 @@ object RingPlan {
         speakerAfterMs: Long = SPEAKER_AFTER_MS,
         /** The speaker's volume: full for a real ring; a test on the speaker (Settings → Alarm sound) is gentler. */
         speakerPct: Int = 100,
+        /** Your alarm volume (Settings → Alarm sound), 100 = as designed: scales the earbud ladder, never below 10%. */
+        volumePct: Int = 100,
     ): RingStep {
         val stage = when {
             overshoot -> 2
@@ -34,7 +38,7 @@ object RingPlan {
         if (speakerLastResort && (overshoot || elapsedMs >= speakerAfterMs)) {
             return RingStep(AudioRoute.SPEAKER, speakerPct, Buzz.MAX)
         }
-        val vol = earbudVolume[if (inUse) maxOf(stage, 1) else stage]
+        val vol = maxOf(MIN_PCT, earbudVolume[if (inUse) maxOf(stage, 1) else stage] * volumePct.coerceIn(MIN_PCT, 100) / 100)
         val b = if (inUse) Buzz.MAX else buzz[stage]
         return if (headset) RingStep(AudioRoute.EARBUDS, vol, b)
         else RingStep(AudioRoute.NONE, 0, b)

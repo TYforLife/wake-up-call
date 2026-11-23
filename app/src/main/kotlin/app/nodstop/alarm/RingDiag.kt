@@ -13,13 +13,13 @@ object RingDiag {
     fun start(
         screenWasOn: Boolean, fullScreenAllowed: Boolean, earbuds: Boolean, screenWoken: Boolean, test: Boolean,
         ringer: String? = null, dnd: String? = null, buzz: RingMode.Buzz? = null, speakerAfterS: Int? = null,
-        channel: String? = null, overlay: Boolean? = null, quiet: Boolean? = null, cold: Boolean? = null,
+        channel: String? = null, quiet: Boolean? = null, cold: Boolean? = null,
     ) {
         startedElapsed = SystemClock.elapsedRealtime()
         current = RingReport(
             System.currentTimeMillis(), screenWasOn, fullScreenAllowed, earbuds, screenWoken, test,
             ringer = ringer, dnd = dnd, buzz = buzz, speakerAfterS = speakerAfterS,
-            channel = channel, overlay = overlay, quiet = quiet, cold = cold,
+            channel = channel, quiet = quiet, cold = cold,
         )
         save()
     }

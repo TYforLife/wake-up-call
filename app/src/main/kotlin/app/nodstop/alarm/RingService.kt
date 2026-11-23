@@ -78,6 +78,7 @@ class RingService : Service() {
     /** When the speaker joins this ring, or null for never (RingMode.speakerAfterMs). */
     private var speakerAfterMs: Long? = null
     private var testOnSpeaker = false
+    private var volumePct = 100
     /** The chosen sound (BACKLOG 3), read once per ring; the beeps if anything about it is wrong. */
     private var sound: ShortArray? = null
 
@@ -145,11 +146,9 @@ class RingService : Service() {
         // Whatever fails in starting the ring, the service stays up: its notification stays on screen and its
         // channel keeps buzzing (insistent) until "I'm awake".
         if (!ringing) isolated("ring start (the notification still buzzes)") { begin() }
-        // Best effort: also open the alarm screen directly (the full-screen intent covers the locked case).
-        isolated("alarm screen") { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-        // While you use another app (owner, 2026-11-22: only the banner showed): the ring itself is drawn over that
-        // app, with "Display over other apps". Locked or screen off, the full-screen alarm above covers it.
-        isolated("ring overlay") { AlarmOverlay.showIfInUse(this) }
+        // Best effort: also open the alarm screen directly (the full-screen intent covers the locked case), but not
+        // over another app you're using: then you're awake, and the banner, the buzz and the sound do (AlarmScreen).
+        if (AlarmScreen.opens(this)) isolated("alarm screen") { startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         return START_STICKY
     }
 
@@ -180,7 +179,8 @@ class RingService : Service() {
         val filter = RingModeController.filter(this)
         val buzz = RingModeController.onRingStart(this)
         // "Try it on the speaker" (Settings → Alarm sound): a test ring only, on the speaker from the start.
-        testOnSpeaker = test && App.instance.settings.takeTestOnSpeaker()
+        testOnSpeaker = test && App.instance.settings.testOnSpeaker.value
+        volumePct = App.instance.settings.alarmVolume.value
         speakerAfterMs = RingMode.speakerAfterMs(
             App.instance.settings.speakerLastResort.value, headset() != null, buzz, RingPlan.SPEAKER_AFTER_MS, testOnSpeaker,
         )
@@ -189,7 +189,6 @@ class RingService : Service() {
             ringer = RingMode.ringerName(ringer), dnd = RingMode.filterName(filter), buzz = buzz,
             speakerAfterS = speakerAfterMs?.let { (it / 1000).toInt() },
             channel = Notifications.alarmChannelState(this),
-            overlay = AlarmOverlay.allowed(this),
             quiet = quietAtRing,
             cold = TripService.instance == null,
         )
@@ -220,7 +219,8 @@ class RingService : Service() {
         val after = speakerAfterMs
         val step = RingPlan.step(
             elapsed, hs != null, after != null, overshoot, inUse, after ?: RingPlan.SPEAKER_AFTER_MS,
-            speakerPct = if (testOnSpeaker) TEST_SPEAKER_PCT else 100,
+            // A test on the speaker plays at your volume, so you can judge it; a real last-resort speaker is full.
+            speakerPct = if (testOnSpeaker) volumePct else 100, volumePct = volumePct,
         )
         // The buzz first, and nothing about sound can stop it (PLAN Run 10): a tone that fails to play (an audio
         // device that won't open, a route change mid-call) must never take the vibration or the ring down with it.
@@ -307,7 +307,6 @@ class RingService : Service() {
             isolated("ring mode restore") { RingModeController.onRingEnd(this) }
             // Quiet trip comes back only while a trip runs and the screen is off (PLAN A4).
             isolated("quiet trip restore") { DndController.update(this, ringing = false) }
-            AlarmOverlay.hide(this)
             wakeLock?.takeIf { it.isHeld }?.release()
             screenLock?.takeIf { it.isHeld }?.release()
             screenLock = null
@@ -324,8 +323,6 @@ class RingService : Service() {
     }
 
     companion object {
-        /** A test ring on the phone speaker: loud enough to judge the sound, not full blast. */
-        private const val TEST_SPEAKER_PCT = 60
 
         private const val ACTION_RING = "ring"
         private const val ACTION_STOP = "stop"

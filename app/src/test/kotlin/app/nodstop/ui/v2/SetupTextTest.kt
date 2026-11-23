@@ -11,14 +11,14 @@ class SetupTextTest {
     private fun checks(ok: (String) -> Boolean) = listOf(
         "Notifications", "Precise location", "Full-screen alarm", "Let the alarm buzz on Mute", "Exact alarms",
         "Battery: not optimised", "Live trip progress (optional)", "While you slept (optional)", "Alarm volume above 0",
-        "Display over other apps", "Alarm notifications",
+        "Alarm notifications",
     ).map { Readiness.Check(it, ok(it), "", null) }
 
     @Test
-    fun `the mockup's five rows in order, then Over other apps - optional checks stay off Setup`() {
+    fun `the mockup's five rows in order - optional checks stay off Setup`() {
         val rows = SetupText.rows(checks { true }, samsung = false)
         assertEquals(
-            listOf("Notifications", "Over the lock screen", "Exact alarms", "Buzz on Mute", "Location while riding", "Over other apps"),
+            listOf("Notifications", "Over the lock screen", "Exact alarms", "Buzz on Mute", "Location while riding"),
             rows.map { it.title },
         )
         assertTrue(SetupText.canContinue(rows))

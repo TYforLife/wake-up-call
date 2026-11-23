@@ -87,6 +87,13 @@ new, or repeats something, add it here in the same PR.
 - He keeps a **backlog** with Claude: `docs/BACKLOG.md`. Add every new ask to it as he makes it.
 - Product direction: Auckland and AT only for now, region by region later, each region with a kind little joke.
 - He compares everything with Google Maps: walking routes, the stop to get off at, times.
+
+## 2026-11-24
+- **While he's using the phone, the ring must not take over the screen**: just buzz and sound, with the banner
+  ("they are awake"). This replaces the 2026-11-22 full-screen overlay. `AlarmScreenTest` checks it.
+- Test rings ring at once, and a toggle lets them play on the phone speaker. He wants an alarm volume to judge.
+- He didn't like the made-up Pūkeko sound. He then gave his own recordings, and Pūkeko is back made from those
+  (PR #56).
 - **pstack** (Lauren Tan's skills, `cursor/plugins`): he asked for it to be used in this project. It is enabled
   in `.claude/settings.json`, and `CLAUDE.md` "pstack" says where it gives way to the project's rules.
 - **Pūkeko alarm, real this time.** The made-in-code one was "awful" and went (#53). He then sent his own
