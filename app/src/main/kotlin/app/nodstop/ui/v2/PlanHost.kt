@@ -114,6 +114,10 @@ fun PlanHost(
     var query by remember { mutableStateOf("") }
     var time by remember { mutableStateOf(TimeChoice(atS = departS)) }
     var picking by remember { mutableStateOf(false) }
+    // Going to work or home: the Arrive by you set last time, unless a time was given (first run's 5 pm).
+    LaunchedEffect(to?.kind) {
+        if (departS == null && time.now) PlanText.remembers(to)?.let(app.settings::arriveBy)?.let { time = TimeChoice(arrive = true, atS = it) }
+    }
     var rides by remember { mutableStateOf<List<Planner.Journey>?>(null) }
     var selected by remember { mutableStateOf<Int?>(null) }
     var note by remember { mutableStateOf<String?>(null) }
@@ -240,7 +244,15 @@ fun PlanHost(
         ),
         Modifier.statusBarsPadding().navigationBarsPadding(),
     )
-    if (picking) TimeDialog(time, LocalTime.now().toSecondOfDay(), onDone = { time = it; picking = false }, onDismiss = { picking = false })
+    if (picking) TimeDialog(
+        time, LocalTime.now().toSecondOfDay(),
+        onDone = { c ->
+            time = c; picking = false
+            // Arrive by for work or home is kept for next time; Leave now or Leave at forgets it.
+            PlanText.remembers(to)?.let { app.settings.setArriveBy(it, c.atS.takeIf { c.arrive }) }
+        },
+        onDismiss = { picking = false },
+    )
 }
 
 /**

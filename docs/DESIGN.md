@@ -538,6 +538,8 @@ doesn't flash another colour while it opens.
       list then drops a ride when another leaves about as late (within 3 minutes) and costs less, where a change
       costs 5 minutes and each walking minute counts half again (Google's habits). Sorted by when you leave.
     - Arrive by: the rides that get there in time, leaving latest, none more than 45 minutes before the last.
+      Going to work or home, the Arrive by you set is remembered for next time (Settings, on the phone); Leave now
+      or Leave at forgets it. The owner never wants to type times.
   - Tap a ride for its **map** (the buses in route blue through every stop, walks dotted, where you get on and off,
     the end as the red pin) and its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
     then **Use this** or **Start now**. Using it makes a route whose stops are where you get off each bus, named "To <place>"
