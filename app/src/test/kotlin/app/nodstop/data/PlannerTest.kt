@@ -110,4 +110,15 @@ class PlannerTest {
         assertTrue(hop !in Planner.best(listOf(direct, hop)))
         assertTrue(direct in Planner.best(listOf(direct, hop)))
     }
+
+    @Test
+    fun `footpaths - the walks at each end are the walking distance when it's known`() {
+        val far = Planner.Walks { 700.0 }
+        val j = Planner.plan(ix, tt, at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(6, 50), walkFrom = far, walkTo = far).first()
+        val walks = j.legs.filterIsInstance<Planner.Leg.Walk>()
+        assertEquals(listOf(700.0, 700.0), walks.map { it.meters })
+        assertEquals(560, walks.first().seconds)
+        // Too far along the paths: that stop isn't walked to at all.
+        assertTrue(Planner.plan(ix, tt, at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(6, 50), walkTo = Planner.Walks { 5_000.0 }).isEmpty())
+    }
 }

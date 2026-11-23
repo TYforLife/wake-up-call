@@ -508,8 +508,11 @@ doesn't flash another colour while it opens.
     stops. A swap button, and a **Leave now** chip: tap it for **Leave at** or **Arrive by** and a time.
   - Rides from the bundled timetable (`Timetable`, `Planner`: RAPTOR, up to 3 buses): "7:38 → 8:20 · 42 min", bus
     chips "866 › 70", "Walk 4 min · Central Station at 7:42". Times are the timetable's, not live.
-    - Walks are straight lines × 1.25 (streets) at 4.5 km/h: up to about 1 km to the first stop and from the last,
-      up to about 300 m between buses, and **one walk at a time** (never a walk to another stop and then on).
+    - Walks to the first stop and from the last follow **real footpaths** (`WalkGraph`, BACKLOG 1). Those are
+      OpenStreetMap's walkable ways within about 1 km of each end, from the Overpass API, kept in the cache for 30
+      days (`Footpaths`), and walked by the shortest path (up to 1.3 km). Until they arrive, or offline, walks are
+      straight lines × 1.25. Walking is 4.5 km/h. Between buses: straight × 1.25, up to about 300 m. Only **one walk
+      at a time** (never a walk to another stop and then on).
     - A change takes at least 2 minutes.
     - Each search keeps every way to arrive within 20 minutes of the fastest (another bus, another last stop). The
       list then drops a ride when another leaves about as late (within 3 minutes) and costs less, where a change
@@ -525,7 +528,9 @@ doesn't flash another colour while it opens.
     be skipped. Now's empty state opens it too, and Settings → Home and work changes them.
   - **Privacy:** home and work are kept in the phone's settings only, never in a log, the repo or a share. The
     address text you type goes only to the phone's own geocoder (`Geocoder`, which is Google's on his phone), limited
-    to Auckland; planning itself is offline.
+    to Auckland. The timetable is offline. For footpaths, only a square about 2 km across around each end goes
+    to OpenStreetMap's Overpass API (like the map tiles the map already loads), with a generic client name: never
+    an address or a name.
   - One row per route: "2 buses · 12 rides", or its problem as a red line ("Hill Ave needs a stop").
   - + makes "Route N" with Stop 1 and opens the map at once (PLAN Run 11, B1): save it and the route is ready. Back
     out and it's gone. No names to type.

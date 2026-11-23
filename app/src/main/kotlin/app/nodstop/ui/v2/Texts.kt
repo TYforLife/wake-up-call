@@ -30,6 +30,8 @@ object TripSheetText {
         val waiting = s.phase == Phase.WAITING
         val transfer = waiting && t.legIndex > 0
         val alarmAt = s.alarmAtMs?.let(clock)
+        // Your own circle rings at its edge, before the stop's time (owner: "5 min left but the alarm is in 1 min").
+        val circle = t.legRadii.getOrNull(t.legIndex)?.takeIf { r -> s.distanceM?.let { it > r } == true }
         return when {
             gpsLost -> TripSheetUi(
                 eyebrow = "Get off at", stop = stop,
@@ -55,6 +57,7 @@ object TripSheetText {
                 alarm = when {
                     s.phase == Phase.RINGING -> "Ringing"
                     s.phase == Phase.AWAKE -> "You're awake for this stop"
+                    alarmAt != null && circle != null -> "Alarm about $alarmAt · at your ${TripService.distance(circle)} circle"
                     alarmAt != null -> "Alarm about $alarmAt"
                     else -> null
                 },

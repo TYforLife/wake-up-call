@@ -14,7 +14,7 @@ at the bottom.
   NZ–Australia "brain drain" jokes. Kind, never mean.
 
 ## Next up
-1. [ ] **Walking along real footpaths, not straight lines.**
+1. [x] **Walking along real footpaths, not straight lines.** (built: see Done once merged)
    - He asked "Does it know road walk paths? If not, add it. Make destination estimation accurate." It suggested
      Karangahape Rd (Rainbow Bridge) where he always gets off at Symonds Street Cemetery.
    - Plan: fetch OpenStreetMap's footpaths for a small area around where you start and where you're going.

@@ -33,6 +33,14 @@ class TextsTest {
     }
 
     @Test
+    fun `riding with your own circle - the alarm says it's at the circle, before the stop's time`() {
+        val t = trip(status()).copy(legRadii = listOf(null, 400.0))
+        assertEquals("Alarm about 7:45 · at your 400 m circle", TripSheetText.of(t, clock).alarm)
+        val inside = trip(status(d = 300.0)).copy(legRadii = listOf(null, 400.0))
+        assertEquals("Alarm about 7:45", TripSheetText.of(inside, clock).alarm)
+    }
+
+    @Test
     fun `GPS lost - muted figures with their age, and a red line that says when it still rings`() {
         val ui = TripSheetText.of(trip(status(gpsOk = false, age = 40.0, d = 2_900.0)), { "7:44" })
         assertEquals("2.9 km · 40 s ago", ui.figure)

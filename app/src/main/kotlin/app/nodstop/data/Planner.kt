@@ -58,16 +58,38 @@ object Planner {
     }
 
     private fun walkM(straight: Double) = straight * DETOUR
-    private fun walkS(straight: Double) = Math.ceil(walkM(straight) / WALK_MPS).toInt()
+    private fun walkS(straight: Double) = secs(walkM(straight))
+    private fun secs(walkedM: Double) = Math.ceil(walkedM / WALK_MPS).toInt()
+
+    /** The longest walk to the first stop or from the last, along footpaths. */
+    const val MAX_WALK_M = 1_300.0
+
+    /**
+     * Walking metres from a place to a point along footpaths (`WalkGraph`), or null where they aren't known: then the
+     * straight line × [DETOUR].
+     */
+    fun interface Walks { fun to(p: LatLng): Double? }
+
+    /** The walks to each stop near [p] within [ACCESS_M] (straight line): along footpaths when [w] knows them. */
+    private fun walksNear(ix: TransitIndex, p: LatLng, w: Walks?): List<Pair<Int, Double>> =
+        ix.near(p, ACCESS_M).mapNotNull { (s, d) ->
+            val m = w?.to(ix.stops[s].pos) ?: walkM(d)
+            (s to m).takeIf { m <= MAX_WALK_M }
+        }
 
     /** Up to [count] rides, leaving from [departS] on [date], sorted by when you leave. */
-    fun plan(ix: TransitIndex, tt: Timetable, from: LatLng, to: LatLng, date: LocalDate, departS: Int, count: Int = 5): List<Journey> {
+    fun plan(
+        ix: TransitIndex, tt: Timetable, from: LatLng, to: LatLng, date: LocalDate, departS: Int, count: Int = 5,
+        walkFrom: Walks? = null, walkTo: Walks? = null,
+    ): List<Journey> {
         val day = Day(ix, tt, date)
+        val starts = walksNear(ix, from, walkFrom)
+        val ends = walksNear(ix, to, walkTo).toMap()
         val found = HashMap<List<Pair<String, Int>>, Journey>()
         var t = departS
         var searches = 0
         while (t <= departS + LOOKAHEAD_S && searches < 12) {
-            val js = search(day, from, to, t)
+            val js = search(day, starts, ends, t)
             searches++
             if (js.isEmpty()) break
             for (j in js) found.merge(j.key, j) { a, b -> if (b.cost < a.cost) b else a }
@@ -82,9 +104,14 @@ object Planner {
      * Arrive by [arriveS]: the rides that leave latest and still get there in time, sorted by when you leave. Searches
      * forward from a little before the fastest ride would have to leave.
      */
-    fun arriveBy(ix: TransitIndex, tt: Timetable, from: LatLng, to: LatLng, date: LocalDate, arriveS: Int, count: Int = 5): List<Journey> {
+    fun arriveBy(
+        ix: TransitIndex, tt: Timetable, from: LatLng, to: LatLng, date: LocalDate, arriveS: Int, count: Int = 5,
+        walkFrom: Walks? = null, walkTo: Walks? = null,
+    ): List<Journey> {
         val day = Day(ix, tt, date)
-        val probe = search(day, from, to, arriveS - 2 * 3_600)
+        val starts = walksNear(ix, from, walkFrom)
+        val ends = walksNear(ix, to, walkTo).toMap()
+        val probe = search(day, starts, ends, arriveS - 2 * 3_600)
         if (probe.isEmpty()) return emptyList()
         val fastest = probe.minOf { it.arriveS - it.leaveS }
         val found = HashMap<List<Pair<String, Int>>, Journey>()
@@ -92,7 +119,7 @@ object Planner {
         var t = maxOf(arriveS - fastest - 30 * 60, probe.minOf { it.leaveS } + 60)
         var searches = 0
         while (t < arriveS && searches < 14) {
-            val js = search(day, from, to, t)
+            val js = search(day, starts, ends, t)
             searches++
             val inTime = js.filter { it.arriveS <= arriveS }
             for (j in inTime) found.merge(j.key, j) { a, b -> if (b.cost < a.cost) b else a }
@@ -179,12 +206,14 @@ object Planner {
     }
 
     private sealed interface Step
+    /** Walking metres to the first stop (already along footpaths, or × [DETOUR]). */
     private class Access(val meters: Double) : Step
     private class Ride(val pattern: Int, val run: Int, val boardPos: Int, val alightPos: Int) : Step
     private class Transfer(val from: Int, val meters: Double) : Step
 
     /** One RAPTOR search from [departS]: every way to arrive within [SLACK_S] of the fastest, by 1 to 3 buses. */
-    private fun search(day: Day, from: LatLng, to: LatLng, departS: Int): List<Journey> {
+    /** [starts] and [ends]: the stops you can walk to first and from last, with the walking metres. */
+    private fun search(day: Day, starts: List<Pair<Int, Double>>, ends: Map<Int, Double>, departS: Int): List<Journey> {
         val ix = day.ix
         val tt = day.tt
         val n = ix.stops.size
@@ -196,11 +225,10 @@ object Planner {
         val rideTau = Array(MAX_BUSES + 1) { IntArray(n) { inf } }
         val rideParent = Array(MAX_BUSES + 1) { arrayOfNulls<Ride>(n) }
         val best = IntArray(n) { inf }
-        val ends = ix.near(to, ACCESS_M).toMap()
         if (ends.isEmpty()) return emptyList()
         var marked = HashSet<Int>()
-        for ((s, d) in ix.near(from, ACCESS_M)) {
-            tau[0][s] = departS + walkS(d); best[s] = tau[0][s]; parent[0][s] = Access(d); marked += s
+        for ((s, m) in starts) {
+            tau[0][s] = departS + secs(m); best[s] = tau[0][s]; parent[0][s] = Access(m); marked += s
         }
 
         var bestEnd = inf
@@ -242,7 +270,7 @@ object Planner {
             }
             // Arrived: off this bus, then one walk to where you're going.
             for (s in reached) ends[s]?.let { d ->
-                val arr = rideTau[k][s] + walkS(d)
+                val arr = rideTau[k][s] + secs(d)
                 ways += Triple(k, s, d); arrivals += arr
                 if (arr < bestEnd) bestEnd = arr
             }
@@ -256,7 +284,7 @@ object Planner {
     private fun build(day: Day, parent: Array<Array<Step?>>, rideParent: Array<Array<Ride?>>, k: Int, end: Int, endM: Double, arriveS: Int): Journey {
         val tt = day.tt
         val legs = ArrayList<Leg>()
-        legs += Leg.Walk(end, null, walkM(endM), walkS(endM))
+        legs += Leg.Walk(end, null, endM, secs(endM))
         var cur = end
         var round = k
         var step: Step? = rideParent[k][end]
@@ -278,7 +306,7 @@ object Planner {
                     cur = st.from
                     step = rideParent[round][cur]
                 }
-                is Access -> { legs += Leg.Walk(null, cur, walkM(st.meters), walkS(st.meters)); break@loop }
+                is Access -> { legs += Leg.Walk(null, cur, st.meters, secs(st.meters)); break@loop }
                 null -> break@loop
             }
         }
