@@ -87,6 +87,9 @@ new, or repeats something, add it here in the same PR.
 - He keeps a **backlog** with Claude: `docs/BACKLOG.md`. Add every new ask to it as he makes it.
 - Product direction: Auckland and AT only for now, region by region later, each region with a kind little joke.
 - He compares everything with Google Maps: walking routes, the stop to get off at, times.
+- **Pūkeko alarm, real this time.** The made-in-code one was "awful" and went (#53). He then sent his own
+  recordings (a 20 s morning and three ~1.5 s screams) and asked for the morning looping with screams "happening
+  stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
 
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon

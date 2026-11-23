@@ -54,4 +54,6 @@ at the bottom.
 - [x] **Arrive by is remembered** for work and home ("To work" arrive by 8:30, set once).
 - [x] **Alarm sounds.** Beeps, Chime, Rising, or your own mp3/wav/m4a (the first 20 s loop). The beeps
   if your file can't play. "Try it" is a real test ring.
+- [x] **Pūkeko is back, from real recordings (2026-11-23).** A morning chorus that loops, with screams at
+  random on top, different every ring.
 - [x] **Say when a trip starts past a stop.** "Started past Smales Farm", with **Start at Smales Farm**.
