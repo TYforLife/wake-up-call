@@ -377,6 +377,17 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 
 Headset = any output device of type BT A2DP, BLE headset, wired headset or headphones, or USB headset.
 
+**The tone** is the sound chosen in Settings → Alarm sound (BACKLOG 3, `Sounds`):
+- Built in: Beeps (the default), Chime, Rising and Pūkeko. They're made in code, so there's no file to go missing.
+- Or your own file (mp3, wav, m4a, anything the phone can play), via the system file picker. It's decoded once
+  when you pick it (`AlarmSound.import`): mixed to mono, resampled to 44.1 kHz, the first 20 s kept, leading
+  silence trimmed and made as loud as it can be. It's stored in the app's files.
+- A ring reads it once, from memory. If it's missing or unreadable, or the phone won't take it, the ring plays
+  the beeps.
+- It plays through the same looping track as always (`Tone`, in `RingService` only), so the ladder below, the
+  earbuds rule and the vibration don't change.
+- "Try it" is a real test ring through `AlarmScheduler`, in 5 s, off during a trip.
+
 | Time | Earbuds connected | No earbuds |
 |---|---|---|
 | 0–15 s | Tone in the earbuds at 40% media volume (`USAGE_MEDIA`, exclusive transient audio focus so music or podcasts pause), gentle vibration pulses | Gentle vibration pulses |
@@ -568,6 +579,7 @@ doesn't flash another colour while it opens.
   - Receiving only (`ShareIn`).
 - **Settings** (`settings`):
   - Home and work: the two places, and the steps to change them (PLAN Run 13).
+  - Alarm sound: the chosen sound, and the list (§5 Ring ladder).
   - Quiet other notifications (during trips); Ring out loud after 60 s; Ask how the timing was.
   - Important contacts: the names, plus chat notification access for While you slept.
   - Report a missed alarm: shares the last trip log with locations hidden, and the last ring's report as the

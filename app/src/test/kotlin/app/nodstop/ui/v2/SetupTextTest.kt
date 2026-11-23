@@ -47,4 +47,12 @@ class SetupTextTest {
         assertEquals("None yet", SetupText.contacts(emptyList()))
         assertEquals("Mum, Daycare", SetupText.contacts(listOf("Mum", "Daycare")))
     }
+
+    @Test
+    fun `Settings - the alarm sound line`() {
+        assertEquals("Beeps", SetupText.sound(null, null))
+        assertEquals("Pūkeko", SetupText.sound("PUKEKO", null))
+        assertEquals("Your own: wake.mp3", SetupText.sound("CUSTOM", "wake.mp3"))
+        assertEquals("12 s", SetupText.seconds(12.4))
+    }
 }
