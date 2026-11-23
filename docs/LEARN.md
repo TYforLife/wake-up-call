@@ -29,8 +29,13 @@ numbers, no maps. Later, it can notice his regular trips by itself and offer the
 ## Milestones
 
 ### L0 Spike: what the phone can tell us
-- [ ] A Debug screen "Learn spike" records one ride's raw signals: GPS fixes, activity transitions (with their
+Done in two steps (owner, 2026-11-22): step 1 ships the spike screen; step 2 writes the report from one ride the
+owner records and shares (`/goal Finish L0 in docs/LEARN.md: write the report from this ride file`).
+
+- [x] A Debug screen "Learn spike" records one ride's raw signals: GPS fixes, activity transitions (with their
   confidence and delay), speed. It shows a timeline and shares it as a location-hidden file.
+  Debug → Learn spike (`LearnSpikeService`, `SpikeLog`; format and report maths in `engine/LearnSpike.kt`). Tap
+  **Got on** / **Got off** (screen or notification) as it happens: those marks are what the delays are measured from.
 - [ ] A short report in the PR: on the owner's Galaxy A17, how quickly "in a vehicle" and "on foot" arrive after
   boarding and after getting off, how reliable they are on a bus (versus a car), and the battery cost per 30 min.
   Recommend L1–L3's thresholds from it.

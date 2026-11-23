@@ -63,6 +63,8 @@ sealed interface Screen {
     data object Coverage : Screen
     data object Debug : Screen
     data object BriefingLab : Screen
+    /** Debug → Learn spike (docs/LEARN.md L0). */
+    data object LearnSpike : Screen
 
     /** Where Back goes: a stop goes back to its route; everything else to the tabs. */
     val parent: Screen? get() = when (this) {
@@ -172,6 +174,7 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendin
                 when (s) {
                     Screen.Debug -> DebugScreen(go)
                     Screen.BriefingLab -> BriefingLabScreen(go)
+                    Screen.LearnSpike -> LearnSpikeScreen(go)
                     else -> Unit
                 }
             }

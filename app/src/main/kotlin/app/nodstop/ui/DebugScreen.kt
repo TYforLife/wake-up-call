@@ -123,6 +123,11 @@ fun DebugScreen(go: (Screen) -> Unit) {
             }) { Text("Start simulated trip") }
         }
 
+        Section("Learn spike") {
+            Text("Record one bus ride's raw signals for learning trips by riding (no alarm). Share the file afterwards.")
+            Button(onClick = { go(Screen.LearnSpike) }) { Text("Learn spike") }
+        }
+
         Section("While you slept") {
             val tea by app.settings.teaTone.collectAsState()
             val gpu by app.settings.useGpu.collectAsState()
