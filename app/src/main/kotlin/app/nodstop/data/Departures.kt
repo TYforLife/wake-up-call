@@ -63,4 +63,53 @@ object Departures {
             listOfNotNull(0.takeIf { today[t.service] }, (-86_400).takeIf { yesterday[t.service] }).map { sh -> (tt.at(t, a) + sh) to (tt.at(t, b) + sh) }
         }.filter { it.first >= fromS }.minByOrNull { it.first }
     }
+
+    /** On the bus's line: within this of the straight line between two of its stops. */
+    private const val ON_LINE_M = 400.0
+
+    /**
+     * The timetable's time left on the bus to [alight] (owner, 2026-11-24: "the ETAs are very off"), in seconds.
+     * [here] is placed on the line of the bus's stops between [board] and [alight]. The run of [route] that should be
+     * there about now ([nowS]) gives the time left from that point. Your real position already holds the delay so far;
+     * the timetable gives the rest. Null when you're not on that line or no run is near now (within 30 minutes).
+     * Display only: the alarm keeps its own, earlier, estimate (rule 4).
+     */
+    fun remainingS(ix: TransitIndex, tt: Timetable, route: String, board: LatLng, alight: LatLng, here: LatLng, date: LocalDate, nowS: Int): Double? {
+        val (p, a, b) = leg(ix, tt, route, board, alight) ?: return null
+        val pts = (a..b).map { ix.stops[p.stops[it]].pos }
+        // Where on the line you are: the nearest segment, and how far along it.
+        var bestK = -1
+        var bestF = 0.0
+        var bestD = Double.MAX_VALUE
+        for (k in 0 until pts.size - 1) {
+            val (f, d) = project(here, pts[k], pts[k + 1])
+            if (d < bestD) { bestD = d; bestK = k; bestF = f }
+        }
+        if (bestK < 0 || bestD > ON_LINE_M) return null
+        val today = tt.services.map { it.runsOn(date) }
+        val yesterday = tt.services.map { it.runsOn(date.minusDays(1)) }
+        var best: Pair<Double, Double>? = null // |offset from now|, time left
+        for (t in p.trips) for (sh in listOfNotNull(0.takeIf { today[t.service] }, (-86_400).takeIf { yesterday[t.service] })) {
+            val t0 = tt.at(t, a + bestK) + sh
+            val t1 = tt.at(t, a + bestK + 1) + sh
+            val at = t0 + (t1 - t0) * bestF
+            val left = tt.at(t, b) + sh - at
+            val off = kotlin.math.abs(at - nowS)
+            if (off <= 30 * 60 && (best == null || off < best.first)) best = off to left
+        }
+        return best?.second?.coerceAtLeast(0.0)
+    }
+
+    /** How far along a→b (0..1) [p] is, and its distance in metres from the segment. */
+    private fun project(p: LatLng, a: LatLng, b: LatLng): Pair<Double, Double> {
+        val kx = 111_320.0 * kotlin.math.cos(Math.toRadians(p.lat))
+        val ky = 111_320.0
+        val ax = (a.lng - p.lng) * kx; val ay = (a.lat - p.lat) * ky
+        val bx = (b.lng - p.lng) * kx; val by = (b.lat - p.lat) * ky
+        val dx = bx - ax; val dy = by - ay
+        val len2 = dx * dx + dy * dy
+        val f = if (len2 < 1e-6) 0.0 else ((-ax * dx - ay * dy) / len2).coerceIn(0.0, 1.0)
+        val px = ax + dx * f; val py = ay + dy * f
+        return f to kotlin.math.sqrt(px * px + py * py)
+    }
 }

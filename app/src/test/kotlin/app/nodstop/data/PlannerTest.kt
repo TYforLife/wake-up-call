@@ -139,4 +139,17 @@ class PlannerTest {
         assertEquals(hm(7, 30) to hm(7, 50), Departures.ride(ix, tt, "866", at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(7, 2)))
         assertEquals(null, Departures.path(ix, tt, "866", at("Test Queen St"), at("Test Farm Stop D")), "not that way")
     }
+
+    @Test
+    fun `the bus's ETA from the timetable - from where you are on its line, the run due there now`() {
+        val farm = at("Test Farm Stop D"); val queen = at("Test Queen St")
+        fun rem(here: LatLng, nowS: Int) = Departures.remainingS(ix, tt, "866", farm, queen, here, wednesday, nowS)
+        val half = LatLng((farm.lat + queen.lat) / 2, (farm.lng + queen.lng) / 2)
+        assertEquals(1_200.0, rem(farm, hm(7, 0))!!, 1.0, "at the stop you got on: the whole 20 min")
+        assertEquals(600.0, rem(half, hm(7, 12))!!, 1.0, "halfway, 2 min late: still 10 min to go")
+        assertEquals(0.0, rem(queen, hm(7, 20))!!, 1.0)
+        assertEquals(600.0, rem(half, hm(7, 40))!!, 1.0, "the 7:30 run")
+        assertEquals(null, rem(LatLng(-36.70, 174.60), hm(7, 10)), "not on the 866's line")
+        assertEquals(null, rem(half, hm(12, 0)), "no run anywhere near now")
+    }
 }

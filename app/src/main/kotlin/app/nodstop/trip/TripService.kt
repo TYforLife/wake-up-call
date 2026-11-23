@@ -30,6 +30,10 @@ import app.nodstop.brief.RingStats
 import app.nodstop.notify.DndController
 import app.nodstop.notify.MessageStore
 import app.nodstop.data.ActiveTrip
+import app.nodstop.data.Departures
+import app.nodstop.data.Timetable
+import app.nodstop.data.TransitData
+import app.nodstop.data.TransitIndex
 import app.nodstop.data.PendingRating
 import app.nodstop.data.RouteSuggest
 import app.nodstop.data.Resume
@@ -87,6 +91,8 @@ class TripService : Service() {
     /** GPS gaps and circle entries for the trip log (PLAN R0). */
     private var notes = RideNotes()
     private val routesScope = MainScope()
+    private var index: TransitIndex? = null
+    private var timetable: Timetable? = null
     private var routesJob: Job? = null
 
     /** Quiet trip follows the screen (PLAN Run 10, A4): quiet while it's off, your notifications while it's on. */
@@ -116,6 +122,8 @@ class TripService : Service() {
         lastScheduled = app.scheduler.scheduledAtMs
         // A wake circle changed on the map applies to this trip at once (PLAN U3).
         routesJob = routesScope.launch { app.routes.routes.collect { onRoutesChanged(it) } }
+        // The timetable, for the bus's ETA on screen (`busEta`); a build without it keeps the engine's.
+        routesScope.launch { index = TransitData.get(this@TripService); timetable = TransitData.timetable(this@TripService) }
         val f = android.content.IntentFilter().apply { addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF) }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screen, f, RECEIVER_NOT_EXPORTED) else registerReceiver(screen, f)
     }
@@ -287,8 +295,10 @@ class TripService : Service() {
             app.trips.save(updated); lastPersistMs = now
         }
 
+        // On a bus Plan a trip knows, the time left shown is the timetable's from where you are (owner, 2026-11-24).
+        val shown = busEta(updated, out.status)?.let { out.status.copy(etaS = it) } ?: out.status
         val ui = TripUi(
-            updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, out.status, updated.simulated,
+            updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, shown, updated.simulated,
             updated.startedMs, updated.legs.map { it.wakeRadiusM },
         )
         _status.value = ui
@@ -298,6 +308,22 @@ class TripService : Service() {
         }
 
         if (out.status.phase == Phase.DONE) finishTrip(updated)
+    }
+
+    /**
+     * The timetable's time left on this bus (`Departures.remainingS`): only on the bus, and only when Plan a trip
+     * knows which bus it is and where you got on. For what's shown; the alarm keeps the engine's earlier estimate.
+     */
+    private fun busEta(t: ActiveTrip, s: Status): Double? {
+        if (s.phase != Phase.RIDING) return null
+        val here = s.position ?: return null
+        val ix = index ?: return null
+        val tt = timetable ?: return null
+        val draft = t.routeId?.let { app.routes.get(it) }?.legs?.getOrNull(t.legOffset + s.legIndex) ?: return null
+        val bus = draft.bus ?: return null
+        val board = draft.boardCoords?.let { CoordParser.parse(it) } ?: return null
+        val alight = CoordParser.parse(draft.coords) ?: return null
+        return Departures.remainingS(ix, tt, bus, board, alight, here, java.time.LocalDate.now(), java.time.LocalTime.now().toSecondOfDay())
     }
 
     /** One light buzz and a notification: the bus is at your stop. Not the alarm: no sound. */
