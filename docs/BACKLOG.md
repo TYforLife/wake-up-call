@@ -22,10 +22,17 @@ at the bottom.
    - **Waiting on Tae:** an AT API key, which is free from AT's developer portal. He enters it in Settings, and it's kept on
      the phone, never in the repo.
    - Rule 6: live data may only make an alarm earlier. GPS stays the fallback.
+   - Plan, once there's a key (each step its own PR):
+     1. Settings → Live buses: paste the key (kept on the phone), and **Check** says whether AT accepts it.
+     2. CI keeps working without the key. A key never goes in the repo, CI or a log.
+     3. While you wait: the coming bus of your route on the map, from AT's vehicle positions. The sheet says
+        "871 · 3 min away (live)" instead of the timetable.
+     4. On the bus: match you to the vehicle that moves with you for about a minute. Show AT's predicted arrival
+        at your stop next to ours.
+     5. The alarm may use AT's arrival only to ring earlier (rule 6), with a test proving it never rings later.
 
 ## Later
 - Learning a trip by riding it (Track A, `docs/LEARN.md`), worked on only when he says so.
-- The time chip remembers Leave at / Arrive by per route ("To work" arrive by 8:30).
 
 ## Done
 - [x] **The missed ring at the first stop (2026-11-23).** "It didn't ring again… It rang fine on 2nd stop."
@@ -44,6 +51,7 @@ at the bottom.
   30 days. Real walks near Auckland City Hospital were 1.4–2× the straight line.
 - [x] **The alarm and "min left" agree.** The sheet shows both, labelled: "Alarm about 7:58 at your 400 m circle ·
   stop ~8:02". Live AT arrival times come with item 1.
+- [x] **Arrive by is remembered** for work and home ("To work" arrive by 8:30, set once).
 - [x] **Alarm sounds.** Beeps, Chime, Rising, Pūkeko, or your own mp3/wav/m4a (the first 20 s loop). The beeps
   if your file can't play. "Try it" is a real test ring.
 - [x] **Say when a trip starts past a stop.** "Started past Smales Farm", with **Start at Smales Farm**.

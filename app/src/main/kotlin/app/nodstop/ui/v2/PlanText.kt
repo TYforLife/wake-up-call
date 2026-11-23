@@ -107,6 +107,13 @@ object PlanText {
         }
     }
 
+    /** Which destinations remember "Arrive by" (owner: never type times): work and home. */
+    fun remembers(to: PlaceUi?): String? = when (to?.kind) {
+        PlaceUi.Kind.WORK -> "work"
+        PlaceUi.Kind.HOME -> "home"
+        else -> null
+    }
+
     /** The trip sheet while you wait (BACKLOG): "871 due 7:43, then 7:51"; null when none are due. */
     fun nextBus(route: String, departures: List<Int>): String? = when (departures.size) {
         0 -> null

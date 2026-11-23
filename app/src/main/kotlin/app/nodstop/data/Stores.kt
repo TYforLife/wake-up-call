@@ -220,6 +220,13 @@ class Settings(context: Context) {
         prefs.edit().putBoolean(KEY_SPEAKER, on).apply(); _speakerLastResort.value = on
     }
 
+    /** "Arrive by 8:30" remembered for a destination ("work", "home"): seconds after midnight, or null. */
+    fun arriveBy(place: String): Int? = prefs.getInt("arrive_by_$place", -1).takeIf { it >= 0 }
+
+    fun setArriveBy(place: String, s: Int?) {
+        prefs.edit().apply { if (s == null) remove("arrive_by_$place") else putInt("arrive_by_$place", s) }.apply()
+    }
+
     private val _alarmSound = MutableStateFlow(prefs.getString(KEY_SOUND, null))
     /** The alarm's sound (`Sounds.Id` name; null: the beeps), BACKLOG 3. */
     val alarmSound: StateFlow<String?> = _alarmSound
