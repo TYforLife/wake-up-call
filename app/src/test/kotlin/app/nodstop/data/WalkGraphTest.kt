@@ -97,6 +97,18 @@ class WalkGraphTest {
     }
 
     @Test
+    fun `a locked or private gate isn't walked through - the walk goes round`() {
+        // A short cut from the first street to the east end, through a gate; the streets go round the corner.
+        val gate = at(150.0, 150.0)
+        val ways = arrayOf(*streets, node(31, gate), way(104, 1, 31, 3))
+        val open = graph(*ways)
+        assertTrue(open.from(o)!!.to(east)!!.meters < 450.0, "the short cut, while the gate is open")
+        val shut = graph(*ways, """{"type":"node","id":31}""")
+        assertEquals(600.0, shut.from(o)!!.to(east)!!.meters, 10.0)
+        assertTrue(WalkGraph.query(o, 1_000.0).contains("\"locked\"=\"yes\""))
+    }
+
+    @Test
     fun `a plaza is crossed, not walked round its edge`() {
         val a = at(0.0, 0.0)
         val b = at(0.0, 100.0)

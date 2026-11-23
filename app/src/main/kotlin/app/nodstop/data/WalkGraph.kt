@@ -19,7 +19,8 @@ import kotlin.math.floor
  * Footpaths and streets you can walk, from OpenStreetMap (BACKLOG 1 and 27), as a graph. Walking from a place is the
  * shortest way along it (Dijkstra), not a straight line, and each walk comes with the way it goes, for the map.
  * Long segments are split every [STEP_M], so stepping onto the graph at its nearest point is within a few metres of
- * the path. Pedestrian areas (a plaza, a station concourse) are crossed, not walked round.
+ * the path. Pedestrian areas (a plaza, a station concourse) are crossed, not walked round, and a locked or private
+ * gate (any barrier closed to walkers) isn't walked through.
  * Pure: tested on the JVM with a small street fixture and, in CI, real paths.
  */
 class WalkGraph private constructor(
@@ -145,26 +146,35 @@ class WalkGraph private constructor(
             "way[\"highway\"~\"^(trunk|trunk_link)$\"][\"foot\"!~\"^(no|private|use_sidepath)$\"][\"access\"!~\"^(no|private)$\"]" +
                 "[\"motorroad\"!=\"yes\"][\"sidewalk\"!~\"^(no|none|separate)$\"]"
 
+        /** Barriers on the ways that walkers can't pass: closed to them, or locked. */
+        private const val CLOSED =
+            "node(w.w)[\"barrier\"][\"access\"~\"^(no|private)$\"][\"foot\"!~\"^(yes|designated|permissive)$\"];out ids qt;" +
+                "node(w.w)[\"barrier\"][\"foot\"~\"^(no|private)$\"];out ids qt;" +
+                "node(w.w)[\"barrier\"][\"locked\"=\"yes\"];out ids qt;"
+
         /**
          * The query for the walkable ways around [p] (a square of [radiusM]): ways and their points with no tags, then
-         * the ids of the ways that are areas.
+         * the ids of the ways that are areas and of the barriers you can't pass.
          */
         fun query(p: LatLng, radiusM: Double): String {
             val dLat = radiusM / M_PER_DEG
             val dLng = radiusM / (M_PER_DEG * cos(Math.toRadians(p.lat)))
             val bbox = "%.5f,%.5f,%.5f,%.5f".format(Locale.US, p.lat - dLat, p.lng - dLng, p.lat + dLat, p.lng + dLng)
-            return "[out:json][timeout:25];($WALKABLE($bbox);$TRUNK($bbox);)->.w;(.w;>;);out skel qt;way.w[\"area\"=\"yes\"];out ids qt;"
+            return "[out:json][timeout:25];($WALKABLE($bbox);$TRUNK($bbox);)->.w;(.w;>;);out skel qt;way.w[\"area\"=\"yes\"];out ids qt;$CLOSED"
         }
 
-        /** Builds the graph from an Overpass reply to [query]: points, ways as lists of points, and area ids. */
+        /** Builds the graph from an Overpass reply to [query]: points, ways as lists of points, area and barrier ids. */
         fun parse(json: String): WalkGraph {
             val elements = Json.parseToJsonElement(json).jsonObject["elements"]?.jsonArray.orEmpty().map { it.jsonObject }
             val index = HashMap<Long, Int>()
             val la = ArrayList<Double>()
             val ln = ArrayList<Double>()
+            // A barrier you can't pass comes again on its own (no position) after the points.
+            val closed = HashSet<Long>()
             for (o in elements) {
                 if (o.str("type") != "node") continue
                 val id = o["id"]?.jsonPrimitive?.long ?: continue
+                if ("lat" !in o) { closed += id; continue }
                 val a = o["lat"]?.jsonPrimitive?.double ?: continue
                 val b = o["lon"]?.jsonPrimitive?.double ?: continue
                 index[id] = la.size; la += a; ln += b
@@ -174,10 +184,11 @@ class WalkGraph private constructor(
             val areas = ways.filter { "nodes" !in it }.mapNotNull { it["id"]?.jsonPrimitive?.long }.toSet()
             val edges = ArrayList<ArrayList<Pair<Int, Double>>>().apply { repeat(la.size) { add(ArrayList()) } }
             fun join(u: Int, v: Int, m: Double) { edges[u] += v to m; edges[v] += u to m }
+            val shut = closed.mapNotNull { index[it] }.toSet()
             for (o in ways) {
                 val refs = o["nodes"]?.jsonArray?.mapNotNull { index[it.jsonPrimitive.long] } ?: continue
                 for ((u, v) in refs.zipWithNext()) {
-                    if (u == v) continue
+                    if (u == v || u in shut || v in shut) continue
                     val d = Geo.distanceM(LatLng(la[u], ln[u]), LatLng(la[v], ln[v]))
                     val parts = maxOf(1, ceil(d / STEP_M).toInt())
                     var prev = u
@@ -195,7 +206,7 @@ class WalkGraph private constructor(
                 // Across an area: straight from each corner to every other.
                 val id = o["id"]?.jsonPrimitive?.long
                 val corners = refs.distinct()
-                if (id in areas && corners.size <= MAX_AREA_POINTS) {
+                if (id in areas && corners.size <= MAX_AREA_POINTS && corners.none { it in shut }) {
                     for (a in corners.indices) for (b in a + 1 until corners.size) {
                         val u = corners[a]
                         val v = corners[b]
