@@ -425,16 +425,11 @@ class TripService : Service() {
         if (trip != null) input(Input.Stop(System.currentTimeMillis())) else shutdown()
     }
 
-    /** Any saved leg with this trip's stop: take its wake circle (works for a simulated trip's stops too). */
+    /** This trip's route changed: take its circles (per stop, per route: `Route.circlesFor`). */
     private fun onRoutesChanged(routes: List<Route>) {
         val t = trip ?: return
-        val own = routes.firstOrNull { it.id == t.routeId }
-        val byStop = HashMap<LatLng, Double?>()
-        for (r in routes.filter { it !== own } + listOfNotNull(own)) {
-            r.legs.forEach { d -> CoordParser.parse(d.coords)?.let { p -> byStop[p] = d.wakeRadiusM } }
-        }
-        val merged = t.legs.map { l -> if (byStop.containsKey(l.dest)) l.copy(wakeRadiusM = byStop[l.dest]) else l }
-        applyLegs(merged)
+        val own = routes.firstOrNull { it.id == t.routeId } ?: return
+        applyLegs(own.circlesFor(t.legs))
     }
 
     /** A simulated trip's stop isn't in any saved route: the map sets its circle here (not saved). */

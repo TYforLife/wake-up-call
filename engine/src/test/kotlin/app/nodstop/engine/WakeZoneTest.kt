@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-/** Your own wake zone: ring on entering it, or by the learned timing, whichever comes first. */
+/** Your own wake zone: ring on entering it; a circle too small for that rings at the 30 s minimum lead. */
 class WakeZoneTest {
     private fun kmh(v: Double) = v / 3.6
 
@@ -21,11 +21,11 @@ class WakeZoneTest {
         assertTrue(l in 88.0..100.0, "lead $l")
     }
 
-    @Test fun `a small zone - the usual timing rings first`() {
+    @Test fun `a small zone - rings at the 30 s minimum, later than the usual 45 s timing`() {
         val auto = lead(null)
-        val small = lead(100.0)
-        assertTrue(kotlin.math.abs(small - auto) < 3.0, "small zone $small vs auto $auto")
-        assertTrue(small in 30.0..60.0, "lead $small")
+        val small = lead(100.0) // 100 m at 30 km/h is 12 s: too close, so the 30 s minimum rings first
+        assertTrue(small in 28.0..45.0, "lead $small")
+        assertTrue(small < auto, "small zone $small vs auto $auto")
     }
 
     @Test fun `waiting inside the zone does not ring until you are on the bus`() {

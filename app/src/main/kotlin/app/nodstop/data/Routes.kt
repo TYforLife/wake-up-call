@@ -39,6 +39,17 @@ data class Route(
         Leg(name = d.name.ifBlank { "Stop ${i + 1}" }, dest = dest, alarmEnabled = d.alarmEnabled, learned = learned(dest), wakeRadiusM = d.wakeRadiusM)
     }.takeIf { it.isNotEmpty() }
 
+    /**
+     * A running trip's legs with this route's circles (owner, 2026-11-24: "the ring is per station and per trip"): each
+     * leg takes the circle of the same stop in this route, so a circle changed mid-trip applies at once. Another
+     * route's circle at the same stop never does; a leg whose stop this route no longer has keeps its own.
+     */
+    fun circlesFor(tripLegs: List<Leg>): List<Leg> {
+        val byStop = HashMap<LatLng, Double?>()
+        legs.forEach { d -> CoordParser.parse(d.coords)?.let { p -> byStop[p] = d.wakeRadiusM } }
+        return tripLegs.map { l -> if (byStop.containsKey(l.dest)) l.copy(wakeRadiusM = byStop[l.dest]) else l }
+    }
+
     /** Human-readable reason this route can't start yet, or null. */
     fun problem(): String? {
         if (legs.isEmpty()) return "Add a stop"
