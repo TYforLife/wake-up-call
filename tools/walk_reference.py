@@ -6,6 +6,10 @@ walking metres to them (FOSSGIS's OSRM, foot profile, one table request). Also p
 filter adds over a plain one (trunk roads with footpaths, pedestrian areas), so a reviewer can see why.
 
     python3 tools/walk_reference.py --stops app/src/main/assets/gtfs/stops.tsv --out app/build/footpaths
+    python3 tools/walk_reference.py --explain app/build/footpaths/disagree.tsv
+
+--explain: for each walk RealWalkTest found more than 15% from the router's, the map's tags (ways and barriers)
+where our walk leaves the router's, so the cause can be read off CI's log.
 """
 import argparse
 import json
@@ -18,6 +22,7 @@ import urllib.request
 
 HOSPITAL = (-36.8601, 174.7697)
 ROUTER = "https://routing.openstreetmap.de/routed-foot/table/v1/foot/"
+ROUTE = "https://routing.openstreetmap.de/routed-foot/route/v1/foot/"
 OVERPASS = "https://overpass-api.de/api/interpreter"
 UA = {"User-Agent": "Nodstop-CI"}
 ACCESS_M = 800.0
@@ -72,11 +77,43 @@ def report_added():
               f"foot={t.get('foot', '-')} motorroad={t.get('motorroad', '-')} name={t.get('name', '')}")
 
 
+def explain(path):
+    """Where our walk leaves the router's: the ways and barriers there, with their tags."""
+    with open(path, encoding="utf-8") as f:
+        rows = [l.rstrip("\n").split("\t") for l in f if l.strip()]
+    for name, lat, lng, way in rows:
+        ours = [tuple(map(float, p.split(","))) for p in way.split(";")]
+        stop = (float(lat), float(lng))
+        reply = get(f"{ROUTE}{HOSPITAL[1]:.6f},{HOSPITAL[0]:.6f};{stop[1]:.6f},{stop[0]:.6f}?overview=full&geometries=geojson")
+        theirs = []
+        if reply:
+            r = json.loads(reply).get("routes") or [{}]
+            theirs = [(c[1], c[0]) for c in r[0].get("geometry", {}).get("coordinates", [])]
+        apart = [p for p in ours if not theirs or min(dist(p, t) for t in theirs) > 20]
+        print(f"{name}: our walk {len(ours)} points, {len(apart)} more than 20 m from the router's")
+        sample = apart[:: max(1, len(apart) // 12)][:12]
+        if not sample:
+            continue
+        parts = "".join(f"way(around:6,{p[0]:.6f},{p[1]:.6f})[highway];node(around:6,{p[0]:.6f},{p[1]:.6f})[barrier];" for p in sample)
+        tags = get(OVERPASS, urllib.parse.urlencode({"data": f"[out:json][timeout:25];({parts});out tags qt;"}).encode())
+        if tags is None:
+            print("  Overpass didn't answer")
+            continue
+        for e in json.loads(tags).get("elements", []):
+            t = e.get("tags", {})
+            print(f"  {e['type']} {e['id']}: " + " ".join(f"{k}={v}" for k, v in sorted(t.items()) if not k.startswith("name:")))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stops", required=True)
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--stops")
+    ap.add_argument("--out")
+    ap.add_argument("--explain")
     a = ap.parse_args()
+    if a.explain:
+        if os.path.exists(a.explain):
+            explain(a.explain)
+        return 0
     stops = near_stops(a.stops)
     coords = ";".join(f"{p[1]:.6f},{p[0]:.6f}" for p in [HOSPITAL] + [s[3] for s in stops])
     reply = get(f"{ROUTER}{coords}?sources=0&annotations=distance")

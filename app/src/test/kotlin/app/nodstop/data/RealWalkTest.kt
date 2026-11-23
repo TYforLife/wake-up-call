@@ -87,14 +87,20 @@ class RealWalkTest {
         assertTrue(router != null, "the router's reply reads")
         var compared = 0
         val off = ArrayList<String>()
+        // Each walk that disagrees, with its way, for CI's next step to show the map's tags along it.
+        val disagree = StringBuilder()
         for ((name, p) in stops) {
-            val ours = w.to(p)?.meters
+            val ours = w.to(p)
             val theirs = router?.to(p)?.meters
-            println("  $name: ours ${ours?.toInt()} m, router ${theirs?.toInt()} m")
+            println("  $name: ours ${ours?.meters?.toInt()} m, router ${theirs?.toInt()} m")
             if (ours == null || theirs == null) continue
             compared++
-            if (Math.abs(ours - theirs) > theirs * 0.15) off += "$name: ours ${ours.toInt()} m, router ${theirs.toInt()} m"
+            if (Math.abs(ours.meters - theirs) > theirs * 0.15) {
+                off += "$name: ours ${ours.meters.toInt()} m, router ${theirs.toInt()} m"
+                disagree.append("$name\t${p.lat}\t${p.lng}\t${ours.points.joinToString(";") { "${it.lat},${it.lng}" }}\n")
+            }
         }
+        File(dir, "disagree.tsv").writeText(disagree.toString())
         assertTrue(compared >= stops.size * 3 / 4, "most stops compared ($compared of ${stops.size})")
         assertTrue(off.isEmpty(), "more than 15% from the router's walk:\n${off.joinToString("\n")}")
     }

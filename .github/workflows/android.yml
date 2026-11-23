@@ -66,6 +66,7 @@ jobs:
           if [ -f "$f" ]; then sed -n '/<system-out>/,/<\/system-out>/p' "$f"; else echo "no planner results"; fi
           f=app/build/test-results/testDebugUnitTest/TEST-app.nodstop.data.RealWalkTest.xml
           if [ -f "$f" ]; then sed -n '/<system-out>/,/<\/system-out>/p' "$f"; else echo "no walking results"; fi
+          python3 tools/walk_reference.py --explain app/build/footpaths/disagree.tsv || true
       - name: Ring path on the JVM (PLAN Run 10, A2; a failure blocks the merge)
         run: ./gradlew :app:testDebugUnitTest -Pscreenshots --tests '*RingPathTest' --console=plain
       - name: Screenshots (PLAN U0; never blocks the APK)
