@@ -23,8 +23,27 @@ object TripSheetText {
      * - after changing buses: "Off at <last stop> · next stop" / "Waiting for bus 2"
      */
     /** [nowMs]: when the sheet is drawn, for "stop ~8:02" (the stop's time from now). */
+    /**
+     * When the alarm aims to ring, for "Alarm about 7:45" (owner, 2026-11-24: it "is not consistent with the time
+     * until arrival"): the shown time left minus the stop's lead, or, with your own circle and outside it, when the
+     * bus reaches it. Not the scheduled system alarm: while GPS is fine that's the dead-man's switch (DESIGN §2), a
+     * few minutes ahead and pushed on with every fix, so it says nothing about when it will ring. The ring itself may
+     * come a little earlier (the alarm errs early). Null without a time left.
+     */
+    fun aimMs(t: TripService.TripUi, nowMs: Long): Long? {
+        val s = t.status
+        val eta = s.etaS ?: return null
+        val r = t.legRadii.getOrNull(t.legIndex)
+        val d = s.distanceM
+        val toRing = if (r != null && d != null && d > r) eta * (d - r) / d else eta - (s.leadS ?: DEFAULT_LEAD_S)
+        return nowMs + (maxOf(0.0, toRing) * 1000).toLong()
+    }
+
+    private const val DEFAULT_LEAD_S = 45.0
+
     fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis(), nextBus: String? = null): TripSheetUi {
         val s = t.status
+        val aimAt = aimMs(t, nowMs)?.let(clock)
         val stop = t.legName ?: "your stop"
         val distance = s.distanceM?.let { TripService.distance(it) }
         val gpsLost = s.lastFixAgeS != null && !s.gpsOk
@@ -65,8 +84,9 @@ object TripSheetText {
                     s.phase == Phase.RINGING -> "Ringing"
                     s.phase == Phase.AWAKE -> "You're awake for this stop"
                     // Both times, labelled (BACKLOG 1): the alarm is meant to come before the stop.
-                    alarmAt != null && circle != null -> listOfNotNull("Alarm about $alarmAt at your ${TripService.distance(circle)} circle", stopAt).joinToString(" · ")
-                    alarmAt != null -> listOfNotNull("Alarm about $alarmAt", stopAt).joinToString(" · ")
+                    aimAt != null && circle != null -> listOfNotNull("Alarm about $aimAt at your ${TripService.distance(circle)} circle", stopAt).joinToString(" · ")
+                    aimAt != null -> listOfNotNull("Alarm about $aimAt", stopAt).joinToString(" · ")
+                    alarmAt != null -> "Alarm set"
                     else -> null
                 },
                 alarmDanger = false, action = "I'm off this bus",
@@ -85,8 +105,9 @@ data class CompactSheetUi(val line: String, val danger: Boolean, val action: Str
 
 object CompactSheetText {
     /** "Harbour St · 6 min · alarm 7:45"; "Harbour St · GPS lost · alarm by 7:44" (red); waiting; ringing; awake. */
-    fun of(t: TripService.TripUi, clock: (Long) -> String): CompactSheetUi {
+    fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis()): CompactSheetUi {
         val s = t.status
+        val aimAt = TripSheetText.aimMs(t, nowMs)?.let(clock)
         val stop = t.legName ?: "Your stop"
         val alarmAt = s.alarmAtMs?.let(clock)
         val gpsLost = s.lastFixAgeS != null && !s.gpsOk
@@ -101,7 +122,7 @@ object CompactSheetText {
             else -> listOfNotNull(
                 stop,
                 s.etaS?.let(TripSheetText::minutes) ?: s.distanceM?.let { TripService.distance(it) },
-                alarmAt?.let { "alarm $it" },
+                aimAt?.let { "alarm $it" },
             )
         }
         return CompactSheetUi(parts.joinToString(" · "), gpsLost, action)
@@ -183,8 +204,9 @@ object TripNoteText {
      * - waiting: "Harbour St · waiting for the bus" (or "Waiting for bus 2 · Harbour St") / "Alarm set until you're on it"
      * [quiet] (the quiet-trip note) goes after the second line.
      */
-    fun of(t: TripService.TripUi, clock: (Long) -> String, quiet: String? = null): TripNoteUi {
+    fun of(t: TripService.TripUi, clock: (Long) -> String, quiet: String? = null, nowMs: Long = System.currentTimeMillis()): TripNoteUi {
         val s = t.status
+        val aimAt = TripSheetText.aimMs(t, nowMs)?.let(clock)
         val stop = t.legName ?: "Your stop"
         val alarmAt = s.alarmAtMs?.let(clock)
         val gpsLost = s.lastFixAgeS != null && !s.gpsOk
@@ -197,7 +219,7 @@ object TripNoteText {
             else -> {
                 val eta = s.etaS?.let { "$stop in ${TripSheetText.minutes(it)}" }
                 (eta ?: s.distanceM?.let { "$stop · ${TripService.distance(it)}" } ?: "$stop · finding you") to
-                    (alarmAt?.let { "Alarm about $it" } ?: "Alarm on")
+                    (aimAt?.let { "Alarm about $it" } ?: "Alarm on")
             }
         }
         val start = s.startDistanceM

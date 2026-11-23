@@ -533,9 +533,16 @@ doesn't flash another colour while it opens.
     - you're placed on the line of its stops (within 400 m);
     - the run due at that point about now (within 30 min) gives the time left from there to your stop.
 
-    Your real position holds the delay so far, and the timetable gives the rest. It's shown in "6 min", "stop ~7:46",
-    the journey list and the notification. Otherwise it's the engine's display ETA (past rides × today's pace, else
-    recent speed). The alarm keeps the engine's own, deliberately earlier estimate.
+    Your real position holds the delay so far, and the timetable gives the rest. On a learned route, past rides come
+    first (the engine's ETA: past rides × today's pace); the timetable is for buses not learned yet. It's shown in
+    "6 min", "stop ~7:46", the journey list and the notification. The alarm keeps the engine's own, deliberately
+    earlier estimate.
+  - **"Alarm about 7:45"** (owner, 2026-11-24: "not consistent with the time until arrival") is when the alarm aims to
+    ring: the time left shown, minus the stop's lead, or, with your own circle, when the bus reaches it
+    (`TripSheetText.aimMs`).
+    - It's not the scheduled system alarm. While GPS is fine that's the dead-man's switch (§2), a few minutes ahead
+      and pushed on with every fix.
+    - With no time left known it says "Alarm set". With GPS lost it says the real "at the latest" time.
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45 · stop ~7:46", and I'm off
     this bus. The alarm is meant to come first. With your own circle it says so: "Alarm about 7:42 at your 400 m
     circle · stop ~7:46".

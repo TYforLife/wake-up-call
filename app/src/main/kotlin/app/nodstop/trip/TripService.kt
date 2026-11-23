@@ -311,11 +311,14 @@ class TripService : Service() {
     }
 
     /**
-     * The timetable's time left on this bus (`Departures.remainingS`): only on the bus, and only when Plan a trip
-     * knows which bus it is and where you got on. For what's shown; the alarm keeps the engine's earlier estimate.
+     * The timetable's time left on this bus (`Departures.remainingS`): only on the bus, only when Plan a trip knows
+     * which bus it is and where you got on, and only off a learned route (past rides come first). For what's shown;
+     * the alarm keeps the engine's earlier estimate.
      */
     private fun busEta(t: ActiveTrip, s: Status): Double? {
         if (s.phase != Phase.RIDING) return null
+        // Past rides on this route know your bus best (owner: "use the past rides as well"): then the engine's ETA.
+        if (s.onLearnedRoute && s.etaS != null) return null
         val here = s.position ?: return null
         val ix = index ?: return null
         val tt = timetable ?: return null

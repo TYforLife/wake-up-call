@@ -57,11 +57,17 @@ class TextsTest {
         val t = trip(status()).copy(legRadii = listOf(null, 400.0))
         assertEquals("Alarm about 7:45 at your 400 m circle · stop ~7:45", TripSheetText.of(t, clock).alarm)
         val inside = trip(status(d = 300.0, eta = null)).copy(legRadii = listOf(null, 400.0))
-        assertEquals("Alarm about 7:45", TripSheetText.of(inside, clock).alarm)
+        assertEquals("Alarm set", TripSheetText.of(inside, clock).alarm, "no time left known: no made-up time")
         // The stop's time is now + its ETA: 6 min 12 s after 7:40 is 7:46.
         val real: (Long) -> String = { ms -> "%d:%02d".format(ms / 3_600_000 % 24, ms / 60_000 % 60) }
         val at740 = (7 * 60 + 40) * 60_000L
-        assertEquals("Alarm about 0:00 · stop ~7:46", TripSheetText.of(trip(status(alarmAt = 0L)), real, at740).alarm)
+        // The alarm aims at the stop's time minus its lead (6 min 12 s - 45 s after 7:40), not the scheduled
+        // dead-man's switch (alarmAt), which sits a few minutes ahead while GPS is fine.
+        assertEquals("Alarm about 7:45 · stop ~7:46", TripSheetText.of(trip(status(alarmAt = 0L)), real, at740).alarm)
+        assertEquals("Alarm about 7:42 · stop ~7:46", TripSheetText.of(trip(status(alarmAt = 0L).copy(leadS = 240.0)), real, at740).alarm)
+        // Own 400 m circle, 2.34 km out: the bus reaches it at 1940/2340 of the time left.
+        val circled = trip(status(alarmAt = 0L)).copy(legRadii = listOf(null, 400.0))
+        assertEquals("Alarm about 7:45 at your 400 m circle · stop ~7:46", TripSheetText.of(circled, real, at740).alarm)
     }
 
     @Test
@@ -169,7 +175,7 @@ class TextsTest {
     @Test
     fun `the folded sheet - one line with the essentials (PLAN B3)`() {
         assertEquals(CompactSheetUi("Harbour St · 6 min · alarm 7:45", false, "I'm off this bus"), CompactSheetText.of(trip(status()), clock))
-        assertEquals("Harbour St · 2.3 km · alarm 7:45", CompactSheetText.of(trip(status(eta = null)), clock).line)
+        assertEquals("Harbour St · 2.3 km", CompactSheetText.of(trip(status(eta = null)), clock).line, "no time left: no alarm time")
         val lost = CompactSheetText.of(trip(status(gpsOk = false, age = 40.0)), { "7:44" })
         assertEquals(CompactSheetUi("Harbour St · GPS lost · alarm by 7:44", true, "I'm off this bus"), lost)
         assertEquals(CompactSheetUi("Harbour St · waiting for bus 2", false, "Skip this bus"), CompactSheetText.of(trip(status(phase = Phase.WAITING)), clock))
