@@ -35,11 +35,15 @@ object TripSheetText {
         val eta = s.etaS ?: return null
         val r = t.legRadii.getOrNull(t.legIndex)
         val d = s.distanceM
-        val toRing = if (r != null && d != null && d > r) eta * (d - r) / d else eta - (s.leadS ?: DEFAULT_LEAD_S)
+        // Your circle: when the bus reaches it, but never later than the 30 s minimum (Engine.wakeLead).
+        val toRing = if (r != null && d != null && d > r) minOf(eta * (d - r) / d, eta - MIN_LEAD_S)
+        else if (r != null) eta - MIN_LEAD_S
+        else eta - (s.leadS ?: DEFAULT_LEAD_S)
         return nowMs + (maxOf(0.0, toRing) * 1000).toLong()
     }
 
     private const val DEFAULT_LEAD_S = 45.0
+    private const val MIN_LEAD_S = 30.0
 
     fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis(), nextBus: String? = null): TripSheetUi {
         val s = t.status
