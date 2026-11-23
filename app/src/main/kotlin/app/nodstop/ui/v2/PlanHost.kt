@@ -170,11 +170,18 @@ fun PlanHost(
 
     fun use(j: Planner.Journey, start: Boolean) {
         val i = ix ?: return
-        val legs = j.getOffs.take(ShareText.MAX_STOPS).map { s -> LegDraft(i.stops[s].name, StopText.coords(i.stops[s].pos)) }
+        val legs = j.buses.take(ShareText.MAX_STOPS).map { b ->
+            LegDraft(
+                i.stops[b.alight].name, StopText.coords(i.stops[b.alight].pos),
+                bus = b.route, boardName = i.stops[b.board].name, boardCoords = StopText.coords(i.stops[b.board].pos),
+            )
+        }
         val name = routeName ?: to?.let(PlanText::routeName) ?: "To ${i.stops[j.getOffs.last()].name}"
         // Planning "To work" again updates that route rather than adding another.
         val existing = app.routes.routes.value.firstOrNull { it.name == name }
-        val r = existing?.copy(legs = legs) ?: Route(name = name, legs = legs)
+        // A stop that stays keeps your circle and its alarm setting.
+        val kept = legs.map { l -> existing?.legs?.firstOrNull { it.coords == l.coords }?.let { o -> l.copy(wakeRadiusM = o.wakeRadiusM, alarmEnabled = o.alarmEnabled) } ?: l }
+        val r = existing?.copy(legs = kept) ?: Route(name = name, legs = kept)
         app.routes.upsert(r)
         onUsed(r, start)
     }

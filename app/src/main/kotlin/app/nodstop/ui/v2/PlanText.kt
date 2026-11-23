@@ -107,6 +107,13 @@ object PlanText {
         }
     }
 
+    /** The trip sheet while you wait (BACKLOG): "871 due 7:43, then 7:51"; null when none are due. */
+    fun nextBus(route: String, departures: List<Int>): String? = when (departures.size) {
+        0 -> null
+        1 -> "$route due ${clock(departures[0])}"
+        else -> "$route due ${clock(departures[0])}, then ${clock(departures[1])}"
+    }
+
     /** Settings' "Home and work" line. */
     fun homeWork(home: String?, work: String?): String = when {
         home == null && work == null -> "Set them to plan your commute"

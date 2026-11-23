@@ -505,7 +505,9 @@ doesn't flash another colour while it opens.
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45 · stop ~7:46", and I'm off
     this bus. The alarm is meant to come first. With your own circle it says so: "Alarm about 7:42 at your 400 m
     circle · stop ~7:46".
-    - Waiting: "4.1 km · waiting for the bus".
+    - Waiting: "4.1 km · waiting for the bus". For a route made by Plan a trip, each stop also knows its bus and
+      where you get on (`LegDraft.bus`, display only, never the alarm), so waiting says "871 due 7:43, then 7:51"
+      from the timetable (`Departures`), refreshed each minute.
     - After changing buses: "Off at X · next stop", "Waiting for bus 2", and Skip this bus.
     - GPS lost: the map greys out, the figures show their age, and a red line says when it rings at the latest
       (the failsafe).

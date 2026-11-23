@@ -17,6 +17,8 @@ at the bottom.
 ## Next up
 1. [ ] **Your bus, live, from AT.** Show the coming bus for this trip on the map, with AT's predicted
    arrival at your stop. That makes the trip measurable.
+   - Started offline: while you wait, the sheet says "871 due 7:43, then 7:51" from the timetable (routes made
+     by Plan a trip remember each bus). Live times replace those once there's a key.
    - **Waiting on Tae:** an AT API key, which is free from AT's developer portal. He enters it in Settings, and it's kept on
      the phone, never in the repo.
    - Rule 6: live data may only make an alarm earlier. GPS stays the fallback.

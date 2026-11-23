@@ -44,6 +44,15 @@ class TextsTest {
     }
 
     @Test
+    fun `waiting for a bus Plan a trip chose - the sheet shows when it's due`() {
+        val first = TripSheetText.of(trip(status(phase = Phase.WAITING), leg = 0), clock, nextBus = "871 due 7:43, then 7:51")
+        assertEquals("871 due 7:43, then 7:51", first.figure)
+        val second = TripSheetText.of(trip(status(phase = Phase.WAITING)), clock, nextBus = "866 due 7:47")
+        assertEquals("866 due 7:47", second.figure)
+        assertEquals("Waiting for bus 2", TripSheetText.of(trip(status(phase = Phase.WAITING)), clock).figure, "no timetable: as before")
+    }
+
+    @Test
     fun `riding with your own circle - the alarm says it's at the circle, before the stop's time`() {
         val t = trip(status()).copy(legRadii = listOf(null, 400.0))
         assertEquals("Alarm about 7:45 at your 400 m circle · stop ~7:45", TripSheetText.of(t, clock).alarm)
