@@ -220,6 +220,11 @@ class Settings(context: Context) {
         prefs.edit().putBoolean(KEY_SPEAKER, on).apply(); _speakerLastResort.value = on
     }
 
+    /** The next test ring plays on the phone speaker (Settings → Alarm sound → Try it on the speaker); read once. */
+    fun setTestOnSpeaker(on: Boolean) { prefs.edit().putBoolean("test_on_speaker", on).apply() }
+
+    fun takeTestOnSpeaker(): Boolean = prefs.getBoolean("test_on_speaker", false).also { if (it) setTestOnSpeaker(false) }
+
     /** "Arrive by 8:30" remembered for a destination ("work", "home"): seconds after midnight, or null. */
     fun arriveBy(place: String): Int? = prefs.getInt("arrive_by_$place", -1).takeIf { it >= 0 }
 

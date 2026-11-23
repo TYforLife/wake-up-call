@@ -62,6 +62,8 @@ class RingModeTest {
         assertNull(RingMode.speakerAfterMs(false, headset = false, buzz = Buzz.OK, settingAfterMs = 60_000))
         assertNull(RingMode.speakerAfterMs(false, headset = true, buzz = Buzz.MAY_BE_BLOCKED, settingAfterMs = 60_000))
         assertEquals(30_000L, RingMode.speakerAfterMs(false, headset = false, buzz = Buzz.MAY_BE_BLOCKED, settingAfterMs = 60_000))
+        // A test ring on the speaker (Settings → Alarm sound): from the start, whatever the setting.
+        assertEquals(0L, RingMode.speakerAfterMs(false, headset = true, buzz = Buzz.OK, settingAfterMs = 60_000, testOnSpeaker = true))
         assertEquals(60_000L, RingMode.speakerAfterMs(true, headset = true, buzz = Buzz.OK, settingAfterMs = 60_000))
         assertEquals(30_000L, RingMode.speakerAfterMs(true, headset = false, buzz = Buzz.NO_VIBRATOR, settingAfterMs = 60_000))
     }

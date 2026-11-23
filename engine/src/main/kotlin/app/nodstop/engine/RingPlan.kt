@@ -22,6 +22,8 @@ object RingPlan {
     fun step(
         elapsedMs: Long, headset: Boolean, speakerLastResort: Boolean, overshoot: Boolean, inUse: Boolean = false,
         speakerAfterMs: Long = SPEAKER_AFTER_MS,
+        /** The speaker's volume: full for a real ring; a test on the speaker (Settings → Alarm sound) is gentler. */
+        speakerPct: Int = 100,
     ): RingStep {
         val stage = when {
             overshoot -> 2
@@ -30,7 +32,7 @@ object RingPlan {
             else -> 2
         }
         if (speakerLastResort && (overshoot || elapsedMs >= speakerAfterMs)) {
-            return RingStep(AudioRoute.SPEAKER, 100, Buzz.MAX)
+            return RingStep(AudioRoute.SPEAKER, speakerPct, Buzz.MAX)
         }
         val vol = earbudVolume[if (inUse) maxOf(stage, 1) else stage]
         val b = if (inUse) Buzz.MAX else buzz[stage]

@@ -63,8 +63,8 @@ object RingMode {
      * When the phone speaker joins the ring, or null for never. Your "speaker last resort" setting: 60 s.
      * No earbuds and the buzz may not get through: 30 s, whatever the setting (the owner asked to "ignore Mute").
      */
-    fun speakerAfterMs(settingOn: Boolean, headset: Boolean, buzz: Buzz, settingAfterMs: Long): Long? =
-        listOfNotNull(
+    fun speakerAfterMs(settingOn: Boolean, headset: Boolean, buzz: Buzz, settingAfterMs: Long, testOnSpeaker: Boolean = false): Long? =
+        if (testOnSpeaker) 0L else listOfNotNull(
             settingAfterMs.takeIf { settingOn },
             FORCED_SPEAKER_AFTER_MS.takeIf { !headset && (buzz == Buzz.MAY_BE_BLOCKED || buzz == Buzz.NO_VIBRATOR) },
         ).minOrNull()

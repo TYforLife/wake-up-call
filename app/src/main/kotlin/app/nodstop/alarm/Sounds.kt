@@ -22,8 +22,6 @@ object Sounds {
         BEEPS("Beeps"),
         CHIME("Chime"),
         RISING("Rising"),
-        /** A pūkeko's screech, near enough (owner: "region specific, like a crying pūkeko"). */
-        PUKEKO("Pūkeko"),
         CUSTOM("Your own sound");
 
         companion object {
@@ -35,7 +33,6 @@ object Sounds {
         Id.BEEPS, Id.CUSTOM -> beeps()
         Id.CHIME -> chime()
         Id.RISING -> rising()
-        Id.PUKEKO -> pukeko()
     }
 
     private fun n(s: Double) = (RATE * s).toInt()
@@ -84,30 +81,6 @@ object Sounds {
             val env = minOf(1.0, i / 300.0, (sweep - i) / 300.0)
             out[rep * sweep + i] = clip(sin(phase) * env * 0.9)
         }
-        return out
-    }
-
-    /** Two harsh, falling screeches, the second higher: a pūkeko's "kee-ow", more or less. */
-    private fun pukeko(): ShortArray {
-        val call = n(0.42)
-        val out = ShortArray(call * 2 + n(0.12) + n(0.7))
-        var seed = 7L
-        fun noise(): Double { seed = (seed * 6364136223846793005L + 1442695040888963407L); return ((seed ushr 33) % 2001 - 1000) / 1000.0 }
-        fun callAt(start: Int, top: Double) {
-            var phase = 0.0
-            for (i in 0 until call) {
-                val f = i.toDouble() / call
-                val hz = top - (top - 900.0) * f
-                phase += 2 * PI * hz / RATE
-                // A buzzy, raspy voice: odd harmonics, a little noise, and a fast flutter.
-                val voice = sin(phase) + 0.45 * sin(3 * phase) + 0.25 * sin(5 * phase) + 0.15 * noise()
-                val flutter = 0.75 + 0.25 * sin(2 * PI * 38.0 * i / RATE)
-                val env = minOf(1.0, i / 250.0, (call - i) / 1_500.0)
-                out[start + i] = clip(voice * flutter * env * 0.5)
-            }
-        }
-        callAt(0, 2_300.0)
-        callAt(call + n(0.12), 2_700.0)
         return out
     }
 

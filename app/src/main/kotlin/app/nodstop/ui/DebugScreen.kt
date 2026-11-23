@@ -94,11 +94,12 @@ fun DebugScreen(go: (Screen) -> Unit) {
 
         Section("Test ring") {
             Text("Schedules the real system alarm 30 s from now (the same path a trip uses). Lock the phone and wait.")
+            Button(enabled = !tripActive, onClick = { app.scheduler.set(System.currentTimeMillis()) }) { Text("Test ring now") }
             Button(enabled = !tripActive, onClick = {
                 val at = System.currentTimeMillis() + 30_000
                 app.scheduler.set(at)
                 testAt = at
-            }) { Text("Test ring in 30 s") }
+            }) { Text("Test ring in 30 s (lock the phone first)") }
             if (tripActive) Text("Disabled while a trip is running: it would replace the trip's alarm.", style = MaterialTheme.typography.bodySmall)
             testAt?.let { Text("Scheduled for ${TripService.clock(it)}") }
         }

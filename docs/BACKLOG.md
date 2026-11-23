@@ -52,6 +52,6 @@ at the bottom.
 - [x] **The alarm and "min left" agree.** The sheet shows both, labelled: "Alarm about 7:58 at your 400 m circle ·
   stop ~8:02". Live AT arrival times come with item 1.
 - [x] **Arrive by is remembered** for work and home ("To work" arrive by 8:30, set once).
-- [x] **Alarm sounds.** Beeps, Chime, Rising, Pūkeko, or your own mp3/wav/m4a (the first 20 s loop). The beeps
+- [x] **Alarm sounds.** Beeps, Chime, Rising, or your own mp3/wav/m4a (the first 20 s loop). The beeps
   if your file can't play. "Try it" is a real test ring.
 - [x] **Say when a trip starts past a stop.** "Started past Smales Farm", with **Start at Smales Farm**.

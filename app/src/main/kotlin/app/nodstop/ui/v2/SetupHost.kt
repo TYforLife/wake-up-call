@@ -175,7 +175,9 @@ fun SoundsHost(back: () -> Unit) {
                 if (id == Sounds.Id.CUSTOM && !hasOwn) picker.launch(arrayOf("audio/*")) else { s.setAlarmSound(id.name); note = null }
             },
             chooseFile = { picker.launch(arrayOf("audio/*")) },
-            tryIt = { App.instance.scheduler.set(System.currentTimeMillis() + 5_000); note = "Ringing in 5 s." },
+            // The real ring path, now (rule 1: "ring now" is scheduling at now).
+            tryIt = { s.setTestOnSpeaker(false); App.instance.scheduler.set(System.currentTimeMillis()) },
+            trySpeaker = { s.setTestOnSpeaker(true); App.instance.scheduler.set(System.currentTimeMillis()) },
         ),
         Modifier.statusBarsPadding().navigationBarsPadding(),
     )

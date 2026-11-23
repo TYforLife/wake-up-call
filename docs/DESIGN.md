@@ -379,7 +379,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 Headset = any output device of type BT A2DP, BLE headset, wired headset or headphones, or USB headset.
 
 **The tone** is the sound chosen in Settings → Alarm sound (BACKLOG 3, `Sounds`):
-- Built in: Beeps (the default), Chime, Rising and Pūkeko. They're made in code, so there's no file to go missing.
+- Built in: Beeps (the default), Chime and Rising. They're made in code, so there's no file to go missing.
 - Or your own file (mp3, wav, m4a, anything the phone can play), via the system file picker. It's decoded once
   when you pick it (`AlarmSound.import`): mixed to mono, resampled to 44.1 kHz, the first 20 s kept, leading
   silence trimmed and made as loud as it can be. It's stored in the app's files.
@@ -387,7 +387,9 @@ Headset = any output device of type BT A2DP, BLE headset, wired headset or headp
   the beeps.
 - It plays through the same looping track as always (`Tone`, in `RingService` only), so the ladder below, the
   earbuds rule and the vibration don't change.
-- "Try it" is a real test ring through `AlarmScheduler`, in 5 s, off during a trip.
+- "Try it" is a real test ring through `AlarmScheduler`, now, off during a trip: in the earbuds (or vibration
+  only), as a trip rings. "Try it on the phone speaker" is the same test ring on the speaker from the start, at
+  60% (`Settings.takeTestOnSpeaker`, read once by that ring; a trip's ring never uses it).
 
 | Time | Earbuds connected | No earbuds |
 |---|---|---|

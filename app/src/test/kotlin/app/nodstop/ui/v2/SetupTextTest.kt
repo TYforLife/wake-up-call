@@ -51,7 +51,8 @@ class SetupTextTest {
     @Test
     fun `Settings - the alarm sound line`() {
         assertEquals("Beeps", SetupText.sound(null, null))
-        assertEquals("Pūkeko", SetupText.sound("PUKEKO", null))
+        assertEquals("Chime", SetupText.sound("CHIME", null))
+        assertEquals("Beeps", SetupText.sound("PUKEKO", null), "a sound that's gone: the beeps")
         assertEquals("Your own: wake.mp3", SetupText.sound("CUSTOM", "wake.mp3"))
         assertEquals("12 s", SetupText.seconds(12.4))
         assertEquals("6,888 stops", SetupText.stops(6_888))
