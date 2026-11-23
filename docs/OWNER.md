@@ -94,6 +94,8 @@ new, or repeats something, add it here in the same PR.
 - Test rings ring at once, and a toggle lets them play on the phone speaker. He wants an alarm volume to judge.
 - On a trip: pull the panel up for the whole journey (stops and times); touching the map shrinks it. Every leg's way on
   the map, the current one in colour and the rest grey.
+- ETA: the header was "somewhat accurate"; past rides must stay in it (the timetable only fills in). "Alarm about"
+  must agree with the time until arrival (the aimed time, not the dead-man's switch).
 - He didn't like the made-up Pūkeko sound. He then gave his own recordings, and Pūkeko is back made from those
   (PR #56).
 - **pstack** (Lauren Tan's skills, `cursor/plugins`): he asked for it to be used in this project. It is enabled
