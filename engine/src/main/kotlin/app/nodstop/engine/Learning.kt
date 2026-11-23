@@ -45,6 +45,26 @@ object Learning {
         return Track(out)
     }
 
+    /** The part of a ride's [trail] after it was last within [nearM] of [stop] (all of it if never, or no stop). */
+    fun after(trail: List<Sample>, stop: LatLng?, nearM: Double): List<Sample> {
+        if (stop == null) return trail
+        val last = trail.indexOfLast { Geo.distanceM(it.pos, stop) <= nearM }
+        return if (last < 0) trail else trail.drop(last + 1)
+    }
+
+    /**
+     * Whether some past ride through [pos] (within [radiusM]) went on to pass within [nearM] of [stop] before its end:
+     * that stop is still ahead of you on this way.
+     */
+    fun passesLater(learned: Learned?, pos: LatLng, radiusM: Double, stop: LatLng, nearM: Double): Boolean {
+        if (learned == null) return false
+        for (track in learned.tracks) {
+            val here = match(Learned(learned.stop, listOf(track)), pos, radiusM) ?: continue
+            if (track.points.any { it.toEndM < here.toEndM && Geo.distanceM(it.pos, stop) <= nearM }) return true
+        }
+        return false
+    }
+
     /** Matches [pos] onto the learned tracks within [radiusM], or null if it is on none of them. */
     fun match(learned: Learned?, pos: LatLng, radiusM: Double): Match? {
         if (learned == null || learned.tracks.isEmpty()) return null

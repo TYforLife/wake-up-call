@@ -6,7 +6,8 @@ import kotlin.math.sqrt
 
 /**
  * Which leg you're on when a trip starts mid-way (DESIGN §2.1), from one position:
- * 1. a learned route you're on (not at its very end): that leg;
+ * 1. a learned route you're on (not at its very end): that leg, unless that way still passes an earlier leg's stop
+ *    (a ride learned from before that stop): then the earliest such leg;
  * 2. at a stop (within 300 m): the leg after it, since you're at a transfer;
  * 3. between two consecutive stops (beside the line from one to the next, not before the first): the
  *    leg ending at the second;
@@ -19,7 +20,9 @@ object LegPicker {
         // 1. Learned routes.
         for (i in legs.indices) {
             val m = Learning.match(legs[i].learned, pos, cfg.matchRadiusM) ?: continue
-            if (m.toEndM > cfg.pickAtStopM) return i
+            if (m.toEndM <= cfg.pickAtStopM) continue
+            val ahead = (0 until i).firstOrNull { j -> Learning.passesLater(legs[i].learned, pos, cfg.matchRadiusM, legs[j].stop, cfg.pickAtStopM) }
+            return ahead ?: i
         }
         // 2. At a stop: the next leg (or the last leg if at its stop).
         for (i in legs.indices) {

@@ -5,6 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -108,6 +112,11 @@ fun RideMap(
             EdgeDrag(density, { map }, { currentPin?.let { it.pos to (preview ?: it.zoneM) } }, { preview = it }, { r -> currentPin?.let { resize(it, r) } }, { currentPin?.let { tap(it) } })
         }
         AndroidView(factory = { mapView.also { it.setOnTouchListener(edge) } }, modifier = Modifier.fillMaxSize())
+        // How far is that (owner's feedback): a scale bar, like Google's, kept up to date as the map moves.
+        val metresPerDp = remember(cameraTick, map) {
+            map?.let { m -> m.projection.getMetersPerPixelAtLatitude(m.cameraPosition.target?.latitude ?: 0.0) * density }
+        }
+        metresPerDp?.let { ScaleBar(it, colors, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 24.dp)) }
     }
 
     LaunchedEffect(layers) { preview = null }
@@ -118,9 +127,11 @@ fun RideMap(
     }
     LaunchedEffect(style, layers, preview) {
         val s = style ?: return@LaunchedEffect
-        val current = layers.pins.filter { it.current }.map { p -> preview?.let { p.copy(zoneM = it) } ?: p }
-        s.getSourceAs<GeoJsonSource>("ride-zone")?.setGeoJson(MapModel.zonesJson(layers.copy(pins = current)))
+        val zones = MapModel.tripZones(layers).map { p -> if (p.current) preview?.let { p.copy(zoneM = it) } ?: p else p }
+        s.getSourceAs<GeoJsonSource>("ride-zone")?.setGeoJson(MapModel.zonesJson(layers.copy(pins = zones)))
     }
+    // Off one bus and on to the next stop (owner's feedback): frame you and the new stop again.
+    LaunchedEffect(pin?.legIndex) { following = true }
     // Your heading, from where you've been (the blue dot's beam, like Google's): only once you've moved a little.
     var lastPos by remember { mutableStateOf<LatLng?>(null) }
     var bearing by remember { mutableStateOf<Double?>(null) }
@@ -181,9 +192,19 @@ private fun addRideLayers(s: Style, c: MapPalette.Colors) {
     val empty = """{"type":"FeatureCollection","features":[]}"""
     for (id in listOf("ride-zone", "ride-tracks", "ride-pins", "ride-me")) s.addSource(GeoJsonSource(id, empty))
     val blue = c.me.toInt()
-    // Your stop's circle: a light blue disc, as Google shades an area.
-    s.addLayer(FillLayer("nod-zone-f", "ride-zone").withProperties(PropertyFactory.fillColor(blue), PropertyFactory.fillOpacity(0.10f)))
-    s.addLayer(LineLayer("nod-zone-l", "ride-zone").withProperties(PropertyFactory.lineColor(blue), PropertyFactory.lineOpacity(0.6f), PropertyFactory.lineWidth(2f)))
+    // Your stop's circle: a light blue disc, as Google shades an area. The trip's later stops: the same, fainter.
+    val current = Expression.eq(Expression.get("current"), true)
+    s.addLayer(
+        FillLayer("nod-zone-f", "ride-zone").withProperties(
+            PropertyFactory.fillColor(blue), PropertyFactory.fillOpacity(Expression.switchCase(current, Expression.literal(0.10f), Expression.literal(0.04f))),
+        ),
+    )
+    s.addLayer(
+        LineLayer("nod-zone-l", "ride-zone").withProperties(
+            PropertyFactory.lineColor(blue), PropertyFactory.lineWidth(2f),
+            PropertyFactory.lineOpacity(Expression.switchCase(current, Expression.literal(0.6f), Expression.literal(0.25f))),
+        ),
+    )
     // The learned route: Google's route blue on a darker edge.
     for ((id, col, w) in listOf(Triple("nod-track-casing", c.routeCasing, 8f), Triple("nod-track", c.route, 5.5f))) {
         s.addLayer(

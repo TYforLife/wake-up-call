@@ -35,6 +35,12 @@ data class Config(
     /** Picking the leg at Start: "at a stop" within this; "between two stops" within this of their line. */
     val pickAtStopM: Double = 300.0,
     val pickNearLineM: Double = 1_500.0,
+    /**
+     * A stop the pick skipped is watched for the rest of the picked leg: coming within [skipWatchM] of it, having
+     * come [skipApproachM] closer than at the pick, means it was ahead after all: back to it, so it rings (rule 4).
+     */
+    val skipWatchM: Double = 400.0,
+    val skipApproachM: Double = 150.0,
     /** Getting off: within [alightRadiusM] of the stop, slower than [alightSlowKmh], for [alightDwellS] in total. */
     val alightRadiusM: Double = 300.0,
     val alightSlowKmh: Double = 8.0,
