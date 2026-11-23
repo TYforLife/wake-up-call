@@ -41,7 +41,7 @@ class RingReportTest {
     fun `a report reads back from the log line (PLAN A0)`() {
         val r = base.copy(
             earbuds = false, shownAfterMs = 900, ackSource = "volume", ackAfterMs = 12_000, ringer = "mute", dnd = "off",
-            buzz = RingMode.Buzz.SWITCHED, speakerAfterS = 30, channel = "high bypass", overlay = true, quiet = false, cold = true,
+            buzz = RingMode.Buzz.SWITCHED, speakerAfterS = 30, channel = "high bypass", quiet = false, cold = true,
         )
         assertEquals(r, RingReport.decode(r.encode(), 1))
         val t = base.copy(test = true)

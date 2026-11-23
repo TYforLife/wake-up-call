@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import kotlin.math.roundToInt
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -159,6 +162,10 @@ data class SoundsUi(
     val note: String? = null,
     /** Off while a trip runs: a test ring would replace the trip's alarm. */
     val canTry: Boolean = true,
+    /** Your alarm volume, 10-100 %. */
+    val volume: Int = 100,
+    /** Test rings on the phone speaker. */
+    val testOnSpeaker: Boolean = false,
 )
 
 class SoundsActions(
@@ -166,7 +173,8 @@ class SoundsActions(
     val pick: (Int) -> Unit = {},
     val chooseFile: () -> Unit = {},
     val tryIt: () -> Unit = {},
-    val trySpeaker: () -> Unit = {},
+    val volume: (Int) -> Unit = {},
+    val testOnSpeaker: (Boolean) -> Unit = {},
 )
 
 /** The alarm's sound: four built in, or your own file. "Try it" is a real test ring through the alarm. */
@@ -185,13 +193,22 @@ fun SoundsScreen(ui: SoundsUi, a: SoundsActions, modifier: Modifier = Modifier) 
                 )
             }
             ListRow("Choose a file…", "mp3, wav or m4a; the first 20 s loop", onClick = a.chooseFile, divider = false, trailing = { Chevron() })
+            Spacer(Modifier.height(20.dp))
+            Text("Alarm volume · ${ui.volume}%", style = NType.row, color = c.fg)
+            Text("How loud it gets in your earbuds. It still starts quieter and gets louder.", style = NType.secondary, color = c.muted)
+            Slider(
+                ui.volume.toFloat(), { a.volume((it / 10).roundToInt() * 10) }, valueRange = 10f..100f, steps = 8,
+                colors = SliderDefaults.colors(thumbColor = c.fg, activeTrackColor = c.fg, inactiveTrackColor = c.line),
+            )
+            SwitchRow("Test on the phone speaker", "Try it plays out loud. Only tests, never a trip's alarm.", ui.testOnSpeaker, a.testOnSpeaker, divider = false)
             ui.note?.let { Hint(it, Modifier.fillMaxWidth().padding(top = 12.dp)) }
         }
         if (ui.canTry) {
             PrimaryButton("Try it", a.tryIt)
-            Spacer(Modifier.height(8.dp))
-            GhostButton("Try it on the phone speaker", a.trySpeaker, Modifier.fillMaxWidth())
-            Hint("Rings the real alarm now: in your earbuds, or on the speaker. Hold to stop it.", Modifier.fillMaxWidth().padding(top = 8.dp), center = true)
+            Hint(
+                if (ui.testOnSpeaker) "Rings the real alarm now, on the speaker. Hold to stop it." else "Rings the real alarm now, in your earbuds. Hold to stop it.",
+                Modifier.fillMaxWidth().padding(top = 8.dp), center = true,
+            )
         } else Hint("Try it after your trip: it would replace the trip's alarm.", Modifier.fillMaxWidth(), center = true)
     }
 }

@@ -23,7 +23,6 @@ data class RingReport(
     /** The alarm channel at the ring (PLAN A0): "high bypass", "high", "low", "off"… */
     val channel: String? = null,
     /** "Display over other apps" allowed: the alarm screen can open over another app. */
-    val overlay: Boolean? = null,
     /** Quiet trip's Do Not Disturb was on when the ring started (it's lifted for the ring, PLAN A1). */
     val quiet: Boolean? = null,
     /** The alarm started the app from scratch (no trip running in memory). */
@@ -43,7 +42,6 @@ data class RingReport(
         buzz?.let { "buzz=${it.name.lowercase()}" },
         speakerAfterS?.let { "speaker=${it}s" },
         channel?.let { "channel=${it.replace(' ', '+')}" },
-        overlay?.let { "overlay=$it" },
         quiet?.let { "quiet=$it" },
         cold?.let { "cold=$it" },
     ).filterNotNull().joinToString(" ")
@@ -71,7 +69,6 @@ data class RingReport(
                 buzz = kv["buzz"]?.let { b -> RingMode.Buzz.entries.firstOrNull { it.name.lowercase() == b } },
                 speakerAfterS = kv["speaker"]?.removeSuffix("s")?.toIntOrNull(),
                 channel = kv["channel"]?.replace('+', ' '),
-                overlay = kv["overlay"]?.toBooleanStrictOrNull(),
                 quiet = kv["quiet"]?.toBooleanStrictOrNull(),
                 cold = kv["cold"]?.toBooleanStrictOrNull(),
             )
