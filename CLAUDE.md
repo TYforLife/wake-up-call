@@ -97,6 +97,24 @@ network allowlist.
 - Never commit secrets. The committed `keystore/debug.keystore` is debug-only and expected.
 - Keep `docs/DESIGN.md` in sync when behaviour or parameters change.
 
+## pstack
+
+The pstack plugin (`.claude/settings.json`, from the `cursor/plugins` marketplace) adds skills such as
+`/pstack:poteto-mode`, `/pstack:how`, `/pstack:interrogate` and `/pstack:tdd`. Use them for rigour. Where a
+pstack skill and this project disagree, the project wins: this file, `docs/DESIGN.md`, `docs/OWNER.md` and
+`docs/PLAN.md`'s runbook, in that order.
+
+- **PRs and forge steps.** A playbook that says `gh pr create` or another `gh` command means the GitHub MCP
+  tools here (`gh` only works for search). The PR body still ends with the "Test on phone" checklist and the APK link.
+- **Missing tools.** Steps that need `cursor-team-kit` (`/deslop`, `control-ui`, `control-cli`), Bugbot or Cursor
+  Automations are skipped with one line in the reply. There is no emulator, so "prove it works" means CI tests
+  plus the phone checklist.
+- **Models.** `/pstack:setup-pstack` writes to `~/.claude/rules/`, which a cloud container loses, so pstack's
+  default models apply. Gemini seats run on the session model.
+- **Comments.** `/pstack:no-comments` may delete a comment only where Code quality 3 allows it. Keep comments that
+  state what the spec requires.
+- **Asking.** Tae's standing order (`docs/OWNER.md`) is the autonomy setting: finish, merge when green, report briefly.
+
 ## Device facts to respect
 
 - Samsung phone; One UI kills background apps aggressively. Readiness screen and Samsung steps are part of v0.
