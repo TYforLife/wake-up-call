@@ -37,6 +37,8 @@ jobs:
           q='[out:json][timeout:25];way["highway"]["highway"!~"^(motorway|motorway_link|trunk|trunk_link|construction|proposed|bus_guideway|busway|raceway)$"]["foot"!~"^(no|private)$"]["access"!~"^(no|private)$"](-36.86908,174.75854,-36.85112,174.78086);(._;>;);out skel qt;'
           curl -sS -m 90 -A "Nodstop-CI" --data-urlencode "data=$q" https://overpass-api.de/api/interpreter -o app/build/footpaths/hospital.json
           ls -la app/build/footpaths
+          # A short reply is Overpass explaining a refusal: show it.
+          if [ "$(stat -c %s app/build/footpaths/hospital.json)" -lt 2000 ]; then cat app/build/footpaths/hospital.json; fi
       - name: Test and build
         run: ./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain
         env:
