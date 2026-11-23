@@ -16,10 +16,13 @@ class CheckPrTest(unittest.TestCase):
             with self.subTest(title=title):
                 self.assertIn("conventional commit", problems(title, BODY, [], [])[0])
 
-    def test_a_body_without_test_on_phone_fails(self):
+    def test_a_body_that_says_nothing_about_the_phone_fails(self):
         found = problems("docs: words", "## Why\nBecause.\n" + APK, [], [])
         self.assertEqual(len(found), 1)
-        self.assertIn("Test on phone", found[0])
+        self.assertIn("Nothing to test on the phone", found[0])
+
+    def test_nothing_to_test_on_the_phone_passes_without_a_list(self):
+        self.assertEqual(problems("docs: words", "## Why\nBecause.\n\nNothing to test on the phone.\n", [], []), [])
 
     def test_test_on_phone_without_the_apk_link_fails(self):
         found = problems("docs: words", "## Test on phone\n- [ ] Ride a bus.\n", [], [])
@@ -49,13 +52,15 @@ class CheckPrTest(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(problems("fix(x): y", BODY, ["fix(x): y"], ["app/src/main/A.kt", path]), [])
 
-    def test_a_fix_with_a_reason_for_no_test_passes(self):
-        body = BODY + "\nNo test: Samsung's battery dialog only exists on a phone; the readiness check would show it.\n"
+    def test_a_fix_with_no_test_passes_when_tae_waived_it(self):
+        body = BODY + '\nNo test (Tae): "skip the test for this one, it only shows on my phone"\n'
         self.assertEqual(problems("fix(ready): open the battery page", body, [], ["app/src/main/R.kt"]), [])
 
-    def test_an_empty_no_test_line_does_not_count(self):
-        body = BODY + "\nNo test:\n"
-        self.assertIn("failing test", problems("fix(x): y", body, [], ["app/src/main/A.kt"])[0])
+    def test_a_session_cannot_waive_the_test_itself(self):
+        for line in ["No test: Samsung's dialog only exists on a phone.", "No test (Tae):", "No test (Claude): hard"]:
+            with self.subTest(line=line):
+                found = problems("fix(x): y", BODY + "\n" + line + "\n", [], ["app/src/main/A.kt"])
+                self.assertIn("Only Tae can waive", found[0])
 
     def test_a_feature_needs_no_test_from_this_check(self):
         self.assertEqual(problems("feat(x): y", BODY, ["feat(x): y"], ["app/src/main/A.kt"]), [])

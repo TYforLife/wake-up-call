@@ -14,8 +14,9 @@ TITLE = re.compile(rf"^({TYPES})(\([a-z0-9-]+\))?!?: \S")
 FIX = re.compile(r"^fix(\(|!?:)")
 TEST_PATH = re.compile(r"(^|/)src/[A-Za-z]*[Tt]est[A-Za-z]*/|^tools/test_")
 PHONE = re.compile(r"^#+\s*Test on phone\b", re.IGNORECASE | re.MULTILINE)
+NOTHING_ON_PHONE = re.compile(r"^Nothing to test on the phone\b", re.IGNORECASE | re.MULTILINE)
 APK = "debug-latest"
-NO_TEST = re.compile(r"^No test: *\S", re.MULTILINE)
+NO_TEST = re.compile(r"^No test \(Tae\): *\S", re.MULTILINE)
 
 
 def problems(title: str, body: str, subjects: list[str], files: list[str]) -> list[str]:
@@ -26,7 +27,12 @@ def problems(title: str, body: str, subjects: list[str], files: list[str]) -> li
             f"{TYPES.replace('|', ', ')}, for example `fix(alarm): the ring starts with the screen off`."
         )
     if not PHONE.search(body):
-        out.append('PR body has no "## Test on phone" section. End it with the checks CI can\'t run (CLAUDE.md).')
+        if not NOTHING_ON_PHONE.search(body):
+            out.append(
+                'PR body says nothing about the phone. If the change needs a real phone or bus (the ring, GPS, '
+                'Samsung settings), add a "## Test on phone" list with the APK link. Otherwise add the line '
+                '"Nothing to test on the phone." (docs/WORKFLOW.md "PR checks").'
+            )
     elif APK not in body.split("Test on phone", 1)[1]:
         out.append(
             'The "Test on phone" section has no APK link. Add '
@@ -36,7 +42,8 @@ def problems(title: str, body: str, subjects: list[str], files: list[str]) -> li
     if is_fix and not any(TEST_PATH.search(f) for f in files) and not NO_TEST.search(body):
         out.append(
             "A fix with no test. Reproduce the bug as a failing test first, then fix it (docs/WORKFLOW.md \"Bug "
-            'fix"). If no test can catch it, add a line to the PR body: `No test: <why, and what would catch it>`.'
+            'fix"). Only Tae can waive the test. If he did, in his own message, add `No test (Tae): <his words>` '
+            "to the PR body. Otherwise write the test, or stop and tell him why it can't be written."
         )
     return out
 

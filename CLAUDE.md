@@ -14,8 +14,9 @@ follow that file's runbook for Run N, starting from the latest `main`.
   during the day, and there is no emulator or device in the cloud session.
 - CI builds every push and publishes `app-debug.apk` to the rolling GitHub prerelease `debug-latest`.
   Tae installs from that URL and tests on real buses.
-- So: every PR description must end with a **"Test on phone"** checklist covering only what
-  can't be verified in CI, plus the APK link.
+- So: a PR that needs a real phone or bus (the ring, GPS, Samsung settings) ends with a **"Test on phone"**
+  checklist of only what CI can't verify, plus the APK link. Any other PR says "Nothing to test on the phone."
+  Tae can't test often, so keep the list short, and merging never waits on it.
 
 ## Architecture rules (non-negotiable)
 
@@ -69,7 +70,7 @@ loosen a check to get green. If a check is wrong, change it in its own commit an
 | Code quality 2 and 3 | `ArchitectureTest` |
 | Target SDK 36, nothing copied off the phone (DESIGN §5) | `ArchitectureTest` |
 | Android pitfalls (permissions, Compose, leaks) | `:app:lintDebug`, warnings as errors, baseline in `app/lint-baseline.xml` |
-| PR title, "Test on phone" with the APK link, a test with every fix (`docs/WORKFLOW.md`) | `tools/check_pr.py` in `.github/workflows/pr.yml`, tested by `tools/test_check_pr.py` |
+| PR title, the phone line, a test with every fix unless Tae waived it (`docs/WORKFLOW.md`) | `tools/check_pr.py` in `.github/workflows/pr.yml`, tested by `tools/test_check_pr.py` |
 | This table names only checks that exist | `ArchitectureTest` |
 
 A rule without a check in this table is one a session can break unnoticed. When you add a rule, add its check.

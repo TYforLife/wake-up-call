@@ -90,6 +90,10 @@ new, or repeats something, add it here in the same PR.
 - **pstack** (Lauren Tan's skills, `cursor/plugins`): he tried the plugin, then decided it wasn't worth it at his
   level ("grab the gist… apply it at a much simpler level"). The plugin is removed. Its ideas that fit this app
   are in `docs/WORKFLOW.md`, and `tools/check_pr.py` enforces the ones that can be checked. Don't re-add the plugin.
+- **Phone tests only when they matter:** "I don't think I'll be able to debug so often." A PR asks him to test
+  on the phone only when a real phone or bus must show it, and merging never waits on him.
+- **Only he can waive a test for a fix:** "Allow no test: <reason> to be an explicit no from the user (me)." A
+  session writes `No test (Tae): <his words>` only when he said so in his own message.
 
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon

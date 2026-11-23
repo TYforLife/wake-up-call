@@ -31,8 +31,11 @@ it can't be done there.
 - **Don't ask what the code, the docs or a sensible default can answer.** Make the choice if it can be undone,
   and list it under "Decisions" in the PR so Tae can overrule it.
 - **Prove it works on the real thing.** A green build only proves the code compiles. The evidence is a named
-  test that fails without your change, a command's output, or a screenshot from CI. What only a phone can show
-  goes in "Test on phone". If you couldn't verify something, write "not verified" and give the reason.
+  test that fails without your change, a command's output, or a screenshot from CI. If you couldn't verify
+  something, write "not verified" and give the reason.
+- **Ask for the phone only when it matters.** Tae can't test often. A "Test on phone" list is only for what a
+  real phone or bus must show (the ring, GPS, Samsung settings), and the shorter the better. Otherwise the PR
+  says "Nothing to test on the phone." Merging never waits on his phone test.
 
 ## Bug fix (a missed ring is the worst kind)
 1. **Reproduce it as a failing test first.** Start from Tae's words, a trace, or the Now screen's "Last trip"
@@ -48,8 +51,10 @@ it can't be done there.
 5. **Make it visible next time.** If finding the cause took a long dig, add the cheap signal that would have shown
    it at first look, such as a log line or a word in the "Last trip" line.
 
-A fix PR must change a test. If no test can catch the bug, write `No test: <why, and what would catch it>` in
-the PR body. `tools/check_pr.py` enforces this.
+A fix PR must change a test. Only Tae can waive that, in his own message. Then the PR body quotes him:
+`No test (Tae): <his words>`. A session never writes that line on its own. If no test can be written, stop and
+tell him why. `tools/check_pr.py` enforces the line. It can't tell who wrote it, so writing it without his word
+breaks this rule.
 
 ## A problem that comes back
 Tae has reported it before (check `docs/OWNER.md`), so the earlier fixes all assumed something that wasn't true.
@@ -84,9 +89,10 @@ runs it comes from. One run is a guess.
 | Check | Fails when |
 | --- | --- |
 | Title | it isn't `type(scope): subject`, such as `fix(alarm): …` or `feat(map): …` |
-| Test on phone | the body has no "Test on phone" section, or that section has no `debug-latest` APK link |
-| A test with every fix | the title or a commit is `fix`, no test file changed, and the body has no `No test:` line |
+| The phone | the body has neither a "Test on phone" section with the `debug-latest` APK link nor the line "Nothing to test on the phone." |
+| A test with every fix | the title or a commit is `fix`, no test file changed, and the body has no `No test (Tae):` line |
 
 ## Reporting back
 The PR follows the sections in `docs/PLAN.md`'s runbook, plus "Decisions" for the choices you made without
-asking. The reply to Tae is a few short lines: what changed, the evidence, what to test on the phone, and the APK link.
+asking. The reply to Tae is a few short lines: what changed, the evidence, and what to test on the phone with the
+APK link, or "nothing to test on the phone".

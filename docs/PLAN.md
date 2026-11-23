@@ -71,7 +71,8 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
    - Escape hatches: any line raised in `escape-hatches.txt`, and why (omit if none)
    - Not fixed: causes you found but left alone, and why (omit if none)
    - Decisions: choices you made without asking Tae, so he can overrule them (omit if none)
-   - **Test on phone**: the run's phone checks plus the APK link
+   - **Test on phone**: the run's phone checks plus the APK link, only for what needs a real phone or bus.
+     Otherwise the line "Nothing to test on the phone."
 7. **Merge only if the prompt says so,** and only with CI green on the PR's head commit.
 8. **Finish with a Done report:** every acceptance criterion of the run, each with its evidence (test
    name, command output or file path), plus the CI result.
