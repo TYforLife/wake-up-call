@@ -197,6 +197,14 @@ class ScreensV2ScreenshotTest {
         )
     }
 
+    @Test fun coverage() = shot("coverage") {
+        CoverageScreen(
+            CoverageUi(listOf(Triple("Auckland · Tāmaki Makaurau", "Auckland Transport · 6,888 stops", app.nodstop.data.Regions.all.first().welcome))),
+            {},
+            map = { m -> Box(m.background(LocalN.current.mapBg)) },
+        )
+    }
+
     @Test fun sounds() = shot("sounds") {
         SoundsScreen(
             SoundsUi(listOf("Beeps" to false, "Chime" to false, "Rising" to false, "Pūkeko" to true, "Your own sound" to false), "None yet: choose a file below"),

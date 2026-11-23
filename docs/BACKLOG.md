@@ -9,8 +9,9 @@ at the bottom.
 - **Auckland and AT only, for now.** Tailor everything to Auckland Transport: AT's timetable, AT's live data,
   Auckland places. Then add the next region, and so on.
 - **Post about it** once it's solid for Auckland.
-- **A map of covered regions**, at the end of Settings (or an About page), that grows as regions are added.
-- **Each region gets a small, kind welcome joke** when it's added. A little cheeky is fine, such as the
+- [x] **A map of covered regions**, at the end of Settings ("Where Nodstop works"), that grows as regions are added.
+- [x] **Each region gets a small, kind welcome joke** when it's added (Auckland's: "…and long before you move to
+  Australia"). A little cheeky is fine, such as the
   NZ–Australia "brain drain" jokes. Kind, never mean.
 
 ## Next up

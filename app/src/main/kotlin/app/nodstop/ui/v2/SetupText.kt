@@ -13,6 +13,9 @@ object SetupText {
         return if (s == app.nodstop.alarm.Sounds.Id.CUSTOM) "Your own: ${customName ?: "a file"}" else s.label
     }
 
+    /** "6,888 stops". */
+    fun stops(n: Int): String = "%,d stops".format(java.util.Locale.US, n)
+
     /** "12 s", "20 s". */
     fun seconds(s: Double): String = "${Math.round(s)} s"
 

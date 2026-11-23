@@ -86,6 +86,7 @@ class SettingsActions(
     val debug: () -> Unit = {},
     val homeWork: () -> Unit = {},
     val sound: () -> Unit = {},
+    val coverage: () -> Unit = {},
 )
 
 /** Settings: six rows; everything technical is in Debug, behind a long press on the build line (PLAN Run 9, M6). */
@@ -102,8 +103,9 @@ fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modi
             SwitchRow("Ring out loud after 60 s", "If vibration didn't wake you", ui.speaker, a.speaker)
             SwitchRow("Ask how the timing was", "After each ring", ui.ask, a.ask)
             ListRow("Important contacts", ui.contacts, onClick = a.contacts, trailing = { Chevron() })
-            ListRow("Report a missed alarm", "Shares the trip log, locations hidden", divider = ui.liveOff, onClick = a.report, trailing = { Chevron() })
-            if (ui.liveOff) ListRow("Progress on the lock screen", "Optional, Android 16", divider = false, trailing = { Pill("Allow", a.live) })
+            ListRow("Report a missed alarm", "Shares the trip log, locations hidden", onClick = a.report, trailing = { Chevron() })
+            if (ui.liveOff) ListRow("Progress on the lock screen", "Optional, Android 16", trailing = { Pill("Allow", a.live) })
+            ListRow("Where Nodstop works", "Auckland, for now", divider = false, onClick = a.coverage, trailing = { Chevron() })
         }
         ui.credits?.let { Hint(it, Modifier.fillMaxWidth(), center = true) }
         Hint(
@@ -188,5 +190,33 @@ fun SoundsScreen(ui: SoundsUi, a: SoundsActions, modifier: Modifier = Modifier) 
             PrimaryButton("Try it", a.tryIt)
             Hint("Rings the real alarm in 5 s. Hold to stop it.", Modifier.fillMaxWidth().padding(top = 8.dp), center = true)
         } else Hint("Try it after your trip: it would replace the trip's alarm.", Modifier.fillMaxWidth(), center = true)
+    }
+}
+
+// ---- Where Nodstop works (from Settings; BACKLOG, product direction) ----
+
+data class CoverageUi(
+    /** Each region: its name, its operator and stop count, its welcome. */
+    val regions: List<Triple<String, String, String>>,
+    val note: String? = null,
+)
+
+/** A map of the regions Nodstop covers, and each one's welcome. [map]: the real map, or a flat box in tests. */
+@Composable
+fun CoverageScreen(ui: CoverageUi, back: () -> Unit, map: @Composable (Modifier) -> Unit, modifier: Modifier = Modifier) {
+    val c = LocalN.current
+    Column(modifier.fillMaxSize().padding(top = 12.dp, bottom = 24.dp)) {
+        Box(Modifier.padding(horizontal = 24.dp)) { TitleBar { IconCircle(NIcons.Back, "Back", back) } }
+        Column(Modifier.padding(horizontal = 24.dp)) { ScreenTitle("Where Nodstop works") }
+        map(Modifier.fillMaxWidth().height(300.dp).padding(top = 8.dp))
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
+            ui.regions.forEach { (name, line, welcome) ->
+                Text(name, style = NType.row, color = c.fg)
+                Text(line, style = NType.secondary, color = c.muted)
+                Text(welcome, style = NType.body, color = c.fg, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
+            }
+            ui.note?.let { Hint(it) }
+            Hint("More regions, one at a time.", Modifier.padding(top = 8.dp))
+        }
     }
 }

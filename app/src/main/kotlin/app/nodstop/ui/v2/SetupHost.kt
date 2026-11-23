@@ -18,6 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import app.nodstop.App
 import app.nodstop.alarm.AlarmSound
 import app.nodstop.alarm.Sounds
+import app.nodstop.data.Regions
+import app.nodstop.map.CoverageMap
+import androidx.compose.runtime.LaunchedEffect
 import app.nodstop.trip.TripService
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -99,6 +102,7 @@ fun SettingsTab(resumeTick: Int, go: (Screen) -> Unit) {
             debug = { go(Screen.Debug) },
             homeWork = { go(Screen.HomeWork) },
             sound = { go(Screen.Sounds) },
+            coverage = { go(Screen.Coverage) },
         ),
         Modifier.statusBarsPadding(),
     )
@@ -182,3 +186,26 @@ private fun displayName(ctx: Context, uri: Uri): String? =
     ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
         if (c.moveToFirst()) c.getString(0) else null
     }
+
+/** Where Nodstop works (BACKLOG, product direction): the covered area from the bundled stops, and each welcome. */
+@Composable
+fun CoverageHost(back: () -> Unit) {
+    val ctx = LocalContext.current
+    var outline by remember { mutableStateOf<List<app.nodstop.engine.LatLng>?>(null) }
+    var stops by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) {
+        val ix = app.nodstop.data.TransitData.get(ctx)
+        stops = ix?.stops?.size
+        outline = ix?.let { i -> withContext(Dispatchers.Default) { Regions.hull(i.stops.map { it.pos }) } } ?: emptyList()
+    }
+    val colors = LocalN.current
+    CoverageScreen(
+        CoverageUi(
+            Regions.all.map { r -> Triple(r.name, listOfNotNull(r.operator, stops?.let { SetupText.stops(it) }).joinToString(" · "), r.welcome) },
+            note = if (outline?.isEmpty() == true) "This build has no stop data, so the map has no outline." else null,
+        ),
+        back,
+        map = { m -> CoverageMap(outline?.let { listOf(it) } ?: emptyList(), colors, m) },
+        Modifier.statusBarsPadding().navigationBarsPadding(),
+    )
+}
