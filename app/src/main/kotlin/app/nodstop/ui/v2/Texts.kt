@@ -229,3 +229,43 @@ object TripNoteText {
 
     private fun near(d: Double?, radiusM: Double?) = d != null && d <= maxOf(radiusM ?: 0.0, NEAR_M)
 }
+
+/** One stop of the journey list (owner, 2026-11-24): pull the trip sheet up to see the whole journey. */
+data class JourneyRowUi(val time: String, val title: String, val sub: String, val state: State) {
+    enum class State { DONE, NOW, LATER }
+}
+
+object JourneyText {
+    /**
+     * Every stop of the trip, in order: done, the one you're heading for (its time from now and the ETA), and the
+     * ones after it with the timetable's times when Plan a trip knows their bus ([ride]: leg index and the earliest
+     * time you can board, both in seconds after midnight, to that ride's departure and arrival).
+     */
+    fun of(
+        t: TripService.TripUi, legs: List<app.nodstop.data.LegDraft>?, nowS: Int,
+        ride: (Int, Int) -> Pair<Int, Int>? = { _, _ -> null },
+    ): List<JourneyRowUi> {
+        var ready: Int? = t.status.etaS?.let { nowS + it.toInt() }
+        return t.legNames.indices.map { i ->
+            val leg = legs?.getOrNull(i)
+            val bus = leg?.bus?.let { b -> leg.boardName?.let { "$b from $it" } ?: b }
+            when {
+                i < t.legIndex -> JourneyRowUi("Done", t.legNames[i], bus ?: "Stop ${i + 1}", JourneyRowUi.State.DONE)
+                i == t.legIndex -> JourneyRowUi(
+                    ready?.let { "~${PlanText.clock(it)}" } ?: "Now", t.legNames[i],
+                    listOfNotNull(bus, "next stop").joinToString(" · "), JourneyRowUi.State.NOW,
+                )
+                else -> {
+                    // A change takes at least 2 minutes (the planner's rule).
+                    val r = ready?.let { ride(i, it + 120) }
+                    ready = r?.second
+                    JourneyRowUi(
+                        r?.let { "~${PlanText.clock(it.second)}" } ?: "", t.legNames[i],
+                        listOfNotNull(bus, r?.let { "leaves ${PlanText.clock(it.first)}" }).joinToString(" · ").ifEmpty { "Stop ${i + 1}" },
+                        JourneyRowUi.State.LATER,
+                    )
+                }
+            }
+        }
+    }
+}
