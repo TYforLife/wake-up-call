@@ -134,9 +134,12 @@ class WalkGraph private constructor(
         /** An area's outline with more points than this is walked round its edge (keeps the crossings bounded). */
         private const val MAX_AREA_POINTS = 120
 
-        /** What may be walked: every way but cars-only and buses-only roads ([query] asks for these). */
+        /**
+         * What may be walked: every way but cars-only and buses-only roads, and corridors inside buildings (a walk goes
+         * round a hospital, not through its wards, as Google's does).
+         */
         private const val WALKABLE =
-            "way[\"highway\"][\"highway\"!~\"^(motorway|motorway_link|trunk|trunk_link|construction|proposed|bus_guideway|busway|raceway)$\"]" +
+            "way[\"highway\"][\"highway\"!~\"^(motorway|motorway_link|trunk|trunk_link|construction|proposed|bus_guideway|busway|raceway|corridor)$\"]" +
                 "[\"foot\"!~\"^(no|private)$\"][\"access\"!~\"^(no|private)$\"]"
         /**
          * State highways in town are often trunk roads with their footpath on the road itself (`sidewalk=*`), not drawn

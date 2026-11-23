@@ -540,8 +540,8 @@ doesn't flash another colour while it opens.
     chips "866 › 70", "Walk 4 min · Central Station at 7:42". Times are the timetable's, not live.
     - **Every walk follows real footpaths** (`WalkGraph`, BACKLOG 1 and 27): to the first stop, from the last, and
       between buses, timed along them and drawn along them on the map, like Google's. The footpaths are
-      OpenStreetMap's walkable ways around a place, from the Overpass API: every way but motorways and cars-only or
-      buses-only roads. A trunk road counts when its footpaths are on the road itself (not barred to walkers, not a
+      OpenStreetMap's walkable ways around a place, from the Overpass API: every way but motorways, cars-only or buses-only
+      roads and corridors inside buildings. A trunk road counts when its footpaths are on the road itself (not barred to walkers, not a
       motor road, footpaths not drawn apart). Pedestrian areas (plazas, concourses) are crossed corner to corner, and a gate or
       other barrier that's locked or closed to walkers isn't walked through. The box reaches
       every allowed walk: 1.3 km at each end (`MAX_WALK_M`), 400 m between buses (`CHANGE_WALK_M`), plus 150 m for

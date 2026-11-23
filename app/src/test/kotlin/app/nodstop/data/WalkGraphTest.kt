@@ -127,6 +127,8 @@ class WalkGraphTest {
         assertTrue(q.contains("motorway") && q.contains("!~") && q.contains("out skel qt") && q.contains("out ids qt"))
         assertTrue(q.contains("\"highway\"~\"^(trunk|trunk_link)$\"") && q.contains("\"motorroad\"!=\"yes\"") && q.contains("use_sidepath"), q)
         assertTrue(q.contains("\"area\"=\"yes\""), q)
+        // Not through buildings: their corridors aren't walked (Auckland City Hospital's wards, CI's real walks).
+        assertTrue(q.contains("raceway|corridor)$"), q)
         assertTrue(q.contains("-36.86898") && q.contains("-36.85102"), q)
     }
 
