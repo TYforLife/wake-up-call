@@ -37,6 +37,7 @@ import app.nodstop.ui.v2.HomeWorkHost
 import app.nodstop.ui.v2.PlanHost
 import app.nodstop.ui.v2.ContactsHost
 import app.nodstop.ui.v2.SoundsHost
+import app.nodstop.ui.v2.CoverageHost
 import app.nodstop.ui.v2.SubScreen
 import app.nodstop.ui.v2.Tab
 import app.nodstop.ui.v2.TabbedShell
@@ -58,6 +59,8 @@ sealed interface Screen {
     data object Contacts : Screen
     /** Settings → Alarm sound (BACKLOG 3). */
     data object Sounds : Screen
+    /** Settings → Where Nodstop works. */
+    data object Coverage : Screen
     data object Debug : Screen
     data object BriefingLab : Screen
 
@@ -163,6 +166,7 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendin
         Screen.HomeWork -> NodstopV2Theme { SubScreen { HomeWorkHost(go, back) } }
         Screen.Contacts -> NodstopV2Theme { SubScreen { ContactsHost(resumeTick, back) } }
         Screen.Sounds -> NodstopV2Theme { SubScreen { SoundsHost(back) } }
+        Screen.Coverage -> NodstopV2Theme { SubScreen { CoverageHost(back) } }
         else -> NodstopV2Theme {
             androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {
                 when (s) {

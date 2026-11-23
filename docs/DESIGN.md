@@ -582,6 +582,9 @@ doesn't flash another colour while it opens.
 - **Settings** (`settings`):
   - Home and work: the two places, and the steps to change them (PLAN Run 13).
   - Alarm sound: the chosen sound, and the list (§5 Ring ladder).
+  - Where Nodstop works (last): a map of the covered area (the hull of the bundled AT stops, `Regions.hull`), and
+    each region with its operator, stop count and a kind, slightly cheeky welcome (`Regions.all`). Auckland only,
+    for now; regions are added one at a time.
   - Quiet other notifications (during trips); Ring out loud after 60 s; Ask how the timing was.
   - Important contacts: the names, plus chat notification access for While you slept.
   - Report a missed alarm: shares the last trip log with locations hidden, and the last ring's report as the
