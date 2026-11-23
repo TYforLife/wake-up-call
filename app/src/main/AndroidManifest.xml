@@ -24,6 +24,8 @@
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- While You Slept: optional Do Not Disturb during trips (DESIGN §10). -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- docs/LEARN.md: "in a vehicle" / "on foot" from the phone, for learning a trip by riding (Debug → Learn spike). -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
     <application
         android:name=".App"
@@ -85,6 +87,16 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- docs/LEARN.md L0: records one ride's raw signals. Never touches an alarm. -->
+        <service
+            android:name=".learn.LearnSpikeService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".learn.LearnSpikeReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".trip.RateReceiver"

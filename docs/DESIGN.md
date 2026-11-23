@@ -371,6 +371,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | `LearnedStore` | What's learned per pasted stop (`learned.json`, phone only). Forget per stop (Set a stop ⋯) or all (Debug). |
 | `TransitIndex` | Auckland Transport's stops and route patterns, offline (PLAN Run 12). CI downloads the public GTFS feed (CC BY 4.0) and `tools/gtfs_index.py` boils it down to `assets/gtfs/stops.tsv` (number, name, position) and `routes.tsv` (each route and direction's stops in order). It powers stop search and Plan a trip; `patterns`, `profiles`, `trips` and `services.tsv` hold the timetable (PLAN Run 13, about 2.4 MB). It only ever fills in stops: no alarm depends on it (rule 6). A build without it (a local build) has no search; links and the map still work. CI also checks the script against its fixture. |
 | `SafeStore` | How every store loads and saves: each save keeps the previous file as `.bak`; a file that can't be read is kept as `.bad-<time>` and the backup is used, so an update can never wipe routes or learned rides. Fixture tests decode every shipped format. Debug → **Your data** backs everything up to one JSON file (share sheet) and restores it (file picker). |
+| `LearnSpikeService` | Debug → Learn spike (`docs/LEARN.md` L0): a location foreground service that records one ride's GPS (a trip's rate), activity transitions and activity guesses (Play services Activity Recognition, already in `play-services-location`), the battery every 5 min, and the rider's Got on / Got off marks. JSONL in `files/learn` (`SpikeLog`), never in `files/traces`; shared location hidden only (`LearnSpike.anonymize`). Never touches an alarm (`LearnIsolationTest`). |
 | `TraceLogger` | Writes JSONL per trip to app files, flushed per line. Share uses the system share sheet: **location hidden** (every position moved by one random offset, engine re-run, `Trace.anonymize`) for the public repo, or raw (private). |
 | Quick Settings tiles, launcher shortcuts | One tile per first two routes ("To work", "From work"): one tap opens the app and starts the route. Tapping while a trip runs just shows it. Long-press the app icon for the same. |
 
@@ -440,7 +441,8 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
 `FOREGROUND_SERVICE_LOCATION`, `FOREGROUND_SERVICE_SYSTEM_EXEMPTED`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`,
 `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`, `WAKE_LOCK`, `VIBRATE`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `MODIFY_AUDIO_SETTINGS` (media volume during the ring),
-`POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `RECEIVE_BOOT_COMPLETED` (a trip's alarm survives a
+`POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `ACTIVITY_RECOGNITION` ("in a vehicle" / "on foot", asked
+only by Debug → Learn spike, `docs/LEARN.md`), `RECEIVE_BOOT_COMPLETED` (a trip's alarm survives a
 restart), `SYSTEM_ALERT_WINDOW` ("Display over other apps": the alarm screen opens over the app you're using),
 `INTERNET` (map tiles; and, only when you paste or share a `maps.app.goo.gl` short link, that link is sent to
 Google to open it: `ShortLinks` follows its redirects to Google hosts over https only, PLAN Run 12; otherwise map tiles only, from

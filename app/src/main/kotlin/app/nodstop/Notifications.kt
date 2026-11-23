@@ -35,6 +35,8 @@ object Notifications {
     const val ID_RATE = 4
     const val ID_MISSED = 5
     const val ID_PAUSED = 6
+    /** Debug → Learn spike recording (docs/LEARN.md L0). */
+    const val ID_LEARN_SPIKE = 7
 
     /** Android 16 Live Updates: promoted to the lock screen and status bar. */
     private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
