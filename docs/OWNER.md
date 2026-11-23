@@ -101,10 +101,15 @@ new, or repeats something, add it here in the same PR.
   stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
 
 ## 2026-11-23 (product review)
-- He asked for a product director's view: what makes the app harder to use, and a backlog with acceptance criteria
-  that later sessions can pick up, thinking for the rider rather than about feasibility. It's in `docs/BACKLOG.md`
-  ("The goal", "What's holding the app back", items 10–26, decision D1). He wanted the goal written down where every
-  session reads it: it's the top of that file, linked from `CLAUDE.md`.
+- He asked for a product director's view and a backlog for later sessions. He rejected the first one (a ranked
+  list with criteria) and wanted a **feature list he ranks himself**. It's `docs/BACKLOG.md`, F1–F38 with his
+  priorities and words; the goal is at its top, linked from `CLAUDE.md`. Offer features as a flat list for him to
+  rank; don't rank them for him.
+- New facts: he wears a **Coros** watch. He wants Nodstop on the **Play Store**, for himself first. Other languages
+  yes, accessibility not yet ("just make the app intuitive"). Samsung only for now. No stop countdown while riding
+  ("let me sleep"). AI in While You Slept waits ("message summary… we'll find ways to use AI later").
+- He likes Auckland flavour (Pūkeko, region jokes) and asked for more product-level ideas like it: BACKLOG
+  "Product directions", P1–P7, for him to pick.
 
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
