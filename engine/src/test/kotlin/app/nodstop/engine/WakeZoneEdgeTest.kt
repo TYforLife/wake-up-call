@@ -73,7 +73,10 @@ class WakeZoneEdgeTest {
             val entryS = (0..(sim.arrivalS * 10).toInt()).map { it / 10.0 }.firstOrNull { Geo.distanceM(sim.posAt(it), dest) <= zone } ?: continue
             if (!gap && sim.arrivalS - entryS >= 60.0 && ring != null) {
                 val entry = T0 + (entryS * 1000).roundToLong()
-                assertTrue(ring >= entry - 4_000, "seed $seed zone ${zone.toInt()} m: rang ${(entry - ring) / 1000.0} s before entering it")
+                // A bus slower than V_FLOOR is estimated at V_FLOOR (rule 4), and a ring due within Android's last 5 s
+                // is held (Engine.hold): those 5 s take the bus 5 s × V_FLOOR / v, so it can ring that much outside.
+                val early = 4_000 + if (kmh(v) < Config().vFloor) (SystemAlarm.MIN_FUTURE_MS * Config().vFloor / kmh(v)).toLong() else 0L
+                assertTrue(ring >= entry - early, "seed $seed zone ${zone.toInt()} m: rang ${(entry - ring) / 1000.0} s before entering it")
                 assertTrue(ring <= entry + 3_000, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
                 atEdge++
             }
