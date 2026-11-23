@@ -22,7 +22,8 @@ object TripSheetText {
      * - waiting at the first stop: "4.1 km · waiting for the bus" / "Alarm set until you're on it"
      * - after changing buses: "Off at <last stop> · next stop" / "Waiting for bus 2"
      */
-    fun of(t: TripService.TripUi, clock: (Long) -> String): TripSheetUi {
+    /** [nowMs]: when the sheet is drawn, for "stop ~8:02" (the stop's time from now). */
+    fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis()): TripSheetUi {
         val s = t.status
         val stop = t.legName ?: "your stop"
         val distance = s.distanceM?.let { TripService.distance(it) }
@@ -32,6 +33,7 @@ object TripSheetText {
         val alarmAt = s.alarmAtMs?.let(clock)
         // Your own circle rings at its edge, before the stop's time (owner: "5 min left but the alarm is in 1 min").
         val circle = t.legRadii.getOrNull(t.legIndex)?.takeIf { r -> s.distanceM?.let { it > r } == true }
+        val stopAt = s.etaS?.let { "stop ~${clock(nowMs + (it * 1000).toLong())}" }
         // Started past a stop (BACKLOG 5): say so, and offer the first one skipped. Never a silent skip.
         val first = t.legIndex - s.pickedPast
         val skip = if (s.pickedPast > 0 && first >= 0 && (s.phase == Phase.WAITING || s.phase == Phase.RIDING)) {
@@ -62,8 +64,9 @@ object TripSheetText {
                 alarm = when {
                     s.phase == Phase.RINGING -> "Ringing"
                     s.phase == Phase.AWAKE -> "You're awake for this stop"
-                    alarmAt != null && circle != null -> "Alarm about $alarmAt · at your ${TripService.distance(circle)} circle"
-                    alarmAt != null -> "Alarm about $alarmAt"
+                    // Both times, labelled (BACKLOG 1): the alarm is meant to come before the stop.
+                    alarmAt != null && circle != null -> listOfNotNull("Alarm about $alarmAt at your ${TripService.distance(circle)} circle", stopAt).joinToString(" · ")
+                    alarmAt != null -> listOfNotNull("Alarm about $alarmAt", stopAt).joinToString(" · ")
                     else -> null
                 },
                 alarmDanger = false, action = "I'm off this bus",
