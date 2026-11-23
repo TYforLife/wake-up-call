@@ -35,13 +35,13 @@ object SpikeLog {
     fun begin(ctx: Context, nowMs: Long): File {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(nowMs))
         val f = File(dir(ctx), "spike-$stamp.jsonl")
-        prefs(ctx).edit().putString(KEY_CURRENT, f.name).commit()
+        prefs(ctx).edit().putString(KEY_CURRENT, f.name).apply()
         _events.value = emptyList()
         return f
     }
 
     fun finish(ctx: Context) {
-        prefs(ctx).edit().remove(KEY_CURRENT).commit()
+        prefs(ctx).edit().remove(KEY_CURRENT).apply()
     }
 
     @Synchronized

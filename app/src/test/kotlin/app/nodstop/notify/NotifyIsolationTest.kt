@@ -34,7 +34,7 @@ class NotifyIsolationTest {
     @Test
     fun `message types never reach the trace logger, the map or the tiles`() {
         val forbidden = listOf("MessageStore", "CapturedMessage", "app.nodstop.notify", "app.nodstop.brief", "Digest")
-        val files = listOf(File(root, "data/TraceLogger.kt")) + sources("map") + sources("tile")
+        val files = listOf(File(root, "data/TraceLogger.kt")) + sources("map") + sources("tile") + sources("learn")
         assertTrue(files.all { it.exists() })
         val hits = files.flatMap { f -> code(f).flatMap { (i, l) -> forbidden.filter { l.contains(it) }.map { "${f.name}:${i + 1}: $it" } } }
         assertTrue(hits.isEmpty(), "message types leaked into: $hits")
@@ -45,7 +45,8 @@ class NotifyIsolationTest {
     fun `only the share UI and the trip-log share use ACTION_SEND`() {
         // ShareLine: one briefing line; TraceLogger: the trip log; DataExport: your backup file. All on a tap.
         // ShareIn: RECEIVES a place shared from Google Maps (PLAN Run 12); it must never send (checked below).
-        val allowed = setOf("ShareLine.kt", "TraceLogger.kt", "DataExport.kt", "ShareIn.kt")
+        // SpikeLog: Debug → Learn spike's recording, location hidden, on a tap (docs/LEARN.md L0); no message types (above).
+        val allowed = setOf("ShareLine.kt", "TraceLogger.kt", "DataExport.kt", "ShareIn.kt", "SpikeLog.kt")
         val all = root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
         val users = all.filter { f -> code(f).any { (_, l) -> l.contains("ACTION_SEND") } }.map { it.name }.toSet()
         assertTrue("ShareLine.kt" in users, "share UI not found")
