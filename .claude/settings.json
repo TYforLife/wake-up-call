@@ -1,0 +1,17 @@
+{
+  "extraKnownMarketplaces": {
+    "cursor-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "cursor/plugins",
+        "sparsePaths": [
+          ".claude-plugin",
+          "harness/pstack"
+        ]
+      }
+    }
+  },
+  "enabledPlugins": {
+    "pstack@cursor-plugins": true
+  }
+}

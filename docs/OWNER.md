@@ -87,6 +87,8 @@ new, or repeats something, add it here in the same PR.
 - He keeps a **backlog** with Claude: `docs/BACKLOG.md`. Add every new ask to it as he makes it.
 - Product direction: Auckland and AT only for now, region by region later, each region with a kind little joke.
 - He compares everything with Google Maps: walking routes, the stop to get off at, times.
+- **pstack** (Lauren Tan's skills, `cursor/plugins`): he asked for it to be used in this project. It is enabled
+  in `.claude/settings.json`, and `CLAUDE.md` "pstack" says where it gives way to the project's rules.
 - **Pūkeko alarm, real this time.** The made-in-code one was "awful" and went (#53). He then sent his own
   recordings (a 20 s morning and three ~1.5 s screams) and asked for the morning looping with screams "happening
   stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
