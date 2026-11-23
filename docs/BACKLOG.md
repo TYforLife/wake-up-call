@@ -136,6 +136,74 @@ From the rider's side, in order of how much each one costs:
   - [ ] On the A17: a 40-minute ride uses under 5% (PR reports before and after).
 - **Test on phone:** two real rides, read the battery line.
 
+## Now: walks like Google's
+
+### 27. [ ] Every walk follows the footpaths, on the map too; the straight line is the last resort
+**Why:** he judges the planner against Google Maps (OWNER), and Google draws the walk along the streets. Today the
+minutes to the first stop and from the last follow OpenStreetMap's footpaths, but the map draws a straight dotted
+line, walks between buses are straight × 1.25, and several cases quietly fall back to the straight line. His words
+(2026-11-23): "make it match. Find a way. No nos. The fallback is last last last resort."
+
+**What's there now** (read `WalkGraph.kt`, `Footpaths.kt`, `Planner.kt`, `JourneyShape.kt`, `PlanHost.kt`):
+- `WalkGraph.from(p)` runs Dijkstra and keeps only distances; `Planner.Walks.to` returns metres; `Leg.Walk` has no
+  path; `JourneyShape` draws `listOf(from, to)`.
+- CI (run 182, Auckland City Hospital, 1 km box: 1.9 MB, 18 269 points, 267 ms) walked the 8 nearest stops at
+  1.4–2× the straight line: Park Road 115 m straight → 237 m, Whitaker Place 529 → 969 m, Symonds St/K Road
+  551 → 887 m. Whether those match Google is not yet checked.
+- Ways it silently falls back to the straight line × 1.25 (each one errs short, so it's wrong in the bad direction):
+  1. paths not loaded yet, offline, both Overpass servers refuse, or the cache is over 30 days old (an expired file
+     is ignored even when a refresh then fails);
+  2. the place is more than 80 m (`SNAP_M`) from a path (a big park, a campus, a large building);
+  3. the stop snaps to a path that isn't joined to yours (`nearest` picks the nearest node, reached or not), or the
+     walk needs a way outside the 1 km box: `to` returns null and `walksNear` uses the straight line, so a stop
+     1.5 km away on foot across a motorway shows as ~400 m;
+  4. every walk between buses (`Transfer`, up to `CHANGE_M` 250 m).
+- The filter leaves out `trunk`/`trunk_link`; NZ urban state highways are often trunk with their footpath tagged on
+  the road (`sidewalk=*`) rather than drawn separately, so walks beside them may be missing or long.
+- Plazas and concourses (`area=yes`) are walked round their edge, not across.
+- `RealWalkTest` skips when CI's single Overpass fetch fails (`continue-on-error` + `assumeTrue`), so green CI
+  doesn't prove it ran.
+- This sandbox can't reach Overpass or any router (network allowlist; don't work around it). Real-data checks run
+  in CI: push, then read the job log with the GitHub MCP tools (`actions_list`, `get_job_logs`).
+
+**Done when** (one PR; one commit per part):
+- **The map draws the walk.** `WalkGraph` keeps each point's previous point and returns the path, not only metres
+  (`Walks.to` → a walk with metres and points). `Leg.Walk` carries its points (place → first path point → … → last
+  path point → stop, so it joins the pin and the stop). `JourneyShape` draws them, dotted as now. The metres shown
+  are the path's length, and a test checks path length = metres for every walk leg.
+- **Unreachable means unreachable.** Once the paths for an area are loaded, a stop they can't reach within
+  `MAX_WALK_M` is not walkable (dropped, like a stop too far away), never straight × 1.25. The stop snaps to the
+  nearest point the walk actually reached within the snap distance, so a disconnected lane next to it doesn't hide
+  the real way. The box is big enough for every walk the planner allows (`ACCESS_M` stops, walks up to
+  `MAX_WALK_M`), and that's tested from `query`'s numbers. `WalkGraphTest`'s "not joined up" case changes to match
+  (this is the intended change, say so in the PR).
+- **Places off the paths still walk.** A place up to about 250 m from any path snaps to it (counted in the metres
+  and drawn), so parks, campuses and big buildings get a real walk.
+- **Walks between buses follow footpaths.** For the rides shown, the footpaths around each change stop are loaded
+  (cached like the ends); the change walk is drawn and timed along them. A ride whose change no longer fits with
+  the real walk (and `CHANGE_S`) is not shown, or is re-planned with the real time. Test with a fixture where the
+  straight line fits and the real walk doesn't.
+- **The straight line really is the last resort.** In order, each tested: fresh cache → Overpass → the mirror (add
+  another live public mirror if one exists) → the expired cache (kept when a refresh fails, refreshed in the
+  background) → a public foot router (FOSSGIS `routing.openstreetmap.de`, OSRM foot profile: route geometry and
+  metres, generic client name, only the two points, never a name; one-line reason in the PR, DESIGN §5 updated) →
+  straight × 1.25. Footpaths for Home, Work and every saved route's stops are fetched when they're set (and on the
+  next start if that failed), so his commute never plans on straight lines. A fallback walk says so on screen
+  ("about 4 min"), and the map line stays dotted but lighter.
+- **The ways match what you can walk.** `trunk`/`trunk_link` included unless `foot=no`, `motorroad=yes` or
+  `sidewalk=no|none`; motorways stay out. Pedestrian areas are crossable. Check the filter on the hospital data:
+  print which ways it adds or removes and why.
+- **Checked against another router and Google's habits, in CI.** CI fetches the hospital paths with retries and the
+  mirror, and the same 8 walks from the FOSSGIS foot router; `RealWalkTest` fails (not skips) when `CI=true` and the
+  fixture is missing, and each walk's metres are within 15% of the router's (print both). Plus a well-known public
+  trip (Britomart → Auckland City Hospital) whose walks are printed with their paths for the PR.
+- **Fast enough on the A17.** The bigger box is measured in CI (size, points, build + walk time) and printed; if
+  building the graph is over ~300 ms on CI, cache the parsed graph compactly rather than re-parsing JSON.
+- DESIGN's Plan a trip section and BACKLOG "Done" updated; `escape-hatches.txt` never goes up.
+- **Test on phone:** plan Home → Work and Work → Home and compare each walk's line and minutes with Google Maps;
+  plan with flight mode on after a first plan (cached, still along the paths); a trip from somewhere new with flight
+  mode on (the only time it may say "about").
+
 ## Next: know the bus, not just the GPS
 
 ### 1. [ ] Your bus, live, from AT
