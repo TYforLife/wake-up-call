@@ -30,7 +30,16 @@ jobs:
         run: |
           python3 tools/gtfs_index.py --out app/src/main/assets/gtfs
           cat app/src/main/assets/gtfs/meta.txt >> "$GITHUB_STEP_SUMMARY"
+      # Fetched once per version of the queries and kept, so a busy Overpass never blocks a build and every run
+      # tests the same map; a new query fetches again.
+      - name: Footpaths fetched before, for these queries
+        id: footpaths
+        uses: actions/cache/restore@v4
+        with:
+          path: app/build/footpaths
+          key: footpaths-${{ hashFiles('.github/workflows/android.yml', 'tools/walk_reference.py') }}
       - name: OpenStreetMap footpaths and a foot router's walks around public places (BACKLOG 27; RealWalkTest needs them)
+        if: steps.footpaths.outputs.cache-hit != 'true'
         run: |
           mkdir -p app/build/footpaths
           # The app's own queries (WalkGraphTest checks they match WalkGraph.query), around two public places.
@@ -54,6 +63,12 @@ jobs:
           if [ -f app/src/main/assets/gtfs/stops.tsv ]; then
             python3 tools/walk_reference.py --stops app/src/main/assets/gtfs/stops.tsv --out app/build/footpaths
           fi
+      - name: Keep the footpaths for the next runs
+        if: steps.footpaths.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: app/build/footpaths
+          key: footpaths-${{ hashFiles('.github/workflows/android.yml', 'tools/walk_reference.py') }}
       - name: Test and build
         run: ./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain
         env:
