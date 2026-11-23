@@ -121,4 +121,12 @@ class PlannerTest {
         // Too far along the paths: that stop isn't walked to at all.
         assertTrue(Planner.plan(ix, tt, at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(6, 50), walkTo = Planner.Walks { 5_000.0 }).isEmpty())
     }
+
+    @Test
+    fun `the coming bus while you wait - its next departures from your stop, by the calendar`() {
+        assertEquals(listOf(hm(7, 0), hm(7, 30)), Departures.next(ix, tt, at("Test Farm Stop D"), "866", wednesday, hm(6, 50)))
+        assertEquals(listOf(hm(7, 30)), Departures.next(ix, tt, at("Test Farm Stop D"), "866", wednesday, hm(7, 1)))
+        assertTrue(Departures.next(ix, tt, at("Test Farm Stop D"), "866", LocalDate.of(2026, 12, 25), hm(6, 50)).isEmpty(), "Christmas")
+        assertTrue(Departures.next(ix, tt, at("Test Farm Stop D"), "70", wednesday, hm(6, 50)).isEmpty(), "not this stop's bus")
+    }
 }

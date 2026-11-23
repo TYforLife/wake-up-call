@@ -8,7 +8,10 @@ import kotlinx.serialization.Serializable
 import java.util.Locale
 import java.util.UUID
 
-/** A leg is only "where you get off". No ride or wait times: GPS and past rides handle that. */
+/**
+ * A leg is "where you get off": the alarm uses only that (GPS and past rides do the rest). A leg made by Plan a trip
+ * also knows its bus and where you get on, for the trip sheet while you wait ("871 due 7:43"); never for the alarm.
+ */
 @Serializable
 data class LegDraft(
     val name: String = "",
@@ -17,6 +20,11 @@ data class LegDraft(
     val alarmEnabled: Boolean = true,
     /** Your own wake zone in metres (set on the map), or null for automatic. */
     val wakeRadiusM: Double? = null,
+    /** The bus you take to this stop ("871"), from Plan a trip; null for a stop set by hand. */
+    val bus: String? = null,
+    /** Where you get on it: its name and "lat, lng". */
+    val boardName: String? = null,
+    val boardCoords: String? = null,
 )
 
 @Serializable

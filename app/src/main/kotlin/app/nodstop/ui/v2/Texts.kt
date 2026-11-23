@@ -23,7 +23,7 @@ object TripSheetText {
      * - after changing buses: "Off at <last stop> · next stop" / "Waiting for bus 2"
      */
     /** [nowMs]: when the sheet is drawn, for "stop ~8:02" (the stop's time from now). */
-    fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis()): TripSheetUi {
+    fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis(), nextBus: String? = null): TripSheetUi {
         val s = t.status
         val stop = t.legName ?: "your stop"
         val distance = s.distanceM?.let { TripService.distance(it) }
@@ -49,12 +49,12 @@ object TripSheetText {
             )
             transfer -> TripSheetUi(
                 eyebrow = "Off at ${t.legNames[t.legIndex - 1]} · next stop", stop = stop,
-                figure = "Waiting for bus ${t.legIndex + 1}", figureMuted = true,
+                figure = nextBus ?: "Waiting for bus ${t.legIndex + 1}", figureMuted = true,
                 alarm = "Alarm set until you're on it", alarmDanger = false, action = "Skip this bus",
             )
             waiting -> TripSheetUi(
                 eyebrow = "Get off at", stop = stop,
-                figure = listOfNotNull(distance, "waiting for the bus").joinToString(" · "), figureMuted = true,
+                figure = nextBus ?: listOfNotNull(distance, "waiting for the bus").joinToString(" · "), figureMuted = true,
                 alarm = "Alarm set until you're on it", alarmDanger = false, action = "I'm off this bus",
             )
             else -> TripSheetUi(

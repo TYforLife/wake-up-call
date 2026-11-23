@@ -202,7 +202,7 @@ private fun NowRidingTab(t: TripService.TripUi) {
     var circleOpen by remember { mutableStateOf(false) }
     val circlePin = layers.pins.firstOrNull { it.current && it.alarm }
     NowRiding(
-        sheet = TripSheetText.of(t, ::hm),
+        sheet = TripSheetText.of(t, ::hm, nextBus = rememberNextBus(t, routes)),
         onAction = { TripService.instance?.skipLeg() },
         onRecentre = { recentre++ },
         onStopTrip = { confirmStop = true },
@@ -269,4 +269,31 @@ fun TabbedShell(tab: Tab, onTab: (Tab) -> Unit, resumeTick: Int, go: (Screen) ->
         }
         Box(Modifier.navigationBarsPadding()) { TabBar(tab, trip != null, onTab) }
     }
+}
+
+/**
+ * While you wait for a bus that Plan a trip chose: its next timetabled departures from your stop, refreshed each
+ * minute ("871 due 7:43, then 7:51"). Null otherwise, or without the bundled timetable.
+ */
+@Composable
+private fun rememberNextBus(t: TripService.TripUi, routes: List<Route>): String? {
+    val ctx = LocalContext.current
+    val leg = routes.firstOrNull { it.name == t.routeName }?.legs?.getOrNull(t.legIndex)
+    val bus = leg?.bus
+    val board = leg?.boardCoords?.let { app.nodstop.engine.CoordParser.parse(it) }
+    val waiting = t.status.phase == app.nodstop.engine.Phase.WAITING
+    var line by remember(t.legIndex) { mutableStateOf<String?>(null) }
+    LaunchedEffect(t.legIndex, bus, board, waiting) {
+        line = null
+        if (!waiting || bus == null || board == null) return@LaunchedEffect
+        val ix = app.nodstop.data.TransitData.get(ctx) ?: return@LaunchedEffect
+        val tt = app.nodstop.data.TransitData.timetable(ctx) ?: return@LaunchedEffect
+        while (true) {
+            val now = java.time.LocalTime.now().toSecondOfDay()
+            // A bus a minute late is still the one you're waiting for.
+            line = PlanText.nextBus(bus, app.nodstop.data.Departures.next(ix, tt, board, bus, java.time.LocalDate.now(), now - 60))
+            kotlinx.coroutines.delay(60_000)
+        }
+    }
+    return line
 }
