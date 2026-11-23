@@ -59,6 +59,8 @@ data class PlanUi(
     val rides: List<RideUi> = emptyList(),
     val note: String? = null,
     val canSwap: Boolean = true,
+    /** First run's ride steps (PLAN Run 13, T5): every step can be skipped. */
+    val canSkip: Boolean = false,
 )
 
 class PlanActions(
@@ -69,6 +71,7 @@ class PlanActions(
     val swap: () -> Unit = {},
     val time: () -> Unit = {},
     val ride: (Int) -> Unit = {},
+    val skip: () -> Unit = {},
 )
 
 /** Plan a trip, like Google: From, To, when; then the rides, soonest first. */
@@ -103,6 +106,7 @@ fun PlanTripScreen(ui: PlanUi, a: PlanActions, modifier: Modifier = Modifier) {
             ui.rides.forEachIndexed { i, r -> RideRow(r, divider = i < ui.rides.lastIndex) { a.ride(i) } }
         }
         ui.note?.let { Hint(it, Modifier.padding(top = 16.dp)) }
+        if (ui.canSkip) Box(Modifier.fillMaxWidth().padding(top = 16.dp), contentAlignment = Alignment.Center) { TextLinkButton("Skip", a.skip) }
     }
 }
 
