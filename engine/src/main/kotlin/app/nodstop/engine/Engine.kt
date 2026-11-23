@@ -55,6 +55,8 @@ data class EngineState(
     val pickLeg: Boolean = false,
     /** Stops the pick skipped (leg index, distance at the pick), watched in case one was still ahead. */
     val skipWatch: List<Pair<Int, Double>> = emptyList(),
+    /** How many stops the pick at Start skipped to reach this leg (shown, so a skip is never silent). */
+    val pickedPast: Int = 0,
     /** Since when you've been in the stop's circle at walking pace, after "I'm awake" (quick get-off). */
     val quickSinceMs: Long? = null,
     /** The stop you just left by a quick get-off, watched in case you were still on the bus. */
@@ -367,7 +369,8 @@ class Engine(val cfg: Config = Config()) {
                 else {
                     // Skipped stops far from here are watched: a bus coming up to one means it was ahead.
                     val watch = (0 until k).map { it to Geo.distanceM(p, s0.legs[it].stop) }.filter { it.second > cfg.pickAtStopM }
-                    enterLeg(s0.copy(lastPos = p), k, input.tMs).copy(pickLeg = false, lastFixMs = s0.lastFixMs, skipWatch = watch)
+                    enterLeg(s0.copy(lastPos = p), k, input.tMs)
+                        .copy(pickLeg = false, lastFixMs = s0.lastFixMs, skipWatch = watch, pickedPast = k - s0.legIndex)
                 }
             }
             s0.skipWatch.isNotEmpty() -> {
@@ -617,6 +620,7 @@ class Engine(val cfg: Config = Config()) {
             position = s.lastPos,
             pace = s.pace,
             leadS = s.leg?.let { leadFor(it) },
+            pickedPast = s.pickedPast,
         )
     }
 

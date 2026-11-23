@@ -264,13 +264,24 @@ data class TripSheetUi(
     val alarm: String?,
     val alarmDanger: Boolean,
     val action: String,
+    /** "Started past Smales Farm", when the trip began past a stop (BACKLOG 5), with [skippedAction] to go back. */
+    val skipped: String? = null,
+    val skippedAction: String? = null,
 )
 
 /** The sheet while riding: where you get off, how long, that the alarm is set, one button. */
 @Composable
-fun TripSheet(ui: TripSheetUi, onAction: () -> Unit, modifier: Modifier = Modifier) {
+fun TripSheet(ui: TripSheetUi, onAction: () -> Unit, modifier: Modifier = Modifier, onSkipped: () -> Unit = {}) {
     val c = LocalN.current
     Sheet(modifier) {
+        if (ui.skipped != null) Row(
+            Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(NIcons.Warn, null, tint = c.fg, modifier = Modifier.size(18.dp))
+            Text(ui.skipped, style = NType.secondary.copy(fontWeight = NType.button.fontWeight), color = c.fg, modifier = Modifier.weight(1f))
+            ui.skippedAction?.let { Pill(it, onSkipped) }
+        }
         Eyebrow(ui.eyebrow)
         Text(ui.stop, style = NType.stop, color = c.fg)
         Text(

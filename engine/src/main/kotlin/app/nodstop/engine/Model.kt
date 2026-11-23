@@ -131,6 +131,8 @@ data class Status(
     val pace: Double? = null,
     /** How many seconds before this stop it aims to ring (per stop, tuned by your ratings). */
     val leadS: Double? = null,
+    /** Stops skipped by the pick at Start to reach this leg; 0 once you're past it or on a later leg. */
+    val pickedPast: Int = 0,
 )
 
 data class Output(

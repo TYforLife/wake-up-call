@@ -38,6 +38,7 @@ class StartAnywhereTest {
         })
         val firstFix = r.steps.first { it.input is Input.FixIn && it.state.lastFixMs != null }
         assertEquals(1, firstFix.state.legIndex, "jumped to leg 2")
+        assertEquals(1, firstFix.out.status.pickedPast, "and says it skipped one stop")
         val boarded = r.steps.first { it.out.boarded }.input.tMs
         assertTrue(boarded - T0 <= 15_000, "on the bus after ${(boarded - T0) / 1000} s")
         val lead = Trips.leadS(sim, r)
@@ -90,6 +91,7 @@ class StartAnywhereTest {
         assertTrue(r.rings.isNotEmpty(), "it rings")
         val ring = r.steps.first { it.input is Input.Rang }
         assertEquals(0, ring.state.legIndex, "for A")
+        assertEquals(0, ring.out.status.pickedPast, "back at A: nothing skipped any more")
         val lead = Trips.leadS(sim, r)
         assertTrue(lead >= 20.0, "before reaching A: lead $lead s")
     }

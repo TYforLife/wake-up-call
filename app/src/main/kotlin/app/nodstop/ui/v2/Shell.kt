@@ -206,6 +206,7 @@ private fun NowRidingTab(t: TripService.TripUi) {
         onAction = { TripService.instance?.skipLeg() },
         onRecentre = { recentre++ },
         onStopTrip = { confirmStop = true },
+        onSkipped = { TripService.instance?.restartAt(t.legIndex - t.status.pickedPast) },
         map = { m ->
             RideMap(
                 layers, t.status.position, colors, recentre, m, onUserGesture = { expanded = false },

@@ -32,7 +32,12 @@ object TripSheetText {
         val alarmAt = s.alarmAtMs?.let(clock)
         // Your own circle rings at its edge, before the stop's time (owner: "5 min left but the alarm is in 1 min").
         val circle = t.legRadii.getOrNull(t.legIndex)?.takeIf { r -> s.distanceM?.let { it > r } == true }
-        return when {
+        // Started past a stop (BACKLOG 5): say so, and offer the first one skipped. Never a silent skip.
+        val first = t.legIndex - s.pickedPast
+        val skip = if (s.pickedPast > 0 && first >= 0 && (s.phase == Phase.WAITING || s.phase == Phase.RIDING)) {
+            "Started past ${t.legNames[t.legIndex - 1]}" to "Start at ${t.legNames[first]}"
+        } else null
+        return withSkip(when {
             gpsLost -> TripSheetUi(
                 eyebrow = "Get off at", stop = stop,
                 figure = listOfNotNull(distance, s.lastFixAgeS?.let { "${it.roundToInt()} s ago" }).joinToString(" · "),
@@ -63,8 +68,13 @@ object TripSheetText {
                 },
                 alarmDanger = false, action = "I'm off this bus",
             )
-        }
+        }, skip)
     }
+
+    private fun withSkip(ui: TripSheetUi, skip: Pair<String, String>?): TripSheetUi =
+        if (skip == null) ui
+        // Not off the previous bus: the trip just started here, so not "Off at … · next stop".
+        else ui.copy(eyebrow = "Get off at", skipped = skip.first, skippedAction = skip.second)
 }
 
 /** The trip sheet folded to one line (PLAN Run 11, B3): more map, the essentials still there. */

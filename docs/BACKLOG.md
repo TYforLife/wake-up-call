@@ -14,32 +14,23 @@ at the bottom.
   NZ–Australia "brain drain" jokes. Kind, never mean.
 
 ## Next up
-1. [x] **Walking along real footpaths, not straight lines.** (built: see Done once merged)
-   - He asked "Does it know road walk paths? If not, add it. Make destination estimation accurate." It suggested
-     Karangahape Rd (Rainbow Bridge) where he always gets off at Symonds Street Cemetery.
-   - Plan: fetch OpenStreetMap's footpaths for a small area around where you start and where you're going.
-     Overpass sends only that area, like the map tiles already do. Then find the shortest walk on the phone.
-     Cache it, and fall back to the straight line × 1.25 offline.
-   - Done when the walk to and from each stop is the walking-path distance, and the planner picks the stop
-     with the shorter real walk.
-2. [ ] **The alarm and "min left" disagree.** "It says 5 min left but the alarm is in 1 minute."
+1. [ ] **The alarm and "min left" disagree.** "It says 5 min left but the alarm is in 1 minute."
    - Cause: "min left" is the typical time to the stop. The alarm is deliberately earlier: the fastest past
      ride, the 45 s lead, and your circle's edge.
    - Done when the trip screen shows both, labelled, e.g. "Alarm 7:58 (your circle) · at the stop ~8:02".
-     Then use AT's live arrival time for your stop when it's known (item 3).
-3. [ ] **Your bus, live, from AT.** Show the coming bus for this trip on the map, with AT's predicted
+     Then use AT's live arrival time for your stop when it's known (item 2).
+   - Partly done: the alarm line says "· at your 400 m circle" when your own circle sets it.
+2. [ ] **Your bus, live, from AT.** Show the coming bus for this trip on the map, with AT's predicted
    arrival at your stop. That makes the trip measurable.
-   - Needs an AT API key, which is free from AT's developer portal. He enters it in Settings, and it's kept on
+   - **Waiting on Tae:** an AT API key, which is free from AT's developer portal. He enters it in Settings, and it's kept on
      the phone, never in the repo.
    - Rule 6: live data may only make an alarm earlier. GPS stays the fallback.
-4. [ ] **Alarm sounds.**
+3. [ ] **Alarm sounds.**
    - A range of built-in sounds, plus your own mp3 or wav file. The file is picked with the system file
      picker and copied into the app.
    - Maybe region sounds, such as a crying pūkeko.
    - The ring still goes only through `RingService` (rule 1). The earbuds-and-vibration rules stay, and a file
      that can't play falls back to the default sound.
-5. [ ] **Say when a trip starts past a stop.** For example: "Starting at Rainbow Bridge: you're past Smales Farm.
-   Wrong? Start at Smales Farm." So a skipped stop is never silent (see Done: the missed ring).
 
 ## Later
 - Learning a trip by riding it (Track A, `docs/LEARN.md`), worked on only when he says so.
@@ -58,3 +49,6 @@ at the bottom.
   stops behind you aren't circled.
 - [x] **A scale bar on the trip map.**
 - [x] **After changing buses, the map frames you and the next stop again.**
+- [x] **Walking along real footpaths (2026-11-23).** OpenStreetMap's paths around each end, by Overpass, cached
+  30 days. Real walks near Auckland City Hospital were 1.4–2× the straight line.
+- [x] **Say when a trip starts past a stop.** "Started past Smales Farm", with **Start at Smales Farm**.

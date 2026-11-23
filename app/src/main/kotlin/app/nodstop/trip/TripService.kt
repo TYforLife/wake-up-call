@@ -375,6 +375,19 @@ class TripService : Service() {
         }
     }
 
+    /**
+     * "Start at <stop>" (BACKLOG 5): the trip started past a stop you're actually still going to. Same trip and log,
+     * from that leg, with no pick this time.
+     */
+    fun restartAt(leg: Int) {
+        val t = trip ?: return
+        if (t.simulated || leg !in t.legs.indices) return
+        app.traces.note(System.currentTimeMillis(), "started again at leg ${leg + 1} (you tapped Start at ${t.legs[leg].name})")
+        withLastKnown { known ->
+            begin(t.routeId, t.routeName, t.legs, leg, false, t.traceFile, false, System.currentTimeMillis(), known, startedMs = t.startedMs)
+        }
+    }
+
     /** Legs already asked about by notification this trip: the end-of-trip card skips them. */
     private val askedLegs = HashSet<Int>()
     fun skipLeg() = input(Input.SkipLeg(System.currentTimeMillis()))
