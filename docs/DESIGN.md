@@ -501,7 +501,9 @@ doesn't flash another colour while it opens.
     - It has recentre, rotation and the compass, and opens framing you and your stop (`MapModel.frame`; the owner
       likes this). After you change buses it frames you and the next stop again, even if you'd moved the map.
     - Tap your stop's circle for its sizes, or touch its edge and drag (§2.6).
-  - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45", and I'm off this bus.
+  - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45 · stop ~7:46", and I'm off
+    this bus. The alarm is meant to come first. With your own circle it says so: "Alarm about 7:42 at your 400 m
+    circle · stop ~7:46".
     - Waiting: "4.1 km · waiting for the bus".
     - After changing buses: "Off at X · next stop", "Waiting for bus 2", and Skip this bus.
     - GPS lost: the map greys out, the figures show their age, and a red line says when it rings at the latest

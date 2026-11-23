@@ -29,7 +29,7 @@ class TextsTest {
     @Test
     fun `riding - min, km and the alarm time, as the mockup`() {
         val ui = TripSheetText.of(trip(status()), clock)
-        assertEquals(TripSheetUi("Get off at", "Harbour St", "6 min · 2.3 km", false, "Alarm about 7:45", false, "I'm off this bus"), ui)
+        assertEquals(TripSheetUi("Get off at", "Harbour St", "6 min · 2.3 km", false, "Alarm about 7:45 · stop ~7:45", false, "I'm off this bus"), ui)
     }
 
     @Test
@@ -46,9 +46,13 @@ class TextsTest {
     @Test
     fun `riding with your own circle - the alarm says it's at the circle, before the stop's time`() {
         val t = trip(status()).copy(legRadii = listOf(null, 400.0))
-        assertEquals("Alarm about 7:45 · at your 400 m circle", TripSheetText.of(t, clock).alarm)
-        val inside = trip(status(d = 300.0)).copy(legRadii = listOf(null, 400.0))
+        assertEquals("Alarm about 7:45 at your 400 m circle · stop ~7:45", TripSheetText.of(t, clock).alarm)
+        val inside = trip(status(d = 300.0, eta = null)).copy(legRadii = listOf(null, 400.0))
         assertEquals("Alarm about 7:45", TripSheetText.of(inside, clock).alarm)
+        // The stop's time is now + its ETA: 6 min 12 s after 7:40 is 7:46.
+        val real: (Long) -> String = { ms -> "%d:%02d".format(ms / 3_600_000 % 24, ms / 60_000 % 60) }
+        val at740 = (7 * 60 + 40) * 60_000L
+        assertEquals("Alarm about 0:00 · stop ~7:46", TripSheetText.of(trip(status(alarmAt = 0L)), real, at740).alarm)
     }
 
     @Test

@@ -14,13 +14,7 @@ at the bottom.
   NZ–Australia "brain drain" jokes. Kind, never mean.
 
 ## Next up
-1. [ ] **The alarm and "min left" disagree.** "It says 5 min left but the alarm is in 1 minute."
-   - Cause: "min left" is the typical time to the stop. The alarm is deliberately earlier: the fastest past
-     ride, the 45 s lead, and your circle's edge.
-   - Done when the trip screen shows both, labelled, e.g. "Alarm 7:58 (your circle) · at the stop ~8:02".
-     Then use AT's live arrival time for your stop when it's known (item 2).
-   - Partly done: the alarm line says "· at your 400 m circle" when your own circle sets it.
-2. [ ] **Your bus, live, from AT.** Show the coming bus for this trip on the map, with AT's predicted
+1. [ ] **Your bus, live, from AT.** Show the coming bus for this trip on the map, with AT's predicted
    arrival at your stop. That makes the trip measurable.
    - **Waiting on Tae:** an AT API key, which is free from AT's developer portal. He enters it in Settings, and it's kept on
      the phone, never in the repo.
@@ -45,6 +39,8 @@ at the bottom.
 - [x] **After changing buses, the map frames you and the next stop again.**
 - [x] **Walking along real footpaths (2026-11-23).** OpenStreetMap's paths around each end, by Overpass, cached
   30 days. Real walks near Auckland City Hospital were 1.4–2× the straight line.
+- [x] **The alarm and "min left" agree.** The sheet shows both, labelled: "Alarm about 7:58 at your 400 m circle ·
+  stop ~8:02". Live AT arrival times come with item 1.
 - [x] **Alarm sounds.** Beeps, Chime, Rising, Pūkeko, or your own mp3/wav/m4a (the first 20 s loop). The beeps
   if your file can't play. "Try it" is a real test ring.
 - [x] **Say when a trip starts past a stop.** "Started past Smales Farm", with **Start at Smales Farm**.
