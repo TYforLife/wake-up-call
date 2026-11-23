@@ -40,7 +40,7 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
 
 ## Runbook (for the session)
 
-1. Read `CLAUDE.md`, `docs/DESIGN.md` and this file.
+1. Read `CLAUDE.md`, `docs/DESIGN.md`, `docs/WORKFLOW.md` and this file.
 2. **Preflight.** Confirm all of these, or stop and report without coding:
    - `git fetch origin main`, and your branch starts from the latest `main`. Other sessions merge
      often; work from an old `main` duplicates or breaks theirs. Rebase onto `main` again before
@@ -70,6 +70,7 @@ can't wait for you to merge and ride a bus. Checkpoints are deliberately human: 
    - Trace changes, if any (and why)
    - Escape hatches: any line raised in `escape-hatches.txt`, and why (omit if none)
    - Not fixed: causes you found but left alone, and why (omit if none)
+   - Decisions: choices you made without asking Tae, so he can overrule them (omit if none)
    - **Test on phone**: the run's phone checks plus the APK link
 7. **Merge only if the prompt says so,** and only with CI green on the PR's head commit.
 8. **Finish with a Done report:** every acceptance criterion of the run, each with its evidence (test

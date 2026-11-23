@@ -1,0 +1,24 @@
+name: pr
+
+# docs/WORKFLOW.md "PR checks": the title, the Test on phone section, and a test with every fix.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: The PR checker's own tests
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
+      - name: Check the PR
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 tools/check_pr.py "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"

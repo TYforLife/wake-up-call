@@ -4,6 +4,7 @@ Android app that wakes the owner (Tae) before his bus stop so he can sleep on th
 The full spec is in `docs/DESIGN.md`. Read it before any work; it wins over your instincts.
 Read `docs/OWNER.md` too: who Tae is, what he has already asked for, and what not to touch. Add to it
 whenever he asks for something new or repeats himself.
+Read `docs/WORKFLOW.md` for how to do each kind of task: bug fix, feature, a problem that comes back, tests and PRs.
 The work queue is `docs/PLAN.md`. A prompt like `/goal Finish Run N in docs/PLAN.md and open its PR` means:
 follow that file's runbook for Run N, starting from the latest `main`.
 
@@ -68,6 +69,8 @@ loosen a check to get green. If a check is wrong, change it in its own commit an
 | Code quality 2 and 3 | `ArchitectureTest` |
 | Target SDK 36, nothing copied off the phone (DESIGN §5) | `ArchitectureTest` |
 | Android pitfalls (permissions, Compose, leaks) | `:app:lintDebug`, warnings as errors, baseline in `app/lint-baseline.xml` |
+| PR title, "Test on phone" with the APK link, a test with every fix (`docs/WORKFLOW.md`) | `tools/check_pr.py` in `.github/workflows/pr.yml`, tested by `tools/test_check_pr.py` |
+| This table names only checks that exist | `ArchitectureTest` |
 
 A rule without a check in this table is one a session can break unnoticed. When you add a rule, add its check.
 
@@ -96,24 +99,6 @@ network allowlist.
 - Small PRs, conventional commit messages.
 - Never commit secrets. The committed `keystore/debug.keystore` is debug-only and expected.
 - Keep `docs/DESIGN.md` in sync when behaviour or parameters change.
-
-## pstack
-
-The pstack plugin (`.claude/settings.json`, from the `cursor/plugins` marketplace) adds skills such as
-`/pstack:poteto-mode`, `/pstack:how`, `/pstack:interrogate` and `/pstack:tdd`. Use them for rigour. Where a
-pstack skill and this project disagree, the project wins: this file, `docs/DESIGN.md`, `docs/OWNER.md` and
-`docs/PLAN.md`'s runbook, in that order.
-
-- **PRs and forge steps.** A playbook that says `gh pr create` or another `gh` command means the GitHub MCP
-  tools here (`gh` only works for search). The PR body still ends with the "Test on phone" checklist and the APK link.
-- **Missing tools.** Steps that need `cursor-team-kit` (`/deslop`, `control-ui`, `control-cli`), Bugbot or Cursor
-  Automations are skipped with one line in the reply. There is no emulator, so "prove it works" means CI tests
-  plus the phone checklist.
-- **Models.** `/pstack:setup-pstack` writes to `~/.claude/rules/`, which a cloud container loses, so pstack's
-  default models apply. Gemini seats run on the session model.
-- **Comments.** `/pstack:no-comments` may delete a comment only where Code quality 3 allows it. Keep comments that
-  state what the spec requires.
-- **Asking.** Tae's standing order (`docs/OWNER.md`) is the autonomy setting: finish, merge when green, report briefly.
 
 ## Device facts to respect
 

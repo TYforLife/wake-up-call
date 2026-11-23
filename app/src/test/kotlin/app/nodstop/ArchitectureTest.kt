@@ -72,6 +72,29 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `every check in the CLAUDE md rule table exists`() {
+        val table = File(repo, "CLAUDE.md").readLines()
+            .dropWhile { !it.startsWith("| Rule | Checked by |") }.takeWhile { it.startsWith("|") }
+        assertTrue(table.size > 2, "CLAUDE.md has no \"| Rule | Checked by |\" table. Keep the rule table (CLAUDE.md \"Code quality\").")
+        val named = table.flatMap { row -> Regex("`([^`]+)`").findAll(row).map { it.groupValues[1] } }
+        val sources = repo.walkTopDown().onEnter { it.name != "build" && it.name != ".git" && it.name != ".gradle" }
+            .filter { it.isFile }.map { it.nameWithoutExtension }.toSet()
+        val missing = named.filter { name ->
+            when {
+                name.startsWith(":") -> false
+                "/" in name -> !File(repo, name).exists()
+                name.endsWith("Test") -> name !in sources
+                else -> false
+            }
+        }
+        assertTrue(
+            missing.isEmpty(),
+            "CLAUDE.md's rule table names checks that don't exist: $missing. A rule whose check is gone is unchecked. " +
+                "Point the row at the check that enforces it now, or restore the check.",
+        )
+    }
+
+    @Test
     fun `no comment justifies a workaround`() {
         val phrases = listOf(
             "workaround", "work around", "hack", "for now", "quick fix", "temporary fix", "band-aid", "bandaid",
