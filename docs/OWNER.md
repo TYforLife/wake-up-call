@@ -103,7 +103,7 @@ new, or repeats something, add it here in the same PR.
 ## 2026-11-23 (walks)
 - **Walks must look and measure like Google's.** The map drew the walk as a straight line while its minutes followed
   the footpaths: "make it match. Find a way. No nos." The straight line × 1.25 is the "last last last resort", not a
-  quiet default. BACKLOG item 27. "No nos" means: don't come back with why it can't be done; find the way.
+  quiet default. BACKLOG F39 (was item 27). "No nos" means: don't come back with why it can't be done; find the way.
 
 ## 2026-11-23 (product review)
 - He asked for a product director's view and a backlog for later sessions. He rejected the first one (a ranked
