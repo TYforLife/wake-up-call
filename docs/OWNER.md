@@ -95,6 +95,9 @@ new, or repeats something, add it here in the same PR.
 - He didn't like the Pūkeko sound. He'll provide his own file.
 - **pstack** (Lauren Tan's skills, `cursor/plugins`): he asked for it to be used in this project. It is enabled
   in `.claude/settings.json`, and `CLAUDE.md` "pstack" says where it gives way to the project's rules.
+- **Pūkeko alarm, real this time.** The made-in-code one was "awful" and went (#53). He then sent his own
+  recordings (a 20 s morning and three ~1.5 s screams) and asked for the morning looping with screams "happening
+  stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
 
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
