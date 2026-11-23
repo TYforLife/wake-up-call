@@ -34,4 +34,9 @@ class RingPlanTest {
             assert(strong.volumePct >= normal.volumePct && strong.buzz >= normal.buzz)
         }
     }
+
+    @Test fun `a test ring on the speaker - from the start, at the volume asked, vibrating`() {
+        assertEquals(RingStep(AudioRoute.SPEAKER, 60, Buzz.MAX), RingPlan.step(0, true, true, false, speakerAfterMs = 0, speakerPct = 60))
+        assertEquals(RingStep(AudioRoute.SPEAKER, 100, Buzz.MAX), RingPlan.step(60_000, false, true, false), "a real ring: full")
+    }
 }

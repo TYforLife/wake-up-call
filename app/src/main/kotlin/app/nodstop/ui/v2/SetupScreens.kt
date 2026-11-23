@@ -72,7 +72,7 @@ data class SettingsUi(
     val credits: String? = null,
     /** "12 Example Rd · 1 Queen St", or how to set them (PLAN Run 13, T5). */
     val homeWork: String = "Set them to plan your commute",
-    /** "Beeps", "Pūkeko", "Your own sound: wake.mp3". */
+    /** "Beeps", "Chime", "Your own: wake.mp3". */
     val sound: String = "Beeps",
 )
 
@@ -166,6 +166,7 @@ class SoundsActions(
     val pick: (Int) -> Unit = {},
     val chooseFile: () -> Unit = {},
     val tryIt: () -> Unit = {},
+    val trySpeaker: () -> Unit = {},
 )
 
 /** The alarm's sound: four built in, or your own file. "Try it" is a real test ring through the alarm. */
@@ -188,7 +189,9 @@ fun SoundsScreen(ui: SoundsUi, a: SoundsActions, modifier: Modifier = Modifier) 
         }
         if (ui.canTry) {
             PrimaryButton("Try it", a.tryIt)
-            Hint("Rings the real alarm in 5 s. Hold to stop it.", Modifier.fillMaxWidth().padding(top = 8.dp), center = true)
+            Spacer(Modifier.height(8.dp))
+            GhostButton("Try it on the phone speaker", a.trySpeaker, Modifier.fillMaxWidth())
+            Hint("Rings the real alarm now: in your earbuds, or on the speaker. Hold to stop it.", Modifier.fillMaxWidth().padding(top = 8.dp), center = true)
         } else Hint("Try it after your trip: it would replace the trip's alarm.", Modifier.fillMaxWidth(), center = true)
     }
 }

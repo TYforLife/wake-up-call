@@ -77,6 +77,7 @@ class RingService : Service() {
     private var inUse = false
     /** When the speaker joins this ring, or null for never (RingMode.speakerAfterMs). */
     private var speakerAfterMs: Long? = null
+    private var testOnSpeaker = false
     /** The chosen sound (BACKLOG 3), read once per ring; the beeps if anything about it is wrong. */
     private var sound: ShortArray? = null
 
@@ -178,8 +179,10 @@ class RingService : Service() {
         val ringer = RingModeController.ringer(this)
         val filter = RingModeController.filter(this)
         val buzz = RingModeController.onRingStart(this)
+        // "Try it on the speaker" (Settings → Alarm sound): a test ring only, on the speaker from the start.
+        testOnSpeaker = test && App.instance.settings.takeTestOnSpeaker()
         speakerAfterMs = RingMode.speakerAfterMs(
-            App.instance.settings.speakerLastResort.value, headset() != null, buzz, RingPlan.SPEAKER_AFTER_MS,
+            App.instance.settings.speakerLastResort.value, headset() != null, buzz, RingPlan.SPEAKER_AFTER_MS, testOnSpeaker,
         )
         RingDiag.start(
             screenWasOn, fullScreen, headset() != null, screenWoken = screenLock != null || pm.isInteractive, test = test,
@@ -215,7 +218,10 @@ class RingService : Service() {
         val elapsed = SystemClock.elapsedRealtime() - startedAt
         val hs = headset()
         val after = speakerAfterMs
-        val step = RingPlan.step(elapsed, hs != null, after != null, overshoot, inUse, after ?: RingPlan.SPEAKER_AFTER_MS)
+        val step = RingPlan.step(
+            elapsed, hs != null, after != null, overshoot, inUse, after ?: RingPlan.SPEAKER_AFTER_MS,
+            speakerPct = if (testOnSpeaker) TEST_SPEAKER_PCT else 100,
+        )
         // The buzz first, and nothing about sound can stop it (PLAN Run 10): a tone that fails to play (an audio
         // device that won't open, a route change mid-call) must never take the vibration or the ring down with it.
         isolated("ring vibration") { buzz(step.buzz) }
@@ -318,6 +324,9 @@ class RingService : Service() {
     }
 
     companion object {
+        /** A test ring on the phone speaker: loud enough to judge the sound, not full blast. */
+        private const val TEST_SPEAKER_PCT = 60
+
         private const val ACTION_RING = "ring"
         private const val ACTION_STOP = "stop"
         private val HEADSET_TYPES = setOf(
