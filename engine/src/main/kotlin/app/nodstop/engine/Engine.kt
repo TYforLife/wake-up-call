@@ -376,9 +376,11 @@ class Engine(val cfg: Config = Config()) {
             s0.skipWatch.isNotEmpty() -> {
                 // The earliest skipped stop you're now coming up to: that leg after all, ringing now (it's close, and
                 // this leg's speed is unknown so far: rule 4). With no speed yet, the next fixes can't push it later.
+                // Further out on a fast bus: at least the lead (plus a margin) away at its current speed.
+                val reach = max(cfg.skipWatchM, (s0.lastSpeed ?: 0.0) * (cfg.leadS + 15.0))
                 val back = s0.skipWatch.firstOrNull { (j, d0) ->
                     val d = Geo.distanceM(p, s0.legs[j].stop)
-                    d <= cfg.skipWatchM && d <= d0 - cfg.skipApproachM
+                    d <= reach && d <= d0 - cfg.skipApproachM
                 }
                 if (back == null || !s0.legs[back.first].alarmEnabled) s0
                 else enterLeg(s0.copy(lastPos = p), back.first, input.tMs)

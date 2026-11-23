@@ -36,7 +36,8 @@ data class Config(
     val pickAtStopM: Double = 300.0,
     val pickNearLineM: Double = 1_500.0,
     /**
-     * A stop the pick skipped is watched for the rest of the picked leg: coming within [skipWatchM] of it, having
+     * A stop the pick skipped is watched for the rest of the picked leg: coming within [skipWatchM] of it (further on
+     * a fast bus: the lead + 15 s at its speed), having
      * come [skipApproachM] closer than at the pick, means it was ahead after all: back to it, so it rings (rule 4).
      */
     val skipWatchM: Double = 400.0,
