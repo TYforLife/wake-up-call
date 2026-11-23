@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.nodstop.App
 import app.nodstop.data.AddressSearch
+import app.nodstop.data.Footpaths
 import app.nodstop.data.LegDraft
 import app.nodstop.data.MapsLink
 import app.nodstop.data.Planner
@@ -146,16 +147,23 @@ fun PlanHost(
 
     val fromPos = from.pos ?: here
     val toPos = to?.let { it.pos ?: here }
-    LaunchedEffect(fromPos, toPos, time, tt, ix) {
-        rides = null
+    // Walks along real footpaths at each end (BACKLOG 1), when OpenStreetMap answers; straight lines until then.
+    var walkFrom by remember { mutableStateOf<Planner.Walks?>(null) }
+    var walkTo by remember { mutableStateOf<Planner.Walks?>(null) }
+    LaunchedEffect(fromPos) { walkFrom = null; walkFrom = fromPos?.let { Footpaths.walks(ctx, it) } }
+    LaunchedEffect(toPos) { walkTo = null; walkTo = toPos?.let { Footpaths.walks(ctx, it) } }
+    LaunchedEffect(fromPos, toPos, time, tt, ix, walkFrom, walkTo) {
         val i = ix ?: return@LaunchedEffect
         val t = tt ?: return@LaunchedEffect
-        if (fromPos == null || toPos == null) return@LaunchedEffect
+        if (fromPos == null || toPos == null) { rides = null; return@LaunchedEffect }
         val at = time.atS ?: LocalTime.now().toSecondOfDay()
         rides = withContext(Dispatchers.Default) {
-            if (time.arrive) Planner.arriveBy(i, t, fromPos, toPos, LocalDate.now(), at) else Planner.plan(i, t, fromPos, toPos, LocalDate.now(), at)
+            if (time.arrive) Planner.arriveBy(i, t, fromPos, toPos, LocalDate.now(), at, walkFrom = walkFrom, walkTo = walkTo)
+            else Planner.plan(i, t, fromPos, toPos, LocalDate.now(), at, walkFrom = walkFrom, walkTo = walkTo)
         }
     }
+    // A new From, To or time clears the list until it's planned again (a footpath refinement just replaces it).
+    LaunchedEffect(fromPos, toPos, time) { rides = null }
     val suggestions = rememberSuggestions(query, ix, here, withHere = editing == PlanField.FROM)
 
     fun use(j: Planner.Journey, start: Boolean) {
