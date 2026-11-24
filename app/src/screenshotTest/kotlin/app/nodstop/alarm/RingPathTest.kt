@@ -110,6 +110,31 @@ class RingPathTest {
     }
 
     @Test
+    fun `buzz my watch on - the ring posts the watch's buzz again and again, and I'm awake clears it (F3)`() {
+        app.settings.setBuzzWatch(true)
+        try {
+            ring()
+            assertNotNull("the watch buzzes at the ring's start", shadowOf(nm).getNotification(Notifications.ID_WATCH))
+            val first = shadowOf(nm).getNotification(Notifications.ID_WATCH).`when`
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(7))
+            assertNotNull("posted again a few seconds later", shadowOf(nm).getNotification(Notifications.ID_WATCH))
+            assertTrue("a new notification, not an update", shadowOf(nm).getNotification(Notifications.ID_WATCH).`when` >= first)
+            assertTrue("the phone still buzzes", vibrator().isVibrating)
+            assertNotNull("and the ring is still on screen", ringNotification())
+            awake()
+            assertNull("I'm awake clears the watch's buzz", shadowOf(nm).getNotification(Notifications.ID_WATCH))
+        } finally {
+            app.settings.setBuzzWatch(false)
+        }
+    }
+
+    @Test
+    fun `buzz my watch off - the ring posts nothing for a watch`() {
+        ring()
+        assertNull(shadowOf(nm).getNotification(Notifications.ID_WATCH))
+    }
+
+    @Test
     fun `Mute with Do Not Disturb access - vibrate for the ring, Mute again after`() {
         shadowOf(nm).setNotificationPolicyAccessGranted(true)
         audio.ringerMode = AudioManager.RINGER_MODE_SILENT

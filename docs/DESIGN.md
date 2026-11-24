@@ -489,6 +489,11 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
 - **At your stop**: the one-buzz nudge, "You're at Harbour St", "Get off now".
 - **Wake-up alarm**: full-screen intent, colourised (accent; red when you passed your stop), insistent, on a
   channel that vibrates by itself, with an **I'm awake** action. Posted by `AlarmReceiver` first. Its two lines are the ring screen's (`RingText`): "Wake up" / "Harbour St is close".
+- **Wake-up on your watch** (BACKLOG F3, Alarm sound → Buzz my watch, off by default): while the ring rings,
+  `RingService` posts the ring's words as a new notification on a silent channel every 6 s (`WatchBuzz`), so a
+  watch that mirrors the phone's notifications (COROS, Galaxy Watch) buzzes again and again; I'm awake clears it. It
+  comes only from the ring, after the phone's own buzz and sound, each post isolated: the watch never rings by
+  itself, and losing it never stops or delays the phone (`RingPathTest`).
 - **Your trip is still on** (after an update or a restart): one tap resumes tracking; the alarm is already set.
 - **Ring timing** (optional, silent, gone after 15 min): "How was the ring timing?", Too early / Good / Too late.
 

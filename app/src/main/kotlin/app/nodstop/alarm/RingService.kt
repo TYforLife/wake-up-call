@@ -79,6 +79,9 @@ class RingService : Service() {
     private var speakerAfterMs: Long? = null
     private var testOnSpeaker = false
     private var volumePct = 100
+    /** Buzz the watch too (BACKLOG F3), read once per ring; when it last buzzed, in ms since the ring started. */
+    private var watch = false
+    private var lastWatchMs: Long? = null
     /** The chosen sound (BACKLOG 3), read once per ring; the beeps if anything about it is wrong. */
     private var sound: ShortArray? = null
 
@@ -181,6 +184,8 @@ class RingService : Service() {
         // "Try it on the speaker" (Settings → Alarm sound): a test ring only, on the speaker from the start.
         testOnSpeaker = test && App.instance.settings.testOnSpeaker.value
         volumePct = App.instance.settings.alarmVolume.value
+        watch = App.instance.settings.buzzWatch.value
+        lastWatchMs = null
         speakerAfterMs = RingMode.speakerAfterMs(
             App.instance.settings.speakerLastResort.value, headset() != null, buzz, RingPlan.SPEAKER_AFTER_MS, testOnSpeaker,
         )
@@ -250,6 +255,12 @@ class RingService : Service() {
                 }
             }
         }
+        // Your watch (BACKLOG F3): a new notification every few seconds, after the phone's own buzz and sound, so it
+        // can never hold them up; and nothing about it can take the ring down.
+        if (watch && WatchBuzz.due(elapsed, lastWatchMs)) {
+            lastWatchMs = elapsed
+            isolated("watch buzz (the phone rings on)") { Notifications.buzzWatch(this, legName, if (overshoot) AlarmReason.OVERSHOOT else reason, test) }
+        }
         _state.value = RingUi(legName, overshoot, startedAt, step, hs != null, test, if (overshoot) AlarmReason.OVERSHOOT else reason)
     }
 
@@ -307,6 +318,7 @@ class RingService : Service() {
             isolated("ring mode restore") { RingModeController.onRingEnd(this) }
             // Quiet trip comes back only while a trip runs and the screen is off (PLAN A4).
             isolated("quiet trip restore") { DndController.update(this, ringing = false) }
+            isolated("watch buzz clear") { Notifications.clearWatch(this) }
             wakeLock?.takeIf { it.isHeld }?.release()
             screenLock?.takeIf { it.isHeld }?.release()
             screenLock = null

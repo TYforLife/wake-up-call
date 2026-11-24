@@ -168,6 +168,7 @@ fun SoundsHost(back: () -> Unit) {
             if (hasOwn) s.customSoundName ?: "Your file" else "None yet: choose a file below",
             note, canTry = trip == null,
             volume = s.alarmVolume.collectAsState().value, testOnSpeaker = s.testOnSpeaker.collectAsState().value,
+            watch = s.buzzWatch.collectAsState().value,
         ),
         SoundsActions(
             back = back,
@@ -180,6 +181,7 @@ fun SoundsHost(back: () -> Unit) {
             tryIt = { App.instance.scheduler.set(System.currentTimeMillis()) },
             volume = s::setAlarmVolume,
             testOnSpeaker = s::setTestOnSpeaker,
+            watch = s::setBuzzWatch,
         ),
         Modifier.statusBarsPadding().navigationBarsPadding(),
     )
