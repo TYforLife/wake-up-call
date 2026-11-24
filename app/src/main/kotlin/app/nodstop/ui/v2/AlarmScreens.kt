@@ -79,6 +79,8 @@ fun AlarmAwake(
     onShare: (PanelLine) -> Unit,
     onFix: () -> Unit,
     onDone: () -> Unit,
+    /** "Get back to <stop>" after passing it (BACKLOG F23). */
+    onBack: () -> Unit = {},
 ) {
     val c = LocalN.current
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp).padding(top = 12.dp, bottom = 24.dp)) {
@@ -86,6 +88,9 @@ fun AlarmAwake(
             Eyebrow("Now")
             ScreenTitle(now.headline, xl = true)
             Lead(now.line)
+            now.backTo?.let { stop ->
+                ListRow("Get back to $stop", "Buses back from where you are", onClick = onBack, divider = false, trailing = { Chevron() })
+            }
             Text("While you slept", style = NType.eyebrow.copy(fontWeight = NType.button.fontWeight), color = c.muted, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
             when (kind) {
                 PanelText.AfterWake.CONTENT -> {
@@ -135,7 +140,11 @@ private fun MessageRow(line: PanelLine, onShare: (PanelLine) -> Unit, divider: B
 
 /** "You're awake" as the live app sees it: the trip's next step and the captured messages. */
 @Composable
-fun AlarmAwakeHost(test: Boolean, accessOk: Boolean, onShare: (PanelLine) -> Unit, onFix: () -> Unit, onDone: () -> Unit) {
+fun AlarmAwakeHost(
+    test: Boolean, accessOk: Boolean, onShare: (PanelLine) -> Unit, onFix: () -> Unit, onDone: () -> Unit,
+    /** "Get back to <stop>": that stop's name and position (BACKLOG F23). */
+    onBack: (String, app.nodstop.engine.LatLng) -> Unit = { _, _ -> },
+) {
     val trip by TripService.status.collectAsState()
     val snap by MessageStore.instance.state.collectAsState()
     val vips by App.instance.settings.vipNames.collectAsState()
@@ -143,6 +152,10 @@ fun AlarmAwakeHost(test: Boolean, accessOk: Boolean, onShare: (PanelLine) -> Uni
     val lines = remember(snap, digest) { PanelLines.combine(digest, snap.briefed, snap.urgent) }
     val kind = PanelText.afterWake(snap.active, accessOk, digest)
     NodstopV2Theme(dark = true) {
-        AlarmAwake(AwakeText.of(trip, test), kind, lines, digest.otherNotifications, onShare, onFix, onDone)
+        val t = trip
+        AlarmAwake(
+            AwakeText.of(t, test), kind, lines, digest.otherNotifications, onShare, onFix, onDone,
+            onBack = { t?.let { tr -> tr.legStops.getOrNull(tr.legIndex)?.let { onBack(tr.legName ?: "your stop", it) } } },
+        )
     }
 }

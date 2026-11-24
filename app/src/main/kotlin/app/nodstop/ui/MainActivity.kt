@@ -52,7 +52,8 @@ sealed interface Screen {
     /** Set one bus's stop on the map. [fresh]: just added; backing out without saving removes it (PLAN B1). */
     data class Stop(val routeId: String, val leg: Int, val fresh: Boolean = false) : Screen
     /** Plan a trip with real times (PLAN Run 13, T4), optionally from a Google Maps link. */
-    data class Plan(val link: String? = null) : Screen
+    /** [to]: plan to there from where you are ("Get back to Symonds St", BACKLOG F23). */
+    data class Plan(val link: String? = null, val to: app.nodstop.ui.v2.PlaceUi? = null) : Screen
     /** "Where's home? Where's work?" (PLAN Run 13, T5). */
     data object HomeWork : Screen
     /** Shared from Google Maps (PLAN Run 12, C1). */
@@ -80,12 +81,13 @@ class MainActivity : ComponentActivity() {
     private val resumeTick = mutableIntStateOf(0)
     private val pendingStart = mutableStateOf<String?>(null)
     private val pendingShare = mutableStateOf<String?>(null)
+    private val pendingPlan = mutableStateOf<app.nodstop.ui.v2.PlaceUi?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handle(intent)
-        setContent { AppRoot(resumeTick.intValue, pendingStart, pendingShare) }
+        setContent { AppRoot(resumeTick.intValue, pendingStart, pendingShare, pendingPlan) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -106,11 +108,23 @@ class MainActivity : ComponentActivity() {
             Shortcuts.reportUsed(this, it)
             intent.removeExtra(Shortcuts.EXTRA_START_ROUTE_ID)
         }
+        // "Get back to Symonds St" from the alarm screen (BACKLOG F23): Plan a trip there from here.
+        intent?.getStringExtra(Shortcuts.EXTRA_PLAN_TO_NAME)?.let { name ->
+            val lat = intent.getDoubleExtra(Shortcuts.EXTRA_PLAN_TO_LAT, Double.NaN)
+            val lng = intent.getDoubleExtra(Shortcuts.EXTRA_PLAN_TO_LNG, Double.NaN)
+            if (!lat.isNaN() && !lng.isNaN()) {
+                pendingPlan.value = app.nodstop.ui.v2.PlaceUi(name, "", app.nodstop.engine.LatLng(lat, lng), app.nodstop.ui.v2.PlaceUi.Kind.STOP)
+            }
+            intent.removeExtra(Shortcuts.EXTRA_PLAN_TO_NAME)
+        }
     }
 }
 
 @Composable
-private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendingShare: MutableState<String?>) {
+private fun AppRoot(
+    resumeTick: Int, pendingStart: MutableState<String?>, pendingShare: MutableState<String?>,
+    pendingPlan: MutableState<app.nodstop.ui.v2.PlaceUi?>,
+) {
     val ctx = LocalContext.current
     // v2 (PLAN Run 8, M2): three tabs, plus the old screens as sub-screens until Run 9 replaces them.
     var tab by remember { mutableStateOf(Tab.NOW) }
@@ -142,6 +156,11 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendin
     }
 
     // Started from a Quick Settings tile or launcher shortcut: start that route (or show the running trip).
+    LaunchedEffect(pendingPlan.value) {
+        val to = pendingPlan.value ?: return@LaunchedEffect
+        pendingPlan.value = null
+        go(Screen.Plan(to = to))
+    }
     LaunchedEffect(pendingStart.value) {
         val id = pendingStart.value ?: return@LaunchedEffect
         pendingStart.value = null
@@ -168,7 +187,7 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendin
         is Screen.Plan -> NodstopV2Theme {
             SubScreen {
                 PlanHost(
-                    "Plan a trip", null, null, null, s.link, null, fixed = false,
+                    "Plan a trip", null, s.to, null, s.link, null, fixed = false,
                     onUsed = { r, start -> if (start) { TripService.startRoute(ctx, r.id); go(Screen.Trip) } else go(Screen.Route(r.id)) },
                     back = back,
                 )
