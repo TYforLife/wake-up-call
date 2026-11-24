@@ -36,7 +36,8 @@ class UpdateLegsTest {
         val ring = Harness(cfg).run(inputs).rings.first()
         assertTrue(ring < baseline, "ring ${ring - T0} vs ${baseline - T0}")
         val reach = TestRoute.ms(T0, sim.timeWhen(sim.destAlongM - 1_500))
-        assertTrue(ring - reach in -1_000L..5_000L, "rang ${(ring - reach) / 1000.0}s after entering the circle")
+        // The first fix inside rings it, and Android fires it 5 s after it is set (SystemAlarm).
+        assertTrue(ring - reach in -1_000L..(5_000L + SystemAlarm.MIN_FUTURE_MS), "rang ${(ring - reach) / 1000.0}s after entering the circle")
     }
 
     @Test

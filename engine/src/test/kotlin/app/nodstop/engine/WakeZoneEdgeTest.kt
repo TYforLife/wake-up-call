@@ -39,7 +39,8 @@ class WakeZoneEdgeTest {
         val r = Harness().run(FixPlan().inputs(sim, T0, legs, Random(62)))
         val edge = msAt(sim, destAlong - 1_500.0)
         // At the first fix inside it: within a fix interval (up to 3 s) of the edge.
-        assertTrue(r.rings.first() <= edge + 3_500, "rang ${(r.rings.first() - edge) / 1000.0} s after the edge")
+        // The first fix inside rings it, and Android fires it 5 s after it is set (SystemAlarm).
+        assertTrue(r.rings.first() <= edge + 3_500 + SystemAlarm.MIN_FUTURE_MS, "rang ${(r.rings.first() - edge) / 1000.0} s after the edge")
     }
 
     @Test
@@ -77,7 +78,8 @@ class WakeZoneEdgeTest {
             if (!gap && v >= 15.0 && sim.arrivalS - entryS >= 60.0 && ring != null) {
                 val entry = T0 + (entryS * 1000).roundToLong()
                 assertTrue(ring >= entry - 4_000, "seed $seed zone ${zone.toInt()} m: rang ${(entry - ring) / 1000.0} s before entering it")
-                assertTrue(ring <= entry + 3_500, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
+                // The first fix inside rings it, and Android fires it 5 s after it is set (SystemAlarm).
+                assertTrue(ring <= entry + 3_500 + SystemAlarm.MIN_FUTURE_MS, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
                 atEdge++
             }
         }
@@ -108,7 +110,8 @@ class WakeZoneEdgeTest {
             val entry = msAt(sim, destAlong - zone)
             val ring = r.rings.first()
             assertTrue(ring >= entry - 4_000, "seed $seed zone ${zone.toInt()} m: rang ${(entry - ring) / 1000.0} s before entering the circle")
-            assertTrue(ring <= entry + 3_000, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
+            // The first fix inside rings it, and Android fires it 5 s after it is set (SystemAlarm).
+            assertTrue(ring <= entry + 3_000 + SystemAlarm.MIN_FUTURE_MS, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
         }
     }
 
