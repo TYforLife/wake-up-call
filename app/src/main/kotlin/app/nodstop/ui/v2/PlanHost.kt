@@ -63,7 +63,8 @@ private fun rememberSuggestions(query: String, ix: TransitIndex?, here: LatLng?,
     }
     val stops = remember(query, ix, here) {
         ix?.search(query, here, limit = 4).orEmpty().map { h ->
-            PlaceUi(h.stop.name, listOfNotNull(h.stop.code.takeIf { it.isNotEmpty() }?.let { "Stop $it" }, h.distanceM?.let { TripService.distance(it) }).joinToString(" · "), h.stop.pos, PlaceUi.Kind.STOP)
+            val mode = ix?.modeAt(h.index) ?: app.nodstop.engine.Mode.BUS
+            PlaceUi(h.stop.name, PlanText.stopSub(mode, h.stop.code, h.distanceM?.let { TripService.distance(it) }), h.stop.pos, PlaceUi.Kind.STOP, mode)
         }
     }
     val (home, work) = remember { saved() }
