@@ -582,12 +582,27 @@ doesn't flash another colour while it opens.
     stops. A swap button, and a **Leave now** chip: tap it for **Leave at** or **Arrive by** and a time.
   - Rides from the bundled timetable (`Timetable`, `Planner`: RAPTOR, up to 3 buses): "7:38 → 8:20 · 42 min", bus
     chips "866 › 70", "Walk 4 min · Central Station at 7:42". Times are the timetable's, not live.
-    - Walks to the first stop and from the last follow **real footpaths** (`WalkGraph`, BACKLOG 1). Those are
-      OpenStreetMap's walkable ways within about 1 km of each end, from the Overpass API, kept in the cache for 30
-      days (`Footpaths`; a public mirror when the main server refuses, and a refusal or timed-out reply is never
-      cached), and walked by the shortest path (up to 1.3 km). Until they arrive, or offline, walks are
-      straight lines × 1.25. Walking is 4.5 km/h. Between buses: straight × 1.25, up to about 300 m. Only **one walk
-      at a time** (never a walk to another stop and then on).
+    - **Every walk follows real footpaths** (`WalkGraph`, BACKLOG 1 and 27): to the first stop, from the last, and
+      between buses, timed along them and drawn along them on the map, like Google's. The footpaths are
+      OpenStreetMap's walkable ways around a place, from the Overpass API: every way but motorways, cars-only or buses-only
+      roads and corridors inside buildings. A trunk road counts when its footpaths are on the road itself (not barred to walkers, not a
+      motor road, footpaths not drawn apart). Pedestrian areas (plazas, concourses) are crossed corner to corner, and a gate or
+      other barrier that's locked or closed to walkers isn't walked through. The box reaches
+      every allowed walk: 1.3 km at each end (`MAX_WALK_M`), 400 m between buses (`CHANGE_WALK_M`), plus 150 m for
+      the cache's rounding. Walking is 4.5 km/h.
+    - Stepping on: a place joins the nearest street network within 250 m (a park, a campus; a fragment of path
+      that leads nowhere is skipped), counted in the walk and drawn. A stop is at its nearest path point within 80 m,
+      or a reached one at most 20 m further. A stop the footpaths can't reach (across a motorway, on a lane of its
+      own, too far) **can't be walked to**; it's dropped, never given the straight line instead.
+    - Where the footpaths come from, in order: the cache (30 days), Overpass and two public mirrors, the cache
+      however old (a failed refresh never loses it), then FOSSGIS's foot router (`FootRouter`, OSRM on OpenStreetMap:
+      the metres to the nearby stops in one request, and the way of a chosen walk). Only if all of those fail is a
+      walk the straight line × 1.25: then it says "about 4 min" and its dotted line is lighter. The footpaths for
+      home, work and every saved route's change stops are fetched when they're set and at each start until they
+      are, so the commute never plans on estimates. Walks between buses start as estimates; the footpaths at the
+      change stops of the rides shown are then fetched and the rides planned again, so a change the real walk
+      can't make isn't offered.
+    - Only **one walk at a time** (never a walk to another stop and then on).
     - A change takes at least 2 minutes.
     - Each search keeps every way to arrive within 20 minutes of the fastest (another bus, another last stop). The
       list then drops a ride when another leaves about as late (within 3 minutes) and costs less, where a change
@@ -606,9 +621,10 @@ doesn't flash another colour while it opens.
     be skipped, the ride steps too. Now's empty state opens it too, and Settings → Home and work changes them.
   - **Privacy:** home and work are kept in the phone's settings only, never in a log, the repo or a share. The
     address text you type goes only to the phone's own geocoder (`Geocoder`, which is Google's on his phone), limited
-    to Auckland. The timetable is offline. For footpaths, only a square about 2 km across around each end goes
-    to OpenStreetMap's Overpass API (like the map tiles the map already loads), with a generic client name: never
-    an address or a name.
+    to Auckland. The timetable is offline. For footpaths, only a square around a place (about 3 km across at
+    each end, 1 km at a change stop) goes to OpenStreetMap's Overpass API (like the map tiles the map already
+    loads), and, when no footpaths can be had, only the walk's points go to FOSSGIS's foot router. Both with a
+    generic client name: never an address or a name.
   - One row per route: "2 buses · 12 rides", or its problem as a red line ("Hill Ave needs a stop").
   - + makes "Route N" with Stop 1 and opens the map at once (PLAN Run 11, B1): save it and the route is ready. Back
     out and it's gone. No names to type.

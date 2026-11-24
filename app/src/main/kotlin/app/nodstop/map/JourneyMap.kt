@@ -77,11 +77,13 @@ private fun addLayers(s: Style, c: MapPalette.Colors) {
             ).withFilter(bus),
         )
     }
-    // Walks: Google's dotted grey.
+    // Walks: Google's dotted grey, along the footpaths; lighter when only estimated (a straight line, BACKLOG 27).
     s.addLayer(
         LineLayer("nod-plan-walk", "plan-lines").withProperties(
             PropertyFactory.lineColor(c.otherStop.toInt()), PropertyFactory.lineWidth(4f),
-            PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineDasharray(arrayOf(0.1f, 2f)),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            PropertyFactory.lineDasharray(arrayOf(0.1f, 2f)),
+            PropertyFactory.lineOpacity(Expression.switchCase(Expression.eq(Expression.get("estimated"), true), Expression.literal(0.45f), Expression.literal(1f))),
         ).withFilter(Expression.eq(Expression.get("walk"), true)),
     )
     s.addLayer(

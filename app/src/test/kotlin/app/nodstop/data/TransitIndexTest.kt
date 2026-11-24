@@ -12,8 +12,8 @@ class TransitIndexTest {
 
     @Test
     fun `the index reads - stops with numbers and positions, route patterns in order`() {
-        assertEquals(8, ix.stops.size)
-        assertEquals(5, ix.patterns.size)
+        assertEquals(10, ix.stops.size)
+        assertEquals(6, ix.patterns.size)
         val museum = ix.patterns.first { it.route == "100" && it.headsign == "Test Museum" }
         assertEquals(listOf("Test Harbour Station A", "Test Queen St", "Test Museum", "Test Park Rd"), museum.stops.map { ix.stops[it].name })
     }

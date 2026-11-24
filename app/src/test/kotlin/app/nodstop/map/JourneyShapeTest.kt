@@ -35,4 +35,18 @@ class JourneyShapeTest {
         assertTrue(JourneyShape.linesJson(s).contains("\"walk\":true"))
         assertTrue(JourneyShape.marksJson(s).contains("\"kind\":\"end\""))
     }
+
+    @Test
+    fun `a walk on the map follows its footpaths, and only an estimate is a straight line, drawn lighter`() {
+        val corner = LatLng(-36.7795, 174.7502)
+        val along = j.copy(legs = listOf(Leg.Walk(null, 1, 120.0, 96, points = listOf(from, corner, pos.getValue(1)))) + j.legs.drop(1))
+        val s = JourneyShape.of(along, from, to, { pos.getValue(it) }, { "Stop $it" })
+        assertEquals(listOf(from, corner, pos[1]), s.lines[0].points)
+        assertTrue(s.lines.none { it.estimated })
+        val est = j.copy(legs = listOf(Leg.Walk(null, 1, 120.0, 96, estimated = true)) + j.legs.drop(1))
+        val e = JourneyShape.of(est, from, to, { pos.getValue(it) }, { "Stop $it" })
+        assertEquals(listOf(from, pos[1]), e.lines[0].points)
+        assertTrue(e.lines[0].estimated)
+        assertTrue(JourneyShape.linesJson(e).contains("\"estimated\":true"))
+    }
 }

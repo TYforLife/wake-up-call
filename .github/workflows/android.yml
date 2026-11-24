@@ -30,15 +30,45 @@ jobs:
         run: |
           python3 tools/gtfs_index.py --out app/src/main/assets/gtfs
           cat app/src/main/assets/gtfs/meta.txt >> "$GITHUB_STEP_SUMMARY"
-      - name: OpenStreetMap footpaths around a public place (BACKLOG 1; for the real-data walking test)
-        continue-on-error: true
+      # Fetched once per version of the queries and kept, so a busy Overpass never blocks a build and every run
+      # tests the same map; a new query fetches again.
+      - name: Footpaths fetched before, for these queries
+        id: footpaths
+        uses: actions/cache/restore@v4
+        with:
+          path: app/build/footpaths
+          key: footpaths-${{ hashFiles('.github/workflows/android.yml', 'tools/walk_reference.py') }}
+      - name: OpenStreetMap footpaths and a foot router's walks around public places (BACKLOG 27; RealWalkTest needs them)
+        if: steps.footpaths.outputs.cache-hit != 'true'
         run: |
           mkdir -p app/build/footpaths
-          q='[out:json][timeout:25];way["highway"]["highway"!~"^(motorway|motorway_link|trunk|trunk_link|construction|proposed|bus_guideway|busway|raceway)$"]["foot"!~"^(no|private)$"]["access"!~"^(no|private)$"](-36.86908,174.75854,-36.85112,174.78086);(._;>;);out skel qt;'
-          curl -sS -m 90 -A "Nodstop-CI" --data-urlencode "data=$q" https://overpass-api.de/api/interpreter -o app/build/footpaths/hospital.json
-          ls -la app/build/footpaths
-          # A short reply is Overpass explaining a refusal: show it.
-          if [ "$(stat -c %s app/build/footpaths/hospital.json)" -lt 2000 ]; then cat app/build/footpaths/hospital.json; fi
+          # The app's own queries (WalkGraphTest checks they match WalkGraph.query), around two public places.
+          q_hospital='[out:json][timeout:25];(way["highway"]["highway"!~"^(motorway|motorway_link|trunk|trunk_link|construction|proposed|bus_guideway|busway|raceway|corridor)$"]["foot"!~"^(no|private)$"]["access"!~"^(no|private)$"](-36.87313,174.75342,-36.84707,174.78598);way["highway"~"^(trunk|trunk_link)$"]["foot"!~"^(no|private|use_sidepath)$"]["access"!~"^(no|private)$"]["motorroad"!="yes"]["sidewalk"!~"^(no|none|separate)$"](-36.87313,174.75342,-36.84707,174.78598);)->.w;(.w;>;);out skel qt;way.w["area"="yes"];out ids qt;node(w.w)["barrier"]["access"~"^(no|private)$"]["foot"!~"^(yes|designated|permissive)$"];out ids qt;node(w.w)["barrier"]["foot"~"^(no|private)$"];out ids qt;node(w.w)["barrier"]["locked"="yes"];out ids qt;'
+          q_britomart='[out:json][timeout:25];(way["highway"]["highway"!~"^(motorway|motorway_link|trunk|trunk_link|construction|proposed|bus_guideway|busway|raceway|corridor)$"]["foot"!~"^(no|private)$"]["access"!~"^(no|private)$"](-36.85723,174.75132,-36.83117,174.78388);way["highway"~"^(trunk|trunk_link)$"]["foot"!~"^(no|private|use_sidepath)$"]["access"!~"^(no|private)$"]["motorroad"!="yes"]["sidewalk"!~"^(no|none|separate)$"](-36.85723,174.75132,-36.83117,174.78388);)->.w;(.w;>;);out skel qt;way.w["area"="yes"];out ids qt;node(w.w)["barrier"]["access"~"^(no|private)$"]["foot"!~"^(yes|designated|permissive)$"];out ids qt;node(w.w)["barrier"]["foot"~"^(no|private)$"];out ids qt;node(w.w)["barrier"]["locked"="yes"];out ids qt;'
+          # Each server the app uses, three rounds; a refusal (HTML, or a "remark") is not footpaths.
+          fetch() {
+            for round in 1 2 3; do
+              for s in https://overpass-api.de/api/interpreter https://overpass.private.coffee/api/interpreter https://maps.mail.ru/osm/tools/overpass/api/interpreter; do
+                if curl -sS -m 120 -A "Nodstop-CI" --data-urlencode "data=$1" "$s" -o "$2" && grep -q '"way"' "$2" && ! grep -q '"remark"' "$2"; then
+                  echo "$2: $(stat -c %s "$2") bytes from $s"; return 0
+                fi
+                echo "$2: no footpaths from $s"; head -c 300 "$2" 2>/dev/null; echo
+              done
+              sleep $((round * 30))
+            done
+            return 1
+          }
+          fetch "$q_hospital" app/build/footpaths/hospital.json
+          fetch "$q_britomart" app/build/footpaths/britomart.json
+          if [ -f app/src/main/assets/gtfs/stops.tsv ]; then
+            python3 tools/walk_reference.py --stops app/src/main/assets/gtfs/stops.tsv --out app/build/footpaths
+          fi
+      - name: Keep the footpaths for the next runs
+        if: steps.footpaths.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: app/build/footpaths
+          key: footpaths-${{ hashFiles('.github/workflows/android.yml', 'tools/walk_reference.py') }}
       - name: Test and build
         run: ./gradlew :engine:test :brief:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain
         env:
@@ -51,6 +81,7 @@ jobs:
           if [ -f "$f" ]; then sed -n '/<system-out>/,/<\/system-out>/p' "$f"; else echo "no planner results"; fi
           f=app/build/test-results/testDebugUnitTest/TEST-app.nodstop.data.RealWalkTest.xml
           if [ -f "$f" ]; then sed -n '/<system-out>/,/<\/system-out>/p' "$f"; else echo "no walking results"; fi
+          python3 tools/walk_reference.py --explain app/build/footpaths/disagree.tsv || true
       - name: Ring path on the JVM (PLAN Run 10, A2; a failure blocks the merge)
         run: ./gradlew :app:testDebugUnitTest -Pscreenshots --tests '*RingPathTest' --console=plain
       - name: Screenshots (PLAN U0; never blocks the APK)

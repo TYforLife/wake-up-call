@@ -107,6 +107,11 @@ new, or repeats something, add it here in the same PR.
   recordings (a 20 s morning and three ~1.5 s screams) and asked for the morning looping with screams "happening
   stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
 
+## 2026-11-23 (walks)
+- **Walks must look and measure like Google's.** The map drew the walk as a straight line while its minutes followed
+  the footpaths: "make it match. Find a way. No nos." The straight line × 1.25 is the "last last last resort", not a
+  quiet default. BACKLOG F39 (was item 27). "No nos" means: don't come back with why it can't be done; find the way.
+
 ## 2026-11-23 (product review)
 - He asked for a product director's view and a backlog for later sessions. He rejected the first one (a ranked
   list with criteria) and wanted a **feature list he ranks himself**. It's `docs/BACKLOG.md`, F1–F38 with his
