@@ -356,8 +356,7 @@ object WidgetText {
     fun idle(route: RouteOption?, bus: String?, departuresS: List<Int>, nowS: Int): WidgetUi {
         if (route == null) return WidgetUi("Nodstop", "Set up home and work", WidgetUi.Action("Set up", WidgetUi.Kind.OPEN))
         route.problem?.let { return WidgetUi(route.title, it, WidgetUi.Action("Fix", WidgetUi.Kind.OPEN)) }
-        val next = if (bus == null) emptyList() else departuresS.filter { it >= nowS }.take(2)
-        val title = if (next.isEmpty()) route.title else "${route.title} · $bus ${next.joinToString(", ") { PlanText.clock(it) }}"
+        val title = bus?.let { PlanText.nextBuses(it, departuresS, nowS) }?.let { "${route.title} · $it" } ?: route.title
         return WidgetUi(title, route.subtitle, WidgetUi.Action("Start", WidgetUi.Kind.START, route.id))
     }
 

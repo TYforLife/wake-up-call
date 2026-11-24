@@ -113,6 +113,19 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     val lastTrip by produceState<Pair<String, List<VerdictLine>>?>(null, resumeTick, stopTick, verdictTick) {
         value = withContext(Dispatchers.IO) { lastTripVerdict() }
     }
+    // Each route's bus and its next two, "866 7:43, 7:51" (BACKLOG F8), redrawn each minute.
+    val nextBuses by produceState(emptyMap<String, String>(), routes, resumeTick) {
+        while (true) {
+            val nowS = java.time.LocalTime.now().toSecondOfDay()
+            value = routes.mapNotNull { r ->
+                val first = r.legs.firstOrNull()
+                val bus = first?.bus ?: return@mapNotNull null
+                val board = first.boardCoords ?: return@mapNotNull null
+                PlanText.nextBuses(bus, TransitData.todayDepartures(ctx, bus, board), nowS)?.let { r.id to it }
+            }.toMap()
+            kotlinx.coroutines.delay(60_000)
+        }
+    }
     // Every trip log, read once each (BACKLOG F30): off the main thread.
     val sleep by produceState<SleepUi?>(null, resumeTick) { value = withContext(Dispatchers.IO) { sleepOnTheBus() } }
     val startNow: (String) -> Unit = { id ->
@@ -120,7 +133,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     }
     val ui = NowIdleUi(
         greeting = Greeting.of(cal.get(Calendar.HOUR_OF_DAY)),
-        routes = routes.map { RouteOption(it.id, it.name, routeSubtitle(it), RouteText.problem(it)) },
+        routes = routes.map { RouteOption(it.id, it.name, RouteText.withNextBuses(routeSubtitle(it), nextBuses[it.id]), RouteText.problem(it)) },
         selectedId = picked,
         notReady = notReady,
         interruptedAlarm = persisted?.let { app.scheduler.scheduledAtMs?.let(::hm) ?: "" },
