@@ -180,7 +180,7 @@ class Engine(val cfg: Config = Config()) {
             return nowMs + (cfg.noFixS * 1000).roundToLong() to AlarmReason.NO_GPS
         }
         val reason = if (target == st.legIndex && st.phase != Phase.AWAKE) AlarmReason.FAILSAFE else AlarmReason.NEXT_LEG
-        return max(nowMs, failsafeAt(ft, Geo.distanceM(pos, st.legs[target].stop))) to reason
+        return max(nowMs, failsafeAt(ft, Geo.distanceM(pos, st.legs[target].stop), vMaxTo(st, target))) to reason
     }
 
     /**
@@ -196,8 +196,16 @@ class Engine(val cfg: Config = Config()) {
     private fun withAlarm(st: EngineState, a: Pair<Long, AlarmReason>?): EngineState =
         st.copy(alarmAtMs = a?.first, alarmReason = a?.second)
 
-    private fun failsafeAt(ftMs: Long, straightM: Double, leadS: Double = cfg.leadS): Long =
-        ftMs + (max(cfg.deadmanMinS, straightM / cfg.vMax - leadS) * 1000).roundToLong()
+    /** The dead-man's switch: when the stop could be reached at [vMax] (m/s) on the straight line, less the lead. */
+    private fun failsafeAt(ftMs: Long, straightM: Double, vMax: Double, leadS: Double = cfg.leadS): Long =
+        ftMs + (max(cfg.deadmanMinS, straightM / vMax - leadS) * 1000).roundToLong()
+
+    /**
+     * The fastest you could be going between here and the stop the alarm protects (BACKLOG F29): every leg from this
+     * one to [target] may be ridden before it, so the fastest of them bounds the failsafe.
+     */
+    private fun vMaxTo(st: EngineState, target: Int): Double =
+        (minOf(st.legIndex, target)..target).mapNotNull { st.legs.getOrNull(it) }.maxOfOrNull { cfg.vMaxOf(it.mode) } ?: cfg.vMax
 
     /** This stop's lead: tuned by your too-early / too-late ratings, within 30-90 s; else LEAD. */
     fun leadFor(leg: Leg): Double = leg.learned?.leadS?.coerceIn(cfg.minLeadS, cfg.maxLeadS) ?: cfg.leadS
@@ -244,7 +252,7 @@ class Engine(val cfg: Config = Config()) {
         if (pos == null || ft == null) return withAlarm(st, max(floor, nowMs + (cfg.noFixS * 1000).roundToLong()) to AlarmReason.NO_GPS)
         val reason = if (target == st.legIndex) AlarmReason.FAILSAFE else AlarmReason.NEXT_LEG
         val straight = Geo.distanceM(pos, st.legs[target].stop)
-        var at = failsafeAt(ft, straight)
+        var at = failsafeAt(ft, straight, vMaxTo(st, target))
         if (target == st.legIndex) {
             val eta = st.lastEtaS
             if (eta != null && st.lastEtaBaseMs != null) at = min(at, st.lastEtaBaseMs + ((eta - cfg.leadS) * 1000).roundToLong())
@@ -360,7 +368,7 @@ class Engine(val cfg: Config = Config()) {
             val leg = st.legs[target]
             val ownLeg = target == st.legIndex && st.phase != Phase.AWAKE
             val lead = wakeLead(leg)
-            var fresh = failsafeAt(ft, Geo.distanceM(pos, leg.stop), if (ownLeg) maxOf(cfg.leadS, lead) else cfg.leadS)
+            var fresh = failsafeAt(ft, Geo.distanceM(pos, leg.stop), vMaxTo(st, target), if (ownLeg) maxOf(cfg.leadS, lead) else cfg.leadS)
             var freshReason = if (ownLeg) AlarmReason.FAILSAFE else AlarmReason.NEXT_LEG
             val eta = st.lastEtaS
             val base = st.lastEtaBaseMs
@@ -465,7 +473,7 @@ class Engine(val cfg: Config = Config()) {
         // Never faster than a bus can go (owner, 2026-11-24: woken ~4 km out). A past ride with bad timing made the
         // speed impossible and the time left nothing. Capping at V_MAX keeps §2's invariant: its precondition is
         // that the bus never exceeds V_MAX, which the failsafe already assumes.
-        val vEst = minOf(cfg.vMax, maxOf(floor, short ?: 0.0, learnedV ?: maxOf(peak ?: 0.0, tripV ?: 0.0)))
+        val vEst = minOf(cfg.vMaxOf(leg.mode), maxOf(floor, short ?: 0.0, learnedV ?: maxOf(peak ?: 0.0, tripV ?: 0.0)))
         val etaS = dEff / vEst
         val recentV = avgSpeed(samples, ft, cfg.etaSpeedWinS, cfg.minSpanS)
         val displayEta = Eta.display(match?.typicalToEndS, pace, dEff, tripV ?: recentV, s.phase == Phase.WAITING && !s.boarded)
@@ -565,7 +573,7 @@ class Engine(val cfg: Config = Config()) {
         // Per-stop lead, tuned by your ratings (30-90 s); the failsafe never uses less than the default.
         val lead = wakeLead(leg)
         val wakeAt = ft + ((etaS - lead) * 1000).roundToLong()
-        val failsafe = failsafeAt(ft, straight, maxOf(cfg.leadS, lead))
+        val failsafe = failsafeAt(ft, straight, cfg.vMaxOf(leg.mode), maxOf(cfg.leadS, lead))
         var alarm = min(wakeAt, failsafe)
         var reason = if (wakeAt <= failsafe) AlarmReason.WAKE else AlarmReason.FAILSAFE
         // No speed information yet (start of a leg, or back from a dropout): a fix may pull the alarm earlier, never later.
@@ -583,7 +591,7 @@ class Engine(val cfg: Config = Config()) {
         val zone = leg.wakeRadiusM
         // From outside it only: waiting at a stop that's already inside your circle must not ring before the bus.
         if (zone != null && straight > zone) {
-            val edgeFailsafe = failsafeAt(ft, max(0.0, straight - zone), 0.0)
+            val edgeFailsafe = failsafeAt(ft, max(0.0, straight - zone), cfg.vMaxOf(leg.mode), 0.0)
             if (edgeFailsafe < alarm) { alarm = edgeFailsafe; reason = AlarmReason.FAILSAFE }
         }
         // Inside it on the bus, ring now. "On the bus" = boarding detected, or bus speed right now (a trip started
@@ -598,7 +606,7 @@ class Engine(val cfg: Config = Config()) {
     /** While awake for this stop (or this leg's alarm is off): only the next alarm-on leg's failsafe. */
     private fun scheduleNextLeg(st: EngineState, now: Long, ft: Long, pos: LatLng): EngineState {
         val target = alarmTarget(st) ?: return withAlarm(st, null)
-        val at = max(now, failsafeAt(ft, Geo.distanceM(pos, st.legs[target].stop)))
+        val at = max(now, failsafeAt(ft, Geo.distanceM(pos, st.legs[target].stop), vMaxTo(st, target)))
         return withAlarm(st, at to AlarmReason.NEXT_LEG)
     }
 

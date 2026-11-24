@@ -48,6 +48,14 @@ class InvariantPropertyTest {
 
     private var leadOverride: Double? = null
 
+    /** BACKLOG F29: the same invariant on trains, at speeds up to the train's V_MAX, with the leg marked as a train. */
+    @Test
+    fun `invariant holds on trains up to the train's V_MAX`() {
+        val cases = (1..500).map { runCase(it, Mode.TRAIN) }
+        val failures = cases.filter { it.worstMarginS < 0 || it.leadS == null }
+        assertTrue(failures.isEmpty()) { "violations on trains: " + failures.take(5).joinToString { "seed ${it.seed}: ${it.worstMarginS}" } }
+    }
+
     /**
      * The test has teeth: the same trips with the speed floor or the V_MAX failsafe removed do break it.
      * "Without V_FLOOR" also removes the other speed backstops (recent peak, whole-ride speed).
@@ -71,12 +79,13 @@ class InvariantPropertyTest {
 
     private var engineOverride: Config? = null
 
-    private fun runCase(seed: Int): Case {
+    private fun runCase(seed: Int, mode: Mode = Mode.BUS): Case {
+        val vMax = cfg.vMaxOf(mode)
         val rnd = Random(seed)
         val startDist = rnd.nextDouble(3_000.0, 20_000.0)
         val (path, destAlong) = Path.random(rnd, startDist)
         val dest = path.at(destAlong)
-        val reach = cfg.failsafeReachM + 100
+        val reach = (cfg.leadS + cfg.deadmanMinS) * vMax + 100
 
         // Plan observation first (fix times, dropouts, kill), since the precondition depends on what the phone sees.
         val roughEndS = destAlong / 3.0 + 3_600
@@ -108,7 +117,7 @@ class InvariantPropertyTest {
             val stop = rnd.nextDouble() < 0.2
             val dur = if (stop) rnd.nextDouble(10.0, 60.0) else rnd.nextDouble(15.0, 180.0)
             tSeg += dur
-            segments += tSeg to (if (stop) 0.0 else rnd.nextDouble(3.0, cfg.vMax))
+            segments += tSeg to (if (stop) 0.0 else rnd.nextDouble(3.0, vMax))
         }
         val accel = rnd.nextDouble(0.6, 2.0)
 
@@ -117,7 +126,7 @@ class InvariantPropertyTest {
         var segIdx = 0
         val sim = Sim(path, destAlong, accel = accel, maxS = roughEndS * 3) { v ->
             while (segIdx < segments.size - 1 && segments[segIdx].first < v.tS) segIdx++
-            var target = min(segments[segIdx].second, cfg.vMax)
+            var target = min(segments[segIdx].second, vMax)
             while (fixIdx < fixTimes.size && fixTimes[fixIdx] <= v.tS) {
                 val ft = fixTimes[fixIdx++]
                 val w = cfg.peakAvgS
@@ -139,7 +148,7 @@ class InvariantPropertyTest {
         simRef = null
 
         val arrivalMs = Trips.arrivalMs(sim)
-        val legs = listOf(Leg("Dest", dest, learned = leadOverride?.let { Learned(dest, emptyList(), 0, it) }))
+        val legs = listOf(Leg("Dest", dest, learned = leadOverride?.let { Learned(dest, emptyList(), 0, it) }, mode = mode))
         val inputs = plan.inputs(sim, T0, legs, Random(planSeed), fixTimes.filter { it < sim.endS })
         var worst = Double.MAX_VALUE
         val bound = arrivalMs - ((leadOverride ?: cfg.leadS) * 1000).toLong() + toleranceMs

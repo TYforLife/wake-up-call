@@ -4,6 +4,7 @@ import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
 import app.nodstop.engine.Learned
 import app.nodstop.engine.Leg
+import app.nodstop.engine.Mode
 import kotlinx.serialization.Serializable
 import java.util.Locale
 import java.util.UUID
@@ -25,6 +26,8 @@ data class LegDraft(
     /** Where you get on it: its name and "lat, lng". */
     val boardName: String? = null,
     val boardCoords: String? = null,
+    /** What you ride to this stop (BACKLOG F29): a train's failsafe assumes a train's speed. Bus unless known. */
+    val mode: Mode = Mode.BUS,
 )
 
 @Serializable
@@ -36,7 +39,7 @@ data class Route(
     /** Engine legs with what has been learned about each stop, or null if any leg is incomplete. */
     fun toLegs(learned: (LatLng) -> Learned? = { null }): List<Leg>? = legs.mapIndexed { i, d ->
         val dest = CoordParser.parse(d.coords) ?: return null
-        Leg(name = d.name.ifBlank { "Stop ${i + 1}" }, dest = dest, alarmEnabled = d.alarmEnabled, learned = learned(dest), wakeRadiusM = d.wakeRadiusM)
+        Leg(name = d.name.ifBlank { "Stop ${i + 1}" }, dest = dest, alarmEnabled = d.alarmEnabled, learned = learned(dest), wakeRadiusM = d.wakeRadiusM, mode = d.mode)
     }.takeIf { it.isNotEmpty() }
 
     /**

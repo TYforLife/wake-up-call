@@ -68,6 +68,9 @@ On every good GPS fix (time `ft`) for the leg you might sleep on, the engine sch
     - `V_FLOOR` = 25 km/h (halved on a learned route). It also means "ring by ~310 m" when stopped.
 - **failsafeAt**: when the alarm must ring if no further fixes arrive, assuming the bus could go as
   fast as `V_MAX`: `ft + max(DEADMAN_MIN, straight / V_MAX − LEAD)`. Measured on the straight line.
+  `V_MAX` is the leg's (BACKLOG F29): a train leg uses `V_MAX_TRAIN`, a bus or ferry leg `V_MAX`. Protecting a
+  later stop (awake for this one, or its alarm off), it is the fastest of the legs from here to that stop, since
+  any of them may be ridden first. `v_est` is capped at the leg's `V_MAX` too.
 - `scheduled = max(now, min(wakeAt, failsafeAt))`.
 
 While fixes keep arriving (every 1–3 s), `failsafeAt` keeps being pushed forward and never fires.
@@ -247,7 +250,8 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
 
 ### The invariant (the spec the tests enforce)
 
-> From the first known position, for any trip whose speed never exceeds `V_MAX`, and which, inside
+> From the first known position, for any trip whose speed never exceeds its legs' `V_MAX` (a train's on a train
+> leg), and which, inside
 > the last `(LEAD + DEADMAN_MIN) × V_MAX ≈ 1.9 km`, never goes faster than the fastest 15-s average the
 > phone has observed in the last 30 s (or `V_FLOOR`), at every instant the scheduled alarm time is no
 > later than `trueArrival − LEAD + TOLERANCE` (`TOLERANCE` 20 s, so **never less than 25 s ahead**),
@@ -267,7 +271,8 @@ trips break the bound without the failsafe, or without `V_FLOOR`.
 |---|---|---|
 | `LEAD` | 45 s | Ring this long before the estimated arrival (target 30–60 s). |
 | `V_FLOOR` | 25 km/h | Stops ETA blowing up when stopped; ≈ "ring by 310 m". Halved on a learned route. |
-| `V_MAX` | 90 km/h | Worst-case bus speed, used by the failsafe. |
+| `V_MAX` | 90 km/h | Worst-case bus speed, used by the failsafe. Ferries too (Auckland's fastest ≈ 65 km/h). |
+| `V_MAX_TRAIN` | 120 km/h | Worst-case train speed (Auckland's trains run up to 110 km/h), on a train leg (F29). |
 | `WIN_SHORT` | 15 s | Current speed (path length ÷ time). |
 | `WIN_PEAK` / `PEAK_AVG` | 30 s / 15 s | First rides only: fastest 15-s average of the last 30 s. |
 | `DEADMAN_MIN` | 30 s | Smallest push-forward. |
