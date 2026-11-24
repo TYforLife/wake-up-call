@@ -205,10 +205,15 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
     250 m at 30 km/h, 375 m at 45 km/h. The circle sheet says so.
   - Before, a circle only ever added an earlier ring, so the stop's 45 s timing (about 500–600 m out at 40–50 km/h)
     rang before every circle of the sizes offered (150–400 m).
-  - From outside the circle, the estimate and the failsafe also aim at **its edge**, with no extra lead:
-    `ft + (d − r) / v_est` and `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`.
-    - Recomputed at every fix (1–2 s), the estimate fires at most a fix early while GPS is fine.
-    - A GPS gap is covered: a gap from 60 s before the edge still rings before it.
+  - It rings from a **fix inside the circle**, never from an estimate of when the bus will get there.
+    - Owner, 2026-11-24, with a screenshot: it rang about 4 km out, far outside a 2 km circle. A past ride with bad
+      timing had made the estimate's speed impossible.
+    - Only the dead-man's switch aims at the edge, at V_MAX: `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`. While
+      fixes come it's pushed on; a GPS gap from 60 s before the edge still rings before it.
+  - **v_est is never above V_MAX** (all stops). §2's precondition already assumes the bus never exceeds V_MAX, so the
+    invariant holds (`InvariantPropertyTest`). Tested with a past ride whose times are a tenth of the real ones:
+    - with a circle, it rings at the edge and not before (100 random trips);
+    - without one, within 2 minutes of the stop, not 8.
   - Waiting at a stop inside the zone doesn't ring until you're on the bus.
 - **Property-tested.** The 30 s minimum's invariant holds (`InvariantPropertyTest` at a 30 s lead).
   - With a circle, the first ring is never later than the same trip with no circle at a 30 s lead (300 random
@@ -521,7 +526,16 @@ doesn't flash another colour while it opens.
     - It shows only this trip's stops: your stop as Google's red pin with its circle shaded blue, the others as
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
     - The stops still to come have their circles too, fainter (`MapModel.tripZones`). Stops behind you have none.
-    - A scale bar, top left, like Google's (`Scale`: the longest round distance under 96 dp).
+    - A scale bar, top left (owner, 2026-11-24: "fixed length, change units"). It's always 72 dp long, and its label says
+      how far that is: "140 m", "1.4 km" (`Scale`).
+    - Every circle of the trip can be changed, not only the one it's watching, but not by accident (owner,
+      2026-11-24: "don't make the circles too easy to edit"):
+      - first tap the stop itself: within a finger's width of its pin or dot (`CircleDrag.pickStop`);
+      - its circle turns bold and dashed, and its sizes open;
+      - only then can that circle's edge be dragged.
+
+      Touching anywhere else moves the map. The size is saved to that stop of that route and applies to the trip at
+      once. Done in the sizes ends editing.
     - Every leg's way (owner, 2026-11-24): the one you're on in route blue, the others grey (`MapModel.legPaths`):
       - the bus's **road**, when Plan a trip knows the bus (`Departures.path`). That's the feed's `shapes.txt`:
         `tools/gtfs_index.py` keeps each pattern's most common shape, simplified to 8 m, as an encoded polyline with

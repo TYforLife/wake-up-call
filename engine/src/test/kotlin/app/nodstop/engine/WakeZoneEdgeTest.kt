@@ -38,7 +38,8 @@ class WakeZoneEdgeTest {
         val (sim, destAlong, legs) = trip(zone = 1_500.0)
         val r = Harness().run(FixPlan().inputs(sim, T0, legs, Random(62)))
         val edge = msAt(sim, destAlong - 1_500.0)
-        assertTrue(r.rings.first() <= edge + 2_000, "rang ${(r.rings.first() - edge) / 1000.0} s after the edge")
+        // At the first fix inside it: within a fix interval (up to 3 s) of the edge.
+        assertTrue(r.rings.first() <= edge + 3_500, "rang ${(r.rings.first() - edge) / 1000.0} s after the edge")
     }
 
     @Test
@@ -69,15 +70,59 @@ class WakeZoneEdgeTest {
             val minimum = Harness().run(plan.inputs(sim, T0, listOf(at30), Random(seed))).rings.firstOrNull()
             val ring = Harness().run(plan.inputs(sim, T0, listOf(Leg("S", dest, wakeRadiusM = zone)), Random(seed))).rings.firstOrNull()
             if (minimum != null) assertTrue(ring != null && ring <= minimum, "seed $seed zone ${zone.toInt()} m: $ring vs the 30 s minimum $minimum")
-            // Steady GPS, and a circle the bus reaches well before the 30 s minimum: it rings at the edge, not outside.
+            // Steady GPS, a bus at bus speed (15 km/h and up: boarding is detected), and a circle it reaches well
+            // before the 30 s minimum: it rings at the edge, not outside. (Slower than that it isn't known to be on a
+            // bus; the 30 s minimum above still holds.)
             val entryS = (0..(sim.arrivalS * 10).toInt()).map { it / 10.0 }.firstOrNull { Geo.distanceM(sim.posAt(it), dest) <= zone } ?: continue
-            if (!gap && sim.arrivalS - entryS >= 60.0 && ring != null) {
+            if (!gap && v >= 15.0 && sim.arrivalS - entryS >= 60.0 && ring != null) {
                 val entry = T0 + (entryS * 1000).roundToLong()
                 assertTrue(ring >= entry - 4_000, "seed $seed zone ${zone.toInt()} m: rang ${(entry - ring) / 1000.0} s before entering it")
-                assertTrue(ring <= entry + 3_000, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
+                assertTrue(ring <= entry + 3_500, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
                 atEdge++
             }
         }
-        assertTrue(atEdge > 50, "only $atEdge trips checked at the edge")
+        assertTrue(atEdge > 40, "only $atEdge trips checked at the edge")
+    }
+
+    /**
+     * Owner, 2026-11-24 (screenshot: rang ~4 km out, far outside a 2 km circle): a past ride whose timing is badly wrong
+     * (here a tenth of the real time, so the bus looks impossibly fast) must not ring it early. With steady GPS it
+     * still rings as the bus enters the circle, not before.
+     */
+    @Test
+    fun `a past ride with absurd timing can't ring before your circle - 100 random trips`() {
+        for (seed in 1..100) {
+            val rnd = Random(seed)
+            val (path, destAlong) = Path.straight(rnd.nextInt(60, 120) * 100.0)
+            val v = rnd.nextDouble(30.0, 80.0)
+            val sim = Sim(path, destAlong) { kmh(v) }.run()
+            val dest = path.at(destAlong)
+            // The learned ride: the true way there, but every time left divided by 10.
+            val pts = (0..60).map { i ->
+                val s = destAlong * i / 60.0
+                path.at(s).let { TrackPoint(it.lat, it.lng, destAlong - s, (destAlong - s) / kmh(v) / 10.0) }
+            }
+            val zone = rnd.nextDouble(800.0, 2_000.0)
+            val leg = Leg("S", dest, wakeRadiusM = zone, learned = Learned(dest, listOf(Track(pts)), 3))
+            val r = Harness().run(FixPlan().inputs(sim, T0, listOf(leg), Random(seed)))
+            val entry = msAt(sim, destAlong - zone)
+            val ring = r.rings.first()
+            assertTrue(ring >= entry - 4_000, "seed $seed zone ${zone.toInt()} m: rang ${(entry - ring) / 1000.0} s before entering the circle")
+            assertTrue(ring <= entry + 3_000, "seed $seed zone ${zone.toInt()} m: rang ${(ring - entry) / 1000.0} s after entering it")
+        }
+    }
+
+    /** No circle: the same bad past ride rings no earlier than the bus at V_MAX would need (lead + what that saves). */
+    @Test
+    fun `a past ride with absurd timing rings at most a little early without a circle`() {
+        val (path, destAlong) = Path.straight(8_000.0)
+        val v = 60.0
+        val sim = Sim(path, destAlong) { kmh(v) }.run()
+        val dest = path.at(destAlong)
+        val pts = (0..60).map { i -> val s = destAlong * i / 60.0; path.at(s).let { TrackPoint(it.lat, it.lng, destAlong - s, (destAlong - s) / kmh(v) / 10.0) } }
+        val r = Harness().run(FixPlan().inputs(sim, T0, listOf(Leg("S", dest, learned = Learned(dest, listOf(Track(pts)), 3))), Random(9)))
+        val lead = Trips.leadS(sim, r)
+        // At V_MAX (90 km/h) instead of 60: a third sooner than the true time, so at most ~45 s + a third of the ride's end.
+        assertTrue(lead < 120.0, "rang $lead s before the stop")
     }
 }
