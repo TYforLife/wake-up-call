@@ -7,9 +7,10 @@ import java.time.LocalDate
  * The journey planner (PLAN Run 13, T2; owner's feedback on Run 13): from a place to a place, leaving at or arriving
  * by a time, by up to [MAX_BUSES] buses, on Auckland Transport's real timetable.
  *
- * Round-based RAPTOR: round k finds the earliest arrival at every stop with k buses. Walks are straight lines times
- * [DETOUR] (streets aren't straight) at [WALK_MPS]: one walk to the first stop, one between buses (never two in a
- * row), one from the last stop. Each search keeps every way to arrive within [SLACK_S] of the fastest (another last
+ * Round-based RAPTOR: round k finds the earliest arrival at every stop with k buses. Walks follow the footpaths
+ * ([Walks], BACKLOG 27) at [WALK_MPS]: one walk to the first stop, one between buses (never two in a row), one from
+ * the last stop. Where the footpaths aren't known, and only there, a walk is the straight line times [DETOUR]
+ * (streets aren't straight), and says it's an estimate. Each search keeps every way to arrive within [SLACK_S] of the fastest (another last
  * stop, another bus), not just the fastest, and the list is like Google's: rides another ride beats on every count
  * (leaves no earlier, arrives no later once a change costs [CHANGE_COST_S] and walking counts extra) are dropped.
  * Pure: tested on the JVM with the fixture feed.
@@ -23,6 +24,8 @@ object Planner {
     /** Straight-line limits: about 1 km and 300 m on foot. */
     const val ACCESS_M = 800.0
     const val CHANGE_M = 250.0
+    /** The longest walk between buses, along footpaths (5 minutes). */
+    const val CHANGE_WALK_M = 400.0
     /** The least time to change buses, at the same stop or walking to one nearby (Google allows about 2 minutes). */
     const val CHANGE_S = 120
     /** How far ahead the list looks for later departures. */
@@ -36,10 +39,14 @@ object Planner {
 
     sealed interface Leg {
         /**
-         * On foot: from a stop (null: from where you start) to a stop (null: to where you're going). [path]: the way
-         * along footpaths when they're known (`WalkGraph`), for the map; else empty (a straight line).
+         * On foot: from a stop (null: from where you start) to a stop (null: to where you're going). [points]: the way
+         * it goes, along footpaths (empty when only its length is known). [estimated]: the footpaths weren't known, so
+         * it's the straight line times [DETOUR] ("about 4 min").
          */
-        data class Walk(val from: Int?, val to: Int?, val meters: Double, val seconds: Int, val path: List<LatLng> = emptyList()) : Leg
+        data class Walk(
+            val from: Int?, val to: Int?, val meters: Double, val seconds: Int,
+            val points: List<LatLng> = emptyList(), val estimated: Boolean = false,
+        ) : Leg
         /** [path]: every stop the bus calls at, from [board] to [alight] (for the map). */
         data class Bus(
             val route: String, val headsign: String, val board: Int, val alight: Int, val departS: Int, val arriveS: Int, val stops: Int,
@@ -55,55 +62,53 @@ object Planner {
         val minutes: Int get() = (arriveS - leaveS + 59) / 60
         /** Where you get off each bus: the route's stops. */
         val getOffs: List<Int> get() = buses.map { it.alight }
-        val firstWalkS: Int get() = (legs.firstOrNull() as? Leg.Walk)?.seconds ?: 0
+        /** The walk to the first stop, if there is one. */
+        val firstWalk: Leg.Walk? get() = legs.firstOrNull() as? Leg.Walk
         val walkS: Int get() = legs.filterIsInstance<Leg.Walk>().sumOf { it.seconds }
         /** How the list compares rides: arriving, plus changes and walking. */
         val cost: Double get() = arriveS + CHANGE_COST_S * (buses.size - 1) + WALK_COST * walkS
         internal val key: List<Pair<String, Int>> get() = buses.map { it.route to it.departS }
     }
 
-    private fun walkM(straight: Double) = straight * DETOUR
-    private fun walkS(straight: Double) = secs(walkM(straight))
+    /** The estimate where footpaths aren't known: the straight line [d] times [DETOUR]. */
+    private fun straight(d: Double) = Path(d * DETOUR, emptyList(), estimated = true)
     private fun secs(walkedM: Double) = Math.ceil(walkedM / WALK_MPS).toInt()
 
     /** The longest walk to the first stop or from the last, along footpaths. */
     const val MAX_WALK_M = 1_300.0
 
+    /** The stops of [j] where a change of buses starts with an estimated walk (no footpaths known there yet). */
+    fun estimatedChanges(j: Journey): List<Int> =
+        j.legs.filterIsInstance<Leg.Walk>().filter { it.estimated && it.to != null }.mapNotNull { it.from }
+
+    /** [j] with the way of each walk whose length is known but not its way (a foot router's distance), from [way]. */
+    fun withWays(j: Journey, way: (Leg.Walk) -> List<LatLng>?): Journey =
+        j.copy(legs = j.legs.map { l -> if (l is Leg.Walk && !l.estimated && l.points.isEmpty()) way(l)?.let { l.copy(points = it) } ?: l else l })
+
+    /** A walk: its metres and the way it goes, from where it starts to where it ends (empty: the way isn't known). */
+    data class Path(val meters: Double, val points: List<LatLng>, val estimated: Boolean = false)
+
     /**
-     * Walking metres from a place to a point along footpaths (`WalkGraph`), or null where they aren't known: then the
-     * straight line × [DETOUR].
+     * Walks from one place along footpaths (`WalkGraph`, or a foot router's distances): the walk to [to], or null when
+     * it can't be walked (no way there, or too far). A place with no [Walks] at all walks the straight line × [DETOUR].
      */
-    fun interface Walks {
-        fun to(p: LatLng): Double?
-
-        /** The way from the place to [p] along footpaths, for the map; null where it isn't known. */
-        fun path(p: LatLng): List<LatLng>? = null
-    }
-
-    /** The first and last walks along their footpaths, for the map (the times already came from them). */
-    private fun withPaths(ix: TransitIndex, j: Journey, from: LatLng, to: LatLng, walkFrom: Walks?, walkTo: Walks?): Journey =
-        j.copy(legs = j.legs.map { l ->
-            when {
-                l !is Leg.Walk -> l
-                l.from == null && l.to != null -> walkFrom?.path(ix.stops[l.to].pos)?.let { l.copy(path = listOf(from) + it + ix.stops[l.to].pos) } ?: l
-                l.to == null && l.from != null -> walkTo?.path(ix.stops[l.from].pos)?.let { l.copy(path = listOf(ix.stops[l.from].pos) + it.asReversed() + to) } ?: l
-                else -> l
-            }
-        })
+    fun interface Walks { fun to(p: LatLng): Path? }
 
     /** The walks to each stop near [p] within [ACCESS_M] (straight line): along footpaths when [w] knows them. */
-    private fun walksNear(ix: TransitIndex, p: LatLng, w: Walks?): List<Pair<Int, Double>> =
+    private fun walksNear(ix: TransitIndex, p: LatLng, w: Walks?): List<Pair<Int, Path>> =
         ix.near(p, ACCESS_M).mapNotNull { (s, d) ->
-            val m = w?.to(ix.stops[s].pos) ?: walkM(d)
-            (s to m).takeIf { m <= MAX_WALK_M }
+            val m = if (w == null) straight(d) else w.to(ix.stops[s].pos)
+            m?.takeIf { it.meters <= MAX_WALK_M }?.let { s to it }
         }
 
     /** Up to [count] rides, leaving from [departS] on [date], sorted by when you leave. */
     fun plan(
         ix: TransitIndex, tt: Timetable, from: LatLng, to: LatLng, date: LocalDate, departS: Int, count: Int = 5,
         walkFrom: Walks? = null, walkTo: Walks? = null,
+        /** Walks from a stop along footpaths, for changing buses on foot; null where they aren't known. */
+        changeWalks: (Int) -> Walks? = { null },
     ): List<Journey> {
-        val day = Day(ix, tt, date)
+        val day = Day(ix, tt, date, changeWalks)
         val starts = walksNear(ix, from, walkFrom)
         val ends = walksNear(ix, to, walkTo).toMap()
         val found = HashMap<List<Pair<String, Int>>, Journey>()
@@ -118,7 +123,7 @@ object Planner {
             // The next departure after the first one found here.
             t = js.minOf { it.leaveS } + 60
         }
-        return best(found.values).take(count).map { withPaths(ix, it, from, to, walkFrom, walkTo) }
+        return best(found.values).take(count)
     }
 
     /**
@@ -128,8 +133,10 @@ object Planner {
     fun arriveBy(
         ix: TransitIndex, tt: Timetable, from: LatLng, to: LatLng, date: LocalDate, arriveS: Int, count: Int = 5,
         walkFrom: Walks? = null, walkTo: Walks? = null,
+        /** Walks from a stop along footpaths, for changing buses on foot; null where they aren't known. */
+        changeWalks: (Int) -> Walks? = { null },
     ): List<Journey> {
-        val day = Day(ix, tt, date)
+        val day = Day(ix, tt, date, changeWalks)
         val starts = walksNear(ix, from, walkFrom)
         val ends = walksNear(ix, to, walkTo).toMap()
         val probe = search(day, starts, ends, arriveS - 2 * 3_600)
@@ -150,7 +157,7 @@ object Planner {
         val rides = best(found.values)
         // Not a ride an hour before one that still gets there in time.
         val latest = rides.maxOfOrNull { it.leaveS } ?: return rides
-        return rides.filter { it.leaveS >= latest - 45 * 60 }.takeLast(count).map { withPaths(ix, it, from, to, walkFrom, walkTo) }
+        return rides.filter { it.leaveS >= latest - 45 * 60 }.takeLast(count)
     }
 
     /** Leaving this much earlier still counts as "no earlier" when comparing rides (no 1-minute bus hops to leave later). */
@@ -172,7 +179,7 @@ object Planner {
      * back a day), sorted by when they leave, with each pattern's earliest and latest offset per stop (so boarding is
      * a binary search, not a scan), and the stops near each stop.
      */
-    private class Day(val ix: TransitIndex, val tt: Timetable, date: LocalDate) {
+    private class Day(val ix: TransitIndex, val tt: Timetable, date: LocalDate, private val changeWalks: (Int) -> Walks?) {
         val at = tt.patternsAt(ix.stops.size)
         private val today = tt.services.map { it.runsOn(date) }
         private val yesterday = tt.services.map { it.runsOn(date.minusDays(1)) }
@@ -222,19 +229,26 @@ object Planner {
 
         fun time(pi: Int, run: Int, pos: Int): Int { val r = runs(pi); return tt.at(r.trips[run], pos) + r.shift[run] }
 
-        private val near = HashMap<Int, List<Pair<Int, Double>>>()
-        fun changes(s: Int): List<Pair<Int, Double>> = near.getOrPut(s) { ix.near(ix.stops[s].pos, CHANGE_M).filter { it.first != s } }
+        private val near = HashMap<Int, List<Pair<Int, Path>>>()
+        /** The stops you can walk to from [s] to change buses: along footpaths when they're known there. */
+        fun changes(s: Int): List<Pair<Int, Path>> = near.getOrPut(s) {
+            val w = changeWalks(s)
+            ix.near(ix.stops[s].pos, CHANGE_M).filter { it.first != s }.mapNotNull { (t, d) ->
+                val m = if (w == null) straight(d) else w.to(ix.stops[t].pos)?.takeIf { it.meters <= CHANGE_WALK_M }
+                m?.let { t to it }
+            }
+        }
     }
 
     private sealed interface Step
-    /** Walking metres to the first stop (already along footpaths, or × [DETOUR]). */
-    private class Access(val meters: Double) : Step
+    /** The walk to the first stop. */
+    private class Access(val path: Path) : Step
     private class Ride(val pattern: Int, val run: Int, val boardPos: Int, val alightPos: Int) : Step
-    private class Transfer(val from: Int, val meters: Double) : Step
+    private class Transfer(val from: Int, val path: Path) : Step
 
     /** One RAPTOR search from [departS]: every way to arrive within [SLACK_S] of the fastest, by 1 to 3 buses. */
-    /** [starts] and [ends]: the stops you can walk to first and from last, with the walking metres. */
-    private fun search(day: Day, starts: List<Pair<Int, Double>>, ends: Map<Int, Double>, departS: Int): List<Journey> {
+    /** [starts] and [ends]: the stops you can walk to first and from last, with the walks (each from the place). */
+    private fun search(day: Day, starts: List<Pair<Int, Path>>, ends: Map<Int, Path>, departS: Int): List<Journey> {
         val ix = day.ix
         val tt = day.tt
         val n = ix.stops.size
@@ -249,11 +263,11 @@ object Planner {
         if (ends.isEmpty()) return emptyList()
         var marked = HashSet<Int>()
         for ((s, m) in starts) {
-            tau[0][s] = departS + secs(m); best[s] = tau[0][s]; parent[0][s] = Access(m); marked += s
+            tau[0][s] = departS + secs(m.meters); best[s] = tau[0][s]; parent[0][s] = Access(m); marked += s
         }
 
         var bestEnd = inf
-        val ways = ArrayList<Triple<Int, Int, Double>>() // round, last stop, egress metres
+        val ways = ArrayList<Triple<Int, Int, Path>>() // round, last stop, the walk from there
         val arrivals = ArrayList<Int>()
         for (k in 1..MAX_BUSES) {
             val limit = if (bestEnd == inf) inf else bestEnd + SLACK_S
@@ -285,27 +299,30 @@ object Planner {
             // Change buses on foot, to a stop nearby: only straight off a bus.
             val next = HashSet<Int>()
             for (s in reached) if (tau[k][s] == rideTau[k][s]) next += s
-            for (s in reached) for ((t, d) in day.changes(s)) {
-                val arr = rideTau[k][s] + maxOf(walkS(d), CHANGE_S)
-                if (arr < best[t] && arr < limit) { tau[k][t] = arr; best[t] = arr; parent[k][t] = Transfer(s, d); next += t }
+            for (s in reached) for ((t, w) in day.changes(s)) {
+                val arr = rideTau[k][s] + maxOf(secs(w.meters), CHANGE_S)
+                if (arr < best[t] && arr < limit) { tau[k][t] = arr; best[t] = arr; parent[k][t] = Transfer(s, w); next += t }
             }
             // Arrived: off this bus, then one walk to where you're going.
-            for (s in reached) ends[s]?.let { d ->
-                val arr = rideTau[k][s] + secs(d)
-                ways += Triple(k, s, d); arrivals += arr
+            for (s in reached) ends[s]?.let { w ->
+                val arr = rideTau[k][s] + secs(w.meters)
+                ways += Triple(k, s, w); arrivals += arr
                 if (arr < bestEnd) bestEnd = arr
             }
             if (next.isEmpty()) break
             marked = next
         }
         return ways.indices.filter { arrivals[it] <= bestEnd + SLACK_S }
-            .map { i -> val (k, s, d) = ways[i]; build(day, parent, rideParent, k, s, d, arrivals[i]) }
+            .map { i -> val (k, s, w) = ways[i]; build(day, parent, rideParent, k, s, w, arrivals[i]) }
     }
 
-    private fun build(day: Day, parent: Array<Array<Step?>>, rideParent: Array<Array<Ride?>>, k: Int, end: Int, endM: Double, arriveS: Int): Journey {
+    private fun walk(from: Int?, to: Int?, p: Path) = Leg.Walk(from, to, p.meters, secs(p.meters), p.points, p.estimated)
+
+    /** [egress]: the walk from where you're going to the last stop (walked the other way). */
+    private fun build(day: Day, parent: Array<Array<Step?>>, rideParent: Array<Array<Ride?>>, k: Int, end: Int, egress: Path, arriveS: Int): Journey {
         val tt = day.tt
         val legs = ArrayList<Leg>()
-        legs += Leg.Walk(end, null, endM, secs(endM))
+        legs += walk(end, null, egress.copy(points = egress.points.reversed()))
         var cur = end
         var round = k
         var step: Step? = rideParent[k][end]
@@ -324,11 +341,11 @@ object Planner {
                     step = parent[round][cur]
                 }
                 is Transfer -> {
-                    legs += Leg.Walk(st.from, cur, walkM(st.meters), walkS(st.meters))
+                    legs += walk(st.from, cur, st.path)
                     cur = st.from
                     step = rideParent[round][cur]
                 }
-                is Access -> { legs += Leg.Walk(null, cur, st.meters, secs(st.meters)); break@loop }
+                is Access -> { legs += walk(null, cur, st.path); break@loop }
                 null -> break@loop
             }
         }

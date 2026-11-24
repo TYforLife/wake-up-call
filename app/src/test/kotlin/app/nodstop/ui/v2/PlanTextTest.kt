@@ -45,6 +45,16 @@ class PlanTextTest {
     }
 
     @Test
+    fun `a walk the footpaths weren't known for says about, in the list and the timeline`() {
+        val est = two.copy(legs = listOf(Leg.Walk(null, 1, 300.0, 240, estimated = true)) + two.legs.drop(1))
+        assertEquals("Walk about 4 min · Smales Farm Stop D at 7:42", PlanText.ride(est) { names.getValue(it) }.sub)
+        assertEquals(
+            StepUi("7:38", "Walk about 4 min", "To Smales Farm Stop D · about 300 m", StepUi.Kind.WALK),
+            PlanText.timeline(est, "Home", "Work") { names.getValue(it) }[1],
+        )
+    }
+
+    @Test
     fun `suggestions - your location, home and work first, then addresses and stops`() {
         val home = PlaceUi("Home", "12 Example Rd", LatLng(-36.8, 174.7), PlaceUi.Kind.HOME)
         val work = PlaceUi("Work", "1 Queen St", LatLng(-36.84, 174.76), PlaceUi.Kind.WORK)

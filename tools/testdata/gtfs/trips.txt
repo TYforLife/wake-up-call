@@ -9,3 +9,5 @@ R4,WK,T7,Test Domain Gate,0,
 R2,WK,T8,Test Harbour Station,0,SH866
 R3,SA,T9,Test Hill Ave,0,
 R3,WK,T10,Test Hill Ave,0,
+R5,WK,T11,Test Ponsonby Rd,0,
+R5,WK,T12,Test Ponsonby Rd,0,

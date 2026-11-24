@@ -112,14 +112,66 @@ class PlannerTest {
     }
 
     @Test
-    fun `footpaths - the walks at each end are the walking distance when it's known`() {
-        val far = Planner.Walks { 700.0 }
-        val j = Planner.plan(ix, tt, at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(6, 50), walkFrom = far, walkTo = far).first()
+    fun `footpaths - the walks at each end are the walking distance and the way it goes, when it's known`() {
+        val from = at("Test Farm Stop D")
+        val to = at("Test Queen St")
+        val bend = LatLng(-36.85, 174.763)
+        val far = Planner.Walks { p -> Planner.Path(700.0, listOf(from, p)) }
+        val toEnd = Planner.Walks { p -> Planner.Path(700.0, listOf(to, bend, p)) }
+        val j = Planner.plan(ix, tt, from, to, wednesday, hm(6, 50), walkFrom = far, walkTo = toEnd).first()
         val walks = j.legs.filterIsInstance<Planner.Leg.Walk>()
         assertEquals(listOf(700.0, 700.0), walks.map { it.meters })
         assertEquals(560, walks.first().seconds)
+        assertTrue(walks.none { it.estimated })
+        // The walk from the last stop goes the other way round: from the stop, by the bend, to where you're going.
+        assertEquals(listOf(ix.stops[j.getOffs.last()].pos, bend, to), walks.last().points)
         // Too far along the paths: that stop isn't walked to at all.
-        assertTrue(Planner.plan(ix, tt, at("Test Farm Stop D"), at("Test Queen St"), wednesday, hm(6, 50), walkTo = Planner.Walks { 5_000.0 }).isEmpty())
+        assertTrue(Planner.plan(ix, tt, from, to, wednesday, hm(6, 50), walkTo = Planner.Walks { Planner.Path(5_000.0, emptyList()) }).isEmpty())
+    }
+
+    @Test
+    fun `footpaths that can't reach a stop - it isn't walked to, never the straight line instead`() {
+        val from = at("Test Farm Stop D")
+        val to = at("Test Queen St")
+        assertTrue(Planner.plan(ix, tt, from, to, wednesday, hm(6, 50), walkTo = Planner.Walks { null }).isEmpty())
+        // Without footpaths at all: the straight line × 1.25, marked as an estimate.
+        val j = Planner.plan(ix, tt, LatLng(-36.7805, 174.7505), to, wednesday, hm(6, 50)).first()
+        assertTrue(j.legs.filterIsInstance<Planner.Leg.Walk>().all { it.estimated && it.points.isEmpty() })
+    }
+
+    @Test
+    fun `changing buses on foot - along the footpaths, and a change the real walk can't make isn't offered`() {
+        val from = at("Test Farm Stop D")
+        val to = at("Test Ponsonby Rd")
+        val queen = ix.stops.indexOfFirst { it.name == "Test Queen St" }
+        // Straight: 145 m × 1.25, 2.5 minutes: the 7:23 from Wellesley St is made.
+        val est = Planner.plan(ix, tt, from, to, wednesday, hm(6, 50)).first()
+        assertEquals(listOf("866", "77"), est.buses.map { it.route })
+        assertEquals(hm(7, 35), est.arriveS)
+        assertEquals(listOf(queen), Planner.estimatedChanges(est))
+        // Along the footpaths it's 400 m round the block, 5 min 20 s: the 7:23 has gone, so it's the 7:53.
+        val round = Planner.Walks { p -> Planner.Path(400.0, listOf(ix.stops[queen].pos, LatLng(-36.848, 174.764), p)) }
+        val real = Planner.plan(ix, tt, from, to, wednesday, hm(6, 50), changeWalks = { if (it == queen) round else null })
+        assertTrue(real.none { it.arriveS == hm(7, 35) }, "a change that the real walk misses: ${real.map { it.arriveS }}")
+        val j = real.first()
+        assertEquals(hm(8, 5), j.arriveS)
+        val change = j.legs.filterIsInstance<Planner.Leg.Walk>().single { it.from != null && it.to != null }
+        assertEquals(400.0, change.meters)
+        assertEquals(3, change.points.size)
+        assertTrue(Planner.estimatedChanges(j).isEmpty())
+        // No way there along the footpaths: no change on foot at all.
+        assertTrue(Planner.plan(ix, tt, from, to, wednesday, hm(6, 50), changeWalks = { Planner.Walks { null } }).isEmpty())
+    }
+
+    @Test
+    fun `a walk's way from the foot router fills in only walks whose length is known but not their way`() {
+        val known = Planner.Leg.Walk(null, 1, 300.0, 240)
+        val drawn = Planner.Leg.Walk(1, 2, 100.0, 80, points = listOf(LatLng(0.0, 0.0), LatLng(0.0, 0.001)))
+        val estimate = Planner.Leg.Walk(2, null, 100.0, 80, estimated = true)
+        val j = Planner.Journey(listOf(known, drawn, estimate), 0, 600)
+        val way = listOf(LatLng(1.0, 1.0), LatLng(1.0, 1.001))
+        val out = Planner.withWays(j) { way }.legs.filterIsInstance<Planner.Leg.Walk>()
+        assertEquals(listOf(way, drawn.points, emptyList()), out.map { it.points })
     }
 
     @Test
@@ -178,17 +230,16 @@ class PlannerTest {
         val from = LatLng(-36.7790, 174.7490)
         val to = LatLng(-36.8495, 174.7630)
         val bend = LatLng(-36.7795, 174.7500)
-        val paths = object : Planner.Walks {
-            override fun to(p: LatLng) = 150.0
-            override fun path(p: LatLng) = listOf(bend, p)
-        }
-        val j = Planner.plan(ix, tt, from, to, wednesday, hm(6, 50), walkFrom = paths, walkTo = paths).first()
+        // Each search walks from its own place: from where you start, and from where you're going.
+        val out = Planner.Walks { p -> Planner.Path(150.0, listOf(from, bend, p)) }
+        val back = Planner.Walks { p -> Planner.Path(150.0, listOf(to, bend, p)) }
+        val j = Planner.plan(ix, tt, from, to, wednesday, hm(6, 50), walkFrom = out, walkTo = back).first()
         val first = j.legs.first() as Planner.Leg.Walk
         val last = j.legs.last() as Planner.Leg.Walk
-        assertEquals(from, first.path.first())
-        assertEquals(bend, first.path[1])
-        assertEquals(to, last.path.last())
-        assertEquals(bend, last.path[last.path.size - 2], "the way from the destination's search, turned round")
+        assertEquals(from, first.points.first())
+        assertEquals(bend, first.points[1])
+        assertEquals(to, last.points.last())
+        assertEquals(bend, last.points[last.points.size - 2], "the way from the destination's search, turned round")
     }
 
     @Test
