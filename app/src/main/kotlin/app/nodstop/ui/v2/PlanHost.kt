@@ -202,6 +202,8 @@ fun PlanHost(
             LegDraft(
                 i.stops[b.alight].name, StopText.coords(i.stops[b.alight].pos),
                 bus = b.route, boardName = i.stops[b.board].name, boardCoords = StopText.coords(i.stops[b.board].pos),
+                // A train's failsafe assumes a train's speed (BACKLOG F29).
+                mode = i.modeOf(b.route),
             )
         }
         val name = routeName ?: to?.let(PlanText::routeName) ?: "To ${i.stops[j.getOffs.last()].name}"

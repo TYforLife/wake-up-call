@@ -79,8 +79,8 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
         and for a tunnel just before the station, with the invariant holding. Each leg has a mode; a train's
         failsafe assumes 120 km/h (`TrainFerryTest`, `InvariantPropertyTest` on trains).
   - [x] A ferry ride (open water, no roads) rings in time: a synthetic test.
-  - Next: the index learns each route's mode from AT's feed, and Plan a trip marks train legs (until then every
-    leg is a bus).
+  - [x] The index knows each route's mode from AT's feed (`modes.tsv`), and Plan a trip marks train and ferry legs.
+  - Next: the words and icons, and a stop set by hand at a station.
 
 ### F3. [ ] Buzz on the watch: Coros first, Galaxy Watch too
 "and for Coros as well. I use coros. somewhat high prio." The ring buzzes the wrist.

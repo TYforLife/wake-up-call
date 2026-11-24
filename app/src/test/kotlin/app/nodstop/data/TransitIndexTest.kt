@@ -19,6 +19,18 @@ class TransitIndexTest {
     }
 
     @Test
+    fun `routes know their mode from the feed - a train is a train, anything unknown a bus (F29)`() {
+        val withModes = TransitIndex.parse(res("stops.tsv"), res("routes.tsv"), res("modes.tsv"))
+        assertEquals(app.nodstop.engine.Mode.TRAIN, withModes.modeOf("22"))
+        assertEquals(app.nodstop.engine.Mode.BUS, withModes.modeOf("100"))
+        assertEquals(app.nodstop.engine.Mode.BUS, ix.modeOf("22"), "no modes file: every route is a bus")
+        assertEquals(
+            mapOf("WEST" to app.nodstop.engine.Mode.TRAIN, "DEV" to app.nodstop.engine.Mode.FERRY),
+            TransitIndex.parseModes("WEST\ttrain\nDEV\tferry\nNX1\tbus\n\nbad\n"),
+        )
+    }
+
+    @Test
     fun `search by number - exact first, then starting with it`() {
         assertEquals(listOf("1002"), ix.search("1002").map { it.stop.code })
         assertEquals(listOf("2001", "2002"), ix.search("200").map { it.stop.code })
