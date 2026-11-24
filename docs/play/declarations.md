@@ -19,20 +19,20 @@ URL: <https://github.com/tyforlife/wake-up-call/blob/main/docs/privacy.md>
 
 ## Data safety
 
-Google's form counts data as "collected" when it is sent off the phone. Nodstop keeps trips, stops, GPS fixes, learned
-rides and captured chat notifications on the phone. A few requests do go out:
+Google's form counts data as "collected" when it is sent off the phone. Nodstop keeps trips, GPS tracks, stops,
+learned rides and captured chat notifications on the phone. A few requests do go out (`docs/privacy.md`):
 
 - map tiles from OpenFreeMap for the area on the screen;
-- footpaths from OpenStreetMap's Overpass for about 2 km around a planned trip's start and end;
+- **Plan a trip**: its start and end points, which is the current position when you start from "here", go to
+  OpenStreetMap's Overpass (footpaths in about 2 km) and FOSSGIS's foot router (exact points);
 - a pasted `maps.app.goo.gl` link sent to Google, to open it.
 
-Those reveal an area, so declare it honestly:
+Over-declaring costs nothing, so declare location fully:
 
 | Question | Answer |
 | --- | --- |
 | Does your app collect or share any of the required user data types? | Yes |
-| Location → **Approximate location** | Collected: **Yes**. Shared: **No**. Processed ephemerally: **Yes**. Required: **Yes** (the map). Purpose: **App functionality**. |
-| Location → Precise location | Not collected |
+| Location → **Precise location** and **Approximate location** | Collected: **Yes**. Shared: **Yes** (public OpenStreetMap services, to plan walks). Processed ephemerally: **Yes**. Required: **No** (only Plan a trip and the map). Purpose: **App functionality**. |
 | Messages, contacts, personal info, files, app activity, device IDs | Not collected (While You Slept reads notifications in memory on the phone only, DESIGN §10 W3) |
 | Is all user data encrypted in transit? | Yes (https only) |
 | Do you provide a way for users to request that their data be deleted? | Nothing is kept off the phone. Uninstalling deletes everything; Settings → Debug → **Forget all learned stops** deletes learned rides. |

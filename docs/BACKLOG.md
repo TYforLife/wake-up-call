@@ -58,8 +58,10 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
         intent (an alarm app), location foreground service (with what the demo video must show). The
         battery-optimisation request would likely be refused (alarm apps aren't on Google's list), so the app opens
         App info → Battery instead (its own PR).
-  - [x] A privacy policy page: "your location never leaves the phone" (`docs/privacy.md`, honest about map tiles,
-        footpaths and Google short links).
+  - [x] A privacy policy page (`docs/privacy.md`). "Your location never leaves the phone" holds for trips, but not
+        for Plan a trip, which sends its start and end points (your position when you start from here) to
+        OpenStreetMap's footpath and walking-route services. The policy says so. Making the slogan true again means
+        planning walks on the phone, which is Tae's call.
   - [x] The steps only Tae can do are listed, one line each (`docs/play/README.md`): developer account, identity
         check, and the 12 testers for 14 days a new personal account needs before production.
 - **Needs Tae:** the final name and application ID (DESIGN §9: the ID can't change after the first upload), and a

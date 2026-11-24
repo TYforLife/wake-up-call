@@ -21,7 +21,7 @@ Play Console asks: **Grow users → Store presence → Main store listing**.
 > • Up to three buses a trip, each stop with its own wake-up.
 > • Find stops by search, a Google Maps link, or a tap on the map. Auckland Transport stops are built in.
 > • While You Slept (optional): the chats you missed, listed on the alarm screen.
-> • Private: your location never leaves your phone. No account, no ads, no tracking.
+> • Private: your trips stay on your phone. No account, no ads, no tracking.
 >
 > Auckland only for now.
 
