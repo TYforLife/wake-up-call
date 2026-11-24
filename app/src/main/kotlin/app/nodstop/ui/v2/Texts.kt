@@ -295,3 +295,56 @@ object JourneyText {
         }
     }
 }
+
+/**
+ * The home screen widget (BACKLOG F10): one line, a second line, and one button. [live]: a trip runs (the accent bar).
+ * [danger]: the first line in red (GPS lost).
+ */
+data class WidgetUi(
+    val title: String,
+    val line: String,
+    val action: Action?,
+    val live: Boolean = false,
+    val danger: Boolean = false,
+) {
+    /** The button: [Kind.START] the route [routeId], [Kind.OFF] the notification's I'm off this bus, or [Kind.OPEN] the app. */
+    data class Action(val label: String, val kind: Kind, val routeId: String? = null)
+    enum class Kind { START, OFF, OPEN }
+}
+
+object WidgetText {
+    /**
+     * No trip: the route Now would pick and its next two buses, "To work · 866 7:43, 7:51" / "Smales Farm, then
+     * Symonds St" / Start. Two, because Android may redraw the widget a few minutes after the first has left.
+     * [departuresS]: that bus's timetabled departures from where you get on (seconds after midnight, soonest first),
+     * or empty; [nowS] the time now in the same seconds. A route that can't start says why and opens the app.
+     */
+    fun idle(route: RouteOption?, bus: String?, departuresS: List<Int>, nowS: Int): WidgetUi {
+        if (route == null) return WidgetUi("Nodstop", "Set up home and work", WidgetUi.Action("Set up", WidgetUi.Kind.OPEN))
+        route.problem?.let { return WidgetUi(route.title, it, WidgetUi.Action("Fix", WidgetUi.Kind.OPEN)) }
+        val next = if (bus == null) emptyList() else departuresS.filter { it >= nowS }.take(2)
+        val title = if (next.isEmpty()) route.title else "${route.title} · $bus ${next.joinToString(", ") { PlanText.clock(it) }}"
+        return WidgetUi(title, route.subtitle, WidgetUi.Action("Start", WidgetUi.Kind.START, route.id))
+    }
+
+    /** A trip whose process died while its alarm is still set (as on Now): "07:49", or "" for no alarm time. */
+    fun interrupted(alarmAt: String): WidgetUi = WidgetUi(
+        "A trip is still on", if (alarmAt.isEmpty()) "The app was closed during it" else "Its alarm is set for $alarmAt",
+        WidgetUi.Action("Open", WidgetUi.Kind.OPEN), live = true,
+    )
+
+    /**
+     * Riding: the trip sheet folded to one line ("Smales Farm · 6 min · alarm 7:45"), the route, and the notification's
+     * get-off button (I'm off this bus, or Skip this bus while waiting for the next one); none once the trip is done.
+     */
+    fun riding(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long): WidgetUi {
+        val line = CompactSheetText.of(t, clock, nowMs)
+        val off = TripNoteText.actions(t, t.legRadii.getOrNull(t.legIndex)).firstOrNull { it.kind == TripActionUi.Kind.OFF }
+        val legs = t.legNames.size
+        val where = if (legs > 1) "${t.routeName} · bus ${t.legIndex + 1} of $legs" else t.routeName
+        return WidgetUi(line.line, where, off?.let { WidgetUi.Action(it.label, WidgetUi.Kind.OFF) }, live = true, danger = line.danger)
+    }
+
+    /** When to draw the idle widget again: a minute after [nextS] leaves, so the bus shown is one you can still catch. */
+    fun redrawAtS(departuresS: List<Int>, nowS: Int): Int? = departuresS.firstOrNull { it >= nowS }?.let { it + 60 }
+}

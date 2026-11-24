@@ -20,6 +20,7 @@ import app.nodstop.Notifications
 import app.nodstop.alarm.RingService
 import app.nodstop.alarm.vibrateAsAlarm
 import app.nodstop.isolated
+import app.nodstop.widget.TripWidget
 import app.nodstop.brief.BriefingCoordinator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
@@ -302,6 +303,7 @@ class TripService : Service() {
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now
             getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine(), updated.currentLeg?.wakeRadiusM))
+            TripWidget.onTrip(this, ui)
         }
 
         if (out.status.phase == Phase.DONE) finishTrip(updated)
@@ -456,6 +458,7 @@ class TripService : Service() {
         handler.removeCallbacks(tick)
         instance = null
         _status.value = null
+        TripWidget.refresh(this)
         super.onDestroy()
     }
 
@@ -527,6 +530,7 @@ class TripService : Service() {
                     app.traces.endTrip()
                 }
                 app.trips.clear()
+                TripWidget.refresh(ctx)
             }
         }
 

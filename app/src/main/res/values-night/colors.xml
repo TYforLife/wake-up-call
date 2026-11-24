@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="window">#FF000000</color>
+    <!-- The home screen widget: the v2 tokens (tokens.v2.json), dark. -->
+    <color name="widget_bg">#FF000000</color>
+    <color name="widget_fg">#FFF5F5F5</color>
+    <color name="widget_muted">#FF9A9A9A</color>
+    <color name="widget_primary">#FFF5F5F5</color>
+    <color name="widget_on_primary">#FF000000</color>
+    <color name="widget_accent">#FFFF6A33</color>
+    <color name="widget_danger">#FFFF5C50</color>
 </resources>

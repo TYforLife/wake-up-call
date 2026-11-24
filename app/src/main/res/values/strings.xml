@@ -3,4 +3,7 @@
     <string name="app_name">Nodstop</string>
     <string name="tile_route_1">Route 1</string>
     <string name="tile_route_2">Route 2</string>
+    <string name="widget_description">Start your trip, and see it, from the home screen</string>
+    <string name="widget_preview_line">Smales Farm, then Symonds St</string>
+    <string name="widget_preview_action">Start</string>
 </resources>

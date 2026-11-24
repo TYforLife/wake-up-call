@@ -4,4 +4,12 @@
     <color name="window">#FFFFFFFF</color>
     <!-- The alarm is black in both themes. -->
     <color name="alarm">#FF000000</color>
+    <!-- The home screen widget: the v2 tokens (tokens.v2.json), light. -->
+    <color name="widget_bg">#FFFFFFFF</color>
+    <color name="widget_fg">#FF111111</color>
+    <color name="widget_muted">#FF6B6B6B</color>
+    <color name="widget_primary">#FF111111</color>
+    <color name="widget_on_primary">#FFFFFFFF</color>
+    <color name="widget_accent">#FFFF5A1F</color>
+    <color name="widget_danger">#FFD92D20</color>
 </resources>

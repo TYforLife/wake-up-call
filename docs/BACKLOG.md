@@ -67,16 +67,6 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
 - **Needs Tae:** the final name and application ID (DESIGN §9: the ID can't change after the first upload), and a
   Play developer account.
 
-### F10. [ ] Home screen widget
-"that'd be amazing. high prio." Start a trip and see it live without opening the app.
-- **Done when:**
-  - [ ] Idle: the likely route and its next bus, "To work · 866 7:43", with **Start** (one tap, no unlock needed
-        beyond the home screen).
-  - [ ] Riding: "Smales Farm · alarm 7:45" with **I'm off this bus**, updated with the trip notification.
-  - [ ] Its actions are the notification's and Now's (same code paths, same unlock rules, DESIGN §5 Notifications).
-        Words from the existing pure text functions, tested. Black and white, the v2 look.
-  - [ ] No new dependency unless Glance is needed, with its reason (rule 5).
-
 ### F30. [ ] Sleep stats
 "amazing. High prio (exclude phone on time)." How much he slept on the bus.
 - **Done when:**
@@ -244,6 +234,12 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F10. Home screen widget (2026-11-24).** "that'd be amazing. high prio."
+  - No trip: the route Now would pick and its next two buses, "To work · 866 7:43, 7:51", with **Start** (opens the
+    app to start it, as the tile does). Riding: "Smales Farm · 6 min · alarm 7:45" with **I'm off this bus**, the
+    notification's own action, redrawn with the notification.
+  - RemoteViews, no new dependency. Home screen only, so the notification's unlock rule holds. DESIGN §5 Widget,
+    `WidgetTextTest`, `WidgetResourcesTest`.
 - [x] **The missed ring at the first stop (2026-11-23).** "It didn't ring again… It rang fine on 2nd stop."
   - The start-of-trip leg pick could skip stop 1 because of a learned ride for stop 2 that began at home. Every
     such trip taught it the same again.

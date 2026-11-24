@@ -46,6 +46,7 @@ import app.nodstop.alarm.VerdictLine
 import app.nodstop.engine.Trace
 import app.nodstop.BuildConfig
 import app.nodstop.Shortcuts
+import app.nodstop.widget.TripWidget
 import app.nodstop.data.LegDraft
 import app.nodstop.data.Route
 import app.nodstop.data.RouteSuggest
@@ -73,6 +74,15 @@ fun routeSubtitle(r: Route): String {
     }
 }
 
+/** The route Now selects, and the home screen widget shows (`RouteSuggest`), at the time [cal] holds. */
+fun suggestedRoute(routes: List<Route>, history: List<RouteSuggest.Start>, cal: Calendar): String? {
+    val dow = cal.get(Calendar.DAY_OF_WEEK)
+    return RouteSuggest.pick(
+        routes.map { it.id }, history,
+        cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE), dow == Calendar.SATURDAY || dow == Calendar.SUNDAY,
+    )
+}
+
 /** Now, idle or riding (PLAN Run 8, M3), with its state. */
 @Composable
 fun NowTab(resumeTick: Int, go: (Screen) -> Unit) {
@@ -91,13 +101,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     var confirmStop by remember { mutableStateOf(false) }
     var offerQuiet by remember { mutableStateOf<String?>(null) }
     val cal = remember(resumeTick) { Calendar.getInstance() }
-    val suggested = remember(routes, resumeTick) {
-        val dow = cal.get(Calendar.DAY_OF_WEEK)
-        RouteSuggest.pick(
-            routes.map { it.id }, app.settings.startHistory(),
-            cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE), dow == Calendar.SATURDAY || dow == Calendar.SUNDAY,
-        )
-    }
+    val suggested = remember(routes, resumeTick) { suggestedRoute(routes, app.settings.startHistory(), cal) }
     var picked by remember(suggested) { mutableStateOf(suggested) }
     val persisted = remember(resumeTick, stopTick) { app.trips.load() }
     val notReady = remember(resumeTick) { Readiness.needsAttention(Readiness.checks(ctx)).size }
@@ -169,7 +173,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
         )
     }
     if (confirmStop) StopTripDialog({ confirmStop = false }) { TripService.stop(ctx); stopTick++ }
-    LaunchedEffect(routes) { Shortcuts.update(ctx, routes) }
+    LaunchedEffect(routes) { Shortcuts.update(ctx, routes); TripWidget.refresh(ctx) }
 }
 
 /** The last trip's log and what it says about each alarm, unless dismissed or a trip is still saved (PLAN A0). */
