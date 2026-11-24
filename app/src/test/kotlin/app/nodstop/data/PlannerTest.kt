@@ -206,6 +206,19 @@ class PlannerTest {
     }
 
     @Test
+    fun `stops left on the bus - from where you are on its line (F9)`() {
+        val farm = at("Test Farm Stop D"); val queen = at("Test Queen St"); val harbour = at("Test Harbour Station A")
+        fun left(here: LatLng) = Departures.stopsLeft(ix, tt, "866", farm, harbour, here)
+        val half = LatLng((farm.lat + queen.lat) / 2, (farm.lng + queen.lng) / 2)
+        assertEquals(2, left(farm), "at the stop you got on: Queen St, then Harbour Station")
+        assertEquals(2, left(half), "between Farm and Queen St")
+        assertEquals(1, left(queen), "at Queen St: only yours left")
+        assertEquals(1, left(harbour), "at your stop")
+        assertEquals(null, left(LatLng(-36.70, 174.60)), "not on the 866's line")
+        assertEquals(null, Departures.stopsLeft(ix, tt, "866", harbour, farm, farm), "not that way")
+    }
+
+    @Test
     fun `the bus's road - decoded from the feed's shape, not stop to stop`() {
         // Google's own example polyline.
         assertEquals(

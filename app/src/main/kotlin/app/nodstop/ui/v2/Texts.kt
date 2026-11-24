@@ -45,7 +45,14 @@ object TripSheetText {
     private const val DEFAULT_LEAD_S = 45.0
     private const val MIN_LEAD_S = 30.0
 
-    fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis(), nextBus: String? = null): TripSheetUi {
+    /**
+     * [stopsLeft] with [bus]: on a bus Plan a trip knows, how many stops it still calls at up to yours (BACKLOG F9), so
+     * the sheet reads "On the 866 · 4 stops to" / "Symonds St".
+     */
+    fun of(
+        t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis(), nextBus: String? = null,
+        bus: String? = null, stopsLeft: Int? = null,
+    ): TripSheetUi {
         val s = t.status
         val aimAt = aimMs(t, nowMs)?.let(clock)
         val stop = t.legName ?: "your stop"
@@ -82,7 +89,10 @@ object TripSheetText {
                 alarm = "Alarm set until you're on it", alarmDanger = false, action = "I'm off this $v",
             )
             else -> TripSheetUi(
-                eyebrow = "Get off at", stop = stop,
+                eyebrow = if (s.phase == Phase.RIDING && bus != null && stopsLeft != null) {
+                    "On the $bus · $stopsLeft stop${if (stopsLeft == 1) "" else "s"} to"
+                } else "Get off at",
+                stop = stop,
                 figure = listOfNotNull(s.etaS?.let(::minutes), distance).joinToString(" · ").ifEmpty { "Finding you…" },
                 figureMuted = false,
                 alarm = when {
