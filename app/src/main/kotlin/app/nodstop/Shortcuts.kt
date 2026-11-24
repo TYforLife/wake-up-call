@@ -18,6 +18,17 @@ object Shortcuts {
             .putExtra(EXTRA_START_ROUTE_ID, routeId)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
+    const val EXTRA_PLAN_TO_NAME = "plan_to_name"
+    const val EXTRA_PLAN_TO_LAT = "plan_to_lat"
+    const val EXTRA_PLAN_TO_LNG = "plan_to_lng"
+
+    /** Plan a trip from where you are to [name] at [pos] ("Get back to Symonds St", BACKLOG F23). */
+    fun planIntent(ctx: Context, name: String, pos: app.nodstop.engine.LatLng): Intent =
+        Intent(ctx, MainActivity::class.java)
+            .setAction(Intent.ACTION_VIEW)
+            .putExtra(EXTRA_PLAN_TO_NAME, name).putExtra(EXTRA_PLAN_TO_LAT, pos.lat).putExtra(EXTRA_PLAN_TO_LNG, pos.lng)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
     private fun id(routeId: String) = "route-$routeId"
 
     /** A trip started from a shortcut or a tile: the launcher ranks the shortcuts you use first. */

@@ -136,7 +136,12 @@ object CompactSheetText {
 }
 
 /** What "Now" says after "I'm awake" (PLAN Run 8, M4). */
-data class AwakeUi(val headline: String, val line: String)
+data class AwakeUi(
+    val headline: String,
+    val line: String,
+    /** After "You passed your stop" (BACKLOG F23): the stop to get back to, for "Get back to Symonds St". */
+    val backTo: String? = null,
+)
 
 object AwakeText {
     /** [test]: the ring was Debug's test ring. No trip and not a test: the app was restarted by the ring. */
@@ -147,6 +152,8 @@ object AwakeText {
         val stop = t.legName ?: "your stop"
         val next = t.legNames.getOrNull(t.legIndex + 1)
         return when {
+            // Passed it (BACKLOG F23): off at the next stop, then the way back is one tap.
+            s.ringReason == AlarmReason.OVERSHOOT -> AwakeUi("Get off at the next stop", "You passed $stop.", backTo = stop)
             s.phase == Phase.AWAKE || s.phase == Phase.DONE -> AwakeUi(
                 "Get off at $stop",
                 listOfNotNull(

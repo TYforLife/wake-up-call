@@ -1,5 +1,6 @@
 package app.nodstop.alarm
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -15,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import app.nodstop.openIfPossible
 import app.nodstop.App
 import app.nodstop.Notifications
+import app.nodstop.Shortcuts
 import app.nodstop.brief.Digests
 import app.nodstop.notify.MessageStore
 import app.nodstop.notify.PanelText
@@ -65,6 +67,8 @@ class AlarmActivity : ComponentActivity() {
                         close()
                     },
                     onDone = { close() },
+                    // Passed your stop (BACKLOG F23): Plan a trip back from here, after unlocking.
+                    onBack = { name, pos -> afterUnlock { openIfPossible(Shortcuts.planIntent(this, name, pos)); close() } },
                 )
             } else if (current != null) {
                 AlarmRingHost(current, onAwake = { awakeHere() })
@@ -73,6 +77,15 @@ class AlarmActivity : ComponentActivity() {
                 androidx.compose.runtime.LaunchedEffect(Unit) { close() }
             }
         }
+    }
+
+    /** Runs [then] once the phone is unlocked: at once if it is, after you unlock if not. */
+    private fun afterUnlock(then: () -> Unit) {
+        val km = getSystemService(KeyguardManager::class.java)
+        if (!km.isKeyguardLocked) { then(); return }
+        km.requestDismissKeyguard(this, object : KeyguardManager.KeyguardDismissCallback() {
+            override fun onDismissSucceeded() = then()
+        })
     }
 
     /** Held "I'm awake" on this screen: "You're awake" always follows (PLAN U5), until Done. */

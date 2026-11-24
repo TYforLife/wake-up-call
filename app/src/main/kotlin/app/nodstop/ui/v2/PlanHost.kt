@@ -258,6 +258,7 @@ fun PlanHost(
             },
             canSwap = !fixed,
             canSkip = skip != null,
+            walk = if (editing == null && toPos != null) PlanText.walkInstead(walkFrom?.to(toPos)) else null,
         ),
         PlanActions(
             back = back,

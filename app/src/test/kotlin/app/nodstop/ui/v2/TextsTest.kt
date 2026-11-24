@@ -208,4 +208,11 @@ class TextsTest {
         assertEquals(JourneyRowUi.State.DONE, later[0].state)
         assertEquals("Now", later[1].time)
     }
+
+    @Test
+    fun `passed your stop - off at the next one, and the way back is one tap (F23)`() {
+        val t = trip(status(phase = Phase.AWAKE, ring = AlarmReason.OVERSHOOT))
+        assertEquals(AwakeUi("Get off at the next stop", "You passed Harbour St.", backTo = "Harbour St"), AwakeText.of(t))
+        assertEquals(null, AwakeText.of(trip(status(phase = Phase.AWAKE, ring = AlarmReason.WAKE))).backTo)
+    }
 }
