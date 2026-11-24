@@ -194,7 +194,6 @@ its own kind welcome joke (Product direction). Don't start until Tae says the MV
   notification of its own. Maybe.
 - [ ] **F31. Weather at your stop** on "You're awake", if a free source fits: Open-Meteo or MET Norway need no key.
   Only the stop's rough area (rounded to about 1 km) may be sent, like map tiles (DESIGN §5 privacy).
-- [ ] **F25. "Where to?" on Now** for a one-off trip from one search. Tae hasn't ranked it yet.
 
 ## Not doing (Tae, 2026-11-23)
 - F7 re-doze check ("nah"), F14 stop countdown ("let me sleep"), F24 "Got everything?", F32 calendar on wake.
@@ -218,6 +217,8 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F25. "Where to?" on Now (2026-11-24).** Under your routes, "Where to? · A one-off trip, from one search"
+  opens Plan a trip with the destination field ready (the same planner as Routes → Plan a trip).
 - [x] **F1. Ride report (2026-11-24).** Now's "Last trip" says how long before each stop it rang: "Rang 42 s
   before Smales Farm" (or "after reaching"), from the trip log's ring and the bus reaching the stop (`TripVerdict`).
 - [x] **F27. Departures board (2026-11-24).** Routes → Departures: search any stop by name or number, then every
