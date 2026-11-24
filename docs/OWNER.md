@@ -119,6 +119,13 @@ new, or repeats something, add it here in the same PR.
   recordings (a 20 s morning and three ~1.5 s screams) and asked for the morning looping with screams "happening
   stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
 
+## 2026-11-24 (working the backlog)
+- "Next list of backlog. Pick and do", then "Keep doing next and next until out of token": work down
+  `docs/BACKLOG.md` in his order (High, then Medium-high…), skipping what waits on him (F35's Play steps, F13's AT
+  key, F28's recorded ride, F37 until he says the MVP is there), one PR per feature or step, merged when green,
+  without asking. Where two of his asks disagree (F6's "whichever comes first" against "his circle decides"), leave
+  it and say so in one line rather than pick for him.
+
 ## 2026-11-23 (walks)
 - **Walks must look and measure like Google's.** The map drew the walk as a straight line while its minutes followed
   the footpaths: "make it match. Find a way. No nos." The straight line × 1.25 is the "last last last resort", not a
