@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import app.nodstop.App
 import app.nodstop.alarm.TripVerdict
 import app.nodstop.alarm.VerdictLine
+import app.nodstop.engine.Phase
 import app.nodstop.engine.Sleep
 import app.nodstop.engine.Trace
 import app.nodstop.BuildConfig
@@ -259,6 +260,15 @@ private fun NowRidingTab(t: TripService.TripUi) {
         if (d?.bus == null || board == null || i2 == null || t2 == null) null
         else Departures.ride(i2, t2, d.bus, board, t.legStops[i], java.time.LocalDate.now(), from)
     }
+    // On a bus Plan a trip knows: how many stops it still calls at up to yours (BACKLOG F9).
+    val bus = drafts?.getOrNull(t.legIndex)?.bus
+    val stopsLeft = remember(ix, tt, t.status.position, t.legIndex, t.status.phase, drafts) {
+        val board = drafts?.getOrNull(t.legIndex)?.boardCoords?.let { CoordParser.parse(it) }
+        val here = t.status.position
+        val i2 = ix; val t2 = tt
+        if (t.status.phase != Phase.RIDING || bus == null || board == null || here == null || i2 == null || t2 == null) null
+        else Departures.stopsLeft(i2, t2, bus, board, t.legStops[t.legIndex], here)
+    }
     val colors = LocalN.current
     // More map, less panel (PLAN B3): touching the map folds the sheet; it remembers while the trip runs.
     var expanded by rememberSaveable { mutableStateOf(true) }
@@ -267,7 +277,8 @@ private fun NowRidingTab(t: TripService.TripUi) {
     var circleLeg by remember { mutableStateOf<Int?>(null) }
     val circlePin = circleLeg?.let { leg -> MapModel.tripZones(layers).firstOrNull { it.legIndex == leg } }
     NowRiding(
-        sheet = TripSheetText.of(t, ::hm, nextBus = rememberNextBus(t, routes)).copy(arrival = JourneyText.arrival(t, journey)),
+        sheet = TripSheetText.of(t, ::hm, nextBus = rememberNextBus(t, routes), bus = bus, stopsLeft = stopsLeft)
+            .copy(arrival = JourneyText.arrival(t, journey)),
         onAction = { TripService.instance?.skipLeg() },
         onRecentre = { recentre++ },
         onStopTrip = { confirmStop = true },

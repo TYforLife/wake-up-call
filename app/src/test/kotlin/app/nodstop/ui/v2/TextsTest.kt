@@ -215,4 +215,12 @@ class TextsTest {
         assertEquals(AwakeUi("Get off at the next stop", "You passed Harbour St.", backTo = "Harbour St"), AwakeText.of(t))
         assertEquals(null, AwakeText.of(trip(status(phase = Phase.AWAKE, ring = AlarmReason.WAKE))).backTo)
     }
+
+    @Test
+    fun `on a bus Plan a trip knows - how many stops to yours (F9)`() {
+        assertEquals("On the 866 · 4 stops to", TripSheetText.of(trip(status()), clock, bus = "866", stopsLeft = 4).eyebrow)
+        assertEquals("On the 866 · 1 stop to", TripSheetText.of(trip(status()), clock, bus = "866", stopsLeft = 1).eyebrow)
+        assertEquals("Get off at", TripSheetText.of(trip(status()), clock).eyebrow, "not known: as before")
+        assertEquals("Get off at", TripSheetText.of(trip(status(phase = Phase.AWAKE)), clock, bus = "866", stopsLeft = 1).eyebrow)
+    }
 }

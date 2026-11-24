@@ -107,16 +107,7 @@ object Departures {
      */
     fun remainingS(ix: TransitIndex, tt: Timetable, route: String, board: LatLng, alight: LatLng, here: LatLng, date: LocalDate, nowS: Int): Double? {
         val (p, a, b) = leg(ix, tt, route, board, alight) ?: return null
-        val pts = (a..b).map { ix.stops[p.stops[it]].pos }
-        // Where on the line you are: the nearest segment, and how far along it.
-        var bestK = -1
-        var bestF = 0.0
-        var bestD = Double.MAX_VALUE
-        for (k in 0 until pts.size - 1) {
-            val (f, d) = project(here, pts[k], pts[k + 1])
-            if (d < bestD) { bestD = d; bestK = k; bestF = f }
-        }
-        if (bestK < 0 || bestD > ON_LINE_M) return null
+        val (bestK, bestF) = onLine(ix, p, a, b, here) ?: return null
         val today = tt.services.map { it.runsOn(date) }
         val yesterday = tt.services.map { it.runsOn(date.minusDays(1)) }
         var best: Pair<Double, Double>? = null // |offset from now|, time left
@@ -129,6 +120,35 @@ object Departures {
             if (off <= 30 * 60 && (best == null || off < best.first)) best = off to left
         }
         return best?.second?.coerceAtLeast(0.0)
+    }
+
+    /**
+     * Where [here] is on the line of the bus's stops from position [a] to [b] of [p]: the segment it's on (0 = between
+     * the first two) and how far along it (0..1). Null when it's further than [ON_LINE_M] from that line.
+     */
+    private fun onLine(ix: TransitIndex, p: Timetable.Pattern, a: Int, b: Int, here: LatLng): Pair<Int, Double>? {
+        val pts = (a..b).map { ix.stops[p.stops[it]].pos }
+        var bestK = -1
+        var bestF = 0.0
+        var bestD = Double.MAX_VALUE
+        for (k in 0 until pts.size - 1) {
+            val (f, d) = project(here, pts[k], pts[k + 1])
+            if (d < bestD) { bestD = d; bestK = k; bestF = f }
+        }
+        return if (bestK < 0 || bestD > ON_LINE_M) null else bestK to bestF
+    }
+
+    /**
+     * How many stops the bus still calls at up to and including [alight] (BACKLOG F9: "On the 866, 4 stops to
+     * Symonds St"), from where [here] is on its line. Null when the timetable doesn't know that ride or you're not on
+     * its line. Display only: the alarm never waits on it.
+     */
+    fun stopsLeft(ix: TransitIndex, tt: Timetable, route: String, board: LatLng, alight: LatLng, here: LatLng): Int? {
+        val (p, a, b) = leg(ix, tt, route, board, alight) ?: return null
+        val (k, f) = onLine(ix, p, a, b, here) ?: return null
+        // At a stop (the end of a segment), that stop is behind you.
+        val passed = k + if (f >= 0.95) 1 else 0
+        return ((b - a) - passed).coerceAtLeast(1)
     }
 
     /** How far along a→b (0..1) [p] is, and its distance in metres from the segment. */
