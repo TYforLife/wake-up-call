@@ -4,7 +4,14 @@ import app.nodstop.data.Planner
 import app.nodstop.engine.LatLng
 
 /** A place to plan from or to (PLAN Run 13, T3): home, work, an address, a stop, or where you are. */
-data class PlaceUi(val title: String, val sub: String, val pos: LatLng?, val kind: Kind) {
+data class PlaceUi(
+    val title: String,
+    val sub: String,
+    val pos: LatLng?,
+    val kind: Kind,
+    /** A stop only trains or only ferries call at shows as one (BACKLOG F29). */
+    val mode: app.nodstop.engine.Mode = app.nodstop.engine.Mode.BUS,
+) {
     enum class Kind { HERE, HOME, WORK, ADDRESS, STOP }
 }
 
@@ -73,6 +80,16 @@ object PlanText {
         out += StepUi(clock(j.arriveS), to, "Arrive", StepUi.Kind.END)
         return out
     }
+
+    /** A stop in search (BACKLOG F29): "Train station · Stop 133 · 300 m", "Ferry wharf · …", "Stop 1069 · 300 m". */
+    fun stopSub(mode: app.nodstop.engine.Mode, code: String, distance: String?): String = listOfNotNull(
+        when (mode) {
+            app.nodstop.engine.Mode.TRAIN -> "Train station"
+            app.nodstop.engine.Mode.FERRY -> "Ferry wharf"
+            app.nodstop.engine.Mode.BUS -> null
+        },
+        code.takeIf { it.isNotEmpty() }?.let { "Stop $it" }, distance,
+    ).joinToString(" · ")
 
     /** "To work", "To Britomart": the new route's name. */
     fun routeName(to: PlaceUi): String = when (to.kind) {

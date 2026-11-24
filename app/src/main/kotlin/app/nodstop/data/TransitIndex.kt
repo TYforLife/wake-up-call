@@ -17,6 +17,16 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>, private v
     /** What [route] is ridden on (BACKLOG F29, `modes.tsv`): a bus unless the feed says train or ferry. */
     fun modeOf(route: String): Mode = modes[route] ?: Mode.BUS
 
+    /** Each stop's routes' modes, worked out once. */
+    private val stopModes: Map<Int, Set<Mode>> by lazy {
+        val m = HashMap<Int, MutableSet<Mode>>()
+        for (p in patterns) { val mode = modeOf(p.route); for (s in p.stops) m.getOrPut(s) { HashSet() } += mode }
+        m
+    }
+
+    /** A train station or a ferry wharf: a stop only trains (or only ferries) call at; any stop a bus calls at is a bus stop. */
+    fun modeAt(stop: Int): Mode = stopModes[stop]?.singleOrNull() ?: Mode.BUS
+
     /** A stop found by a search: its index, and how far it is from you if known. */
     data class Hit(val index: Int, val stop: Stop, val distanceM: Double?)
 

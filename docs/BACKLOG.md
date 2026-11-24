@@ -81,7 +81,9 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
   - [x] The index knows each route's mode from AT's feed (`modes.tsv`), and Plan a trip marks train and ferry legs.
   - [x] Words say train or ferry, not bus, wherever the ride knows its mode ("I'm off this train", "Then ferry 2 to
         Devonport"); bus when it doesn't (`ModeWordsTest`).
-  - Next: train and ferry icons in search and on the map, and a stop set by hand at a station counted as a train.
+  - [x] Stations and wharves in search: a train or ferry icon and "Train station" / "Ferry wharf" (`modeAt`).
+  - Next: the icons on the map, and a stop set by hand at a station counted as a train (today a hand-set stop is a
+    bus leg; only Plan a trip marks trains).
 
 ### F3. [ ] Buzz on the watch: Coros first, Galaxy Watch too
 "and for Coros as well. I use coros. somewhat high prio." The ring buzzes the wrist.

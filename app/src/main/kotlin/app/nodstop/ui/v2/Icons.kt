@@ -36,5 +36,12 @@ object NIcons {
     val Search = icon("search", 1.8f, listOf(circle(11f, 11f, 6f), "M16 16l4 4"))
     /** Swap From and To: two arrows, up and down. */
     val Swap = icon("swap", 2f, listOf("M8 4v15M8 4l-3 3M8 4l3 3", "M16 20V5M16 20l-3-3M16 20l3-3"))
+    /** A train station and a ferry wharf in search (BACKLOG F29). */
+    val Train = icon(
+        "train", 1.8f,
+        listOf("M8 4h8a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a3 3 0 0 1 3-3z", "M5 11h14", "M9 17l-2 4M15 17l2 4"),
+        listOf(circle(9f, 14f, 1f), circle(15f, 14f, 1f)),
+    )
+    val Ferry = icon("ferry", 1.8f, listOf("M4 15h16l-2 4H6z", "M7 15v-4h10v4", "M12 11V7", "M3 21c2 0 2-1 4.5-1s2.5 1 4.5 1 2-1 4.5-1 2.5 1 4.5 1"))
     val More = icon("more", 1f, emptyList(), listOf(circle(6f, 12f, 1.8f), circle(12f, 12f, 1.8f), circle(18f, 12f, 1.8f)))
 }

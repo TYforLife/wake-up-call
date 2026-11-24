@@ -31,6 +31,16 @@ class TransitIndexTest {
     }
 
     @Test
+    fun `a stop only trains call at is a train station, one a bus calls at is a bus stop (F29)`() {
+        val withModes = TransitIndex.parse(res("stops.tsv"), res("routes.tsv"), res("modes.tsv"))
+        val trainOnly = withModes.stops.indices.filter { s -> withModes.patterns.filter { s in it.stops }.let { ps -> ps.isNotEmpty() && ps.all { it.route == "22" } } }
+        val busToo = withModes.stops.indices.filter { s -> withModes.patterns.any { s in it.stops && it.route != "22" } }
+        assertTrue(trainOnly.isNotEmpty() && trainOnly.all { withModes.modeAt(it) == app.nodstop.engine.Mode.TRAIN })
+        assertTrue(busToo.isNotEmpty() && busToo.all { withModes.modeAt(it) == app.nodstop.engine.Mode.BUS })
+        assertEquals(app.nodstop.engine.Mode.BUS, withModes.modeAt(-1), "a stop no route calls at")
+    }
+
+    @Test
     fun `search by number - exact first, then starting with it`() {
         assertEquals(listOf("1002"), ix.search("1002").map { it.stop.code })
         assertEquals(listOf("2001", "2002"), ix.search("200").map { it.stop.code })

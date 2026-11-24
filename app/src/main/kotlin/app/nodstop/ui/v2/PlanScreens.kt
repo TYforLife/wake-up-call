@@ -98,7 +98,7 @@ fun PlanTripScreen(ui: PlanUi, a: PlanActions, modifier: Modifier = Modifier) {
             ui.suggestions.forEachIndexed { i, s ->
                 ListRow(
                     s.title, s.sub.takeIf { it.isNotEmpty() }, divider = i < ui.suggestions.lastIndex, onClick = { a.pick(i) },
-                    leading = { Icon(placeIcon(s.kind), null, tint = c.muted) },
+                    leading = { Icon(placeIcon(s), null, tint = c.muted) },
                 )
             }
         } else {
@@ -110,11 +110,15 @@ fun PlanTripScreen(ui: PlanUi, a: PlanActions, modifier: Modifier = Modifier) {
     }
 }
 
-private fun placeIcon(k: PlaceUi.Kind) = when (k) {
+private fun placeIcon(p: PlaceUi) = when (p.kind) {
     PlaceUi.Kind.HERE -> NIcons.Locate
     PlaceUi.Kind.HOME, PlaceUi.Kind.WORK -> NIcons.Now
     PlaceUi.Kind.ADDRESS -> NIcons.Search
-    PlaceUi.Kind.STOP -> NIcons.Routes
+    PlaceUi.Kind.STOP -> when (p.mode) {
+        app.nodstop.engine.Mode.TRAIN -> NIcons.Train
+        app.nodstop.engine.Mode.FERRY -> NIcons.Ferry
+        app.nodstop.engine.Mode.BUS -> NIcons.Routes
+    }
 }
 
 @Composable
@@ -289,7 +293,7 @@ fun PlacePickScreen(ui: PlacePickUi, a: PlacePickActions, modifier: Modifier = M
             }
             ListRow(ui.hereLabel, "Use where you are now", onClick = a.here, leading = { Icon(NIcons.Locate, null, tint = c.fg) })
             ui.suggestions.forEachIndexed { i, s ->
-                ListRow(s.title, s.sub.takeIf { it.isNotEmpty() }, divider = i < ui.suggestions.lastIndex, onClick = { a.pick(i) }, leading = { Icon(placeIcon(s.kind), null, tint = c.muted) })
+                ListRow(s.title, s.sub.takeIf { it.isNotEmpty() }, divider = i < ui.suggestions.lastIndex, onClick = { a.pick(i) }, leading = { Icon(placeIcon(s), null, tint = c.muted) })
             }
             ui.note?.let { Hint(it, Modifier.padding(top = 12.dp)) }
         }

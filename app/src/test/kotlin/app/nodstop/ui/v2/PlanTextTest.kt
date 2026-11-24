@@ -78,4 +78,11 @@ class PlanTextTest {
         assertEquals("Set them to plan your commute", PlanText.homeWork(null, null))
         assertEquals("12 Example Rd · No work", PlanText.homeWork("12 Example Rd", null))
     }
+
+    @Test
+    fun `a station in search says so (F29)`() {
+        assertEquals("Train station · Stop 133 · 300 m", PlanText.stopSub(app.nodstop.engine.Mode.TRAIN, "133", "300 m"))
+        assertEquals("Ferry wharf", PlanText.stopSub(app.nodstop.engine.Mode.FERRY, "", null))
+        assertEquals("Stop 1069 · 300 m", PlanText.stopSub(app.nodstop.engine.Mode.BUS, "1069", "300 m"))
+    }
 }
