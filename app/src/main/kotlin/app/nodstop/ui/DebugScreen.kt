@@ -131,6 +131,11 @@ fun DebugScreen(go: (Screen) -> Unit) {
         Section("While you slept") {
             val tea by app.settings.teaTone.collectAsState()
             val gpu by app.settings.useGpu.collectAsState()
+            val onTrips by app.settings.modelOnTrips.collectAsState()
+            SwitchRow(
+                "Use the model on trips", "Off: no trip loads a model, and the alarm shows the plain message summary (BACKLOG F33).",
+                onTrips, { app.settings.setModelOnTrips(it) },
+            )
             SwitchRow("Tea tone", "Briefing lines in group-chat voice. Same facts, checked again.", tea, { app.settings.setTeaTone(it) })
             SwitchRow(
                 "Use the GPU", "Often faster and lighter on the battery; falls back to the CPU. Trips use it only after the Briefing lab has run on the GPU once.",

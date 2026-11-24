@@ -96,14 +96,6 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
   - [ ] Setup or Settings says "Turn on Nodstop in the COROS app's notifications" with the steps.
 - **Test on phone:** a test ring buzzes the Coros until you hold "I'm awake".
 
-### F33. [ ] While You Slept: the message summary only
-"message summary. We'll find ways to use AI… later." The model can't load on the A17.
-- **Done when:**
-  - [ ] The alarm screen and "You're awake" show the plain digest. Settings shows no model. The model, its import,
-        the Briefing lab and the tones stay reachable under Debug only, for the AI work later (so nothing is dead
-        code, `CLAUDE.md` Code quality 5).
-  - [ ] Nothing loads a model during a trip. Invariants W1–W6 and their tests unchanged.
-
 ## Medium-high
 
 ### F16. [ ] Share my arrival
@@ -228,6 +220,11 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F33. While You Slept: the message summary only (2026-11-24).** "message summary. We'll find ways to use AI…
+  later."
+  - The alarm screen and "You're awake" show the plain digest; Settings shows no model. The model, its import, the
+    Briefing lab and the tones are under Debug only. No trip loads a model unless Debug → "Use the model on trips"
+    is on (off by default; `TripModelTest`). W1–W6 and their tests unchanged.
 - [x] **F30. Sleep stats (2026-11-24).** "amazing. High prio (exclude phone on time)."
   - Now: "You slept 14 h on the bus this month" / "3 h 20 min this week · last ride 25 min". Only time on a trip
     with the screen off counts. Counts from the trip logs on the phone, nothing sent. P5 (sharing it) is still open.
