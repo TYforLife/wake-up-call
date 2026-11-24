@@ -1,0 +1,51 @@
+name: make-release-key
+
+# Run once, by hand, from the phone (Actions → make-release-key → Run workflow). It makes the Play upload key and puts
+# it straight into this repo's GitHub secrets, so the key and its password never exist anywhere else: not in the repo,
+# a log, an artifact or a chat (DESIGN §6, docs/play/README.md). Play App Signing holds the real app signing key, so a
+# lost upload key is reset in Play Console, never a lost app.
+on: workflow_dispatch
+
+permissions: {}
+
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Make the upload key and store it in GitHub secrets
+        env:
+          # A fine-grained token Tae makes for this one run (this repo only, "Secrets: read and write"); GITHUB_TOKEN
+          # can't write secrets. Delete the token and the SECRETS_TOKEN secret afterwards.
+          GH_TOKEN: ${{ secrets.SECRETS_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Add the SECRETS_TOKEN secret first (docs/play/README.md)."
+            exit 1
+          fi
+          if gh secret list --repo "$REPO" --json name --jq '.[].name' | grep -qx RELEASE_KEYSTORE_BASE64; then
+            echo "::error::RELEASE_KEYSTORE_BASE64 already exists, so nothing changed. A new key would stop Play taking uploads until Play Console resets the upload key."
+            exit 1
+          fi
+          umask 077
+          dir=$(mktemp -d)
+          trap 'rm -rf "$dir"' EXIT
+          pw=$(openssl rand -hex 24)
+          echo "::add-mask::$pw"
+          keytool -genkeypair -keystore "$dir/upload.p12" -storetype PKCS12 -alias upload -keyalg RSA -keysize 4096 \
+            -validity 10000 -dname "CN=Nodstop upload key" -storepass "$pw" -keypass "$pw" > /dev/null 2>&1
+          base64 -w0 "$dir/upload.p12" | gh secret set RELEASE_KEYSTORE_BASE64 --repo "$REPO"
+          printf '%s' "$pw" | gh secret set RELEASE_KEYSTORE_PASSWORD --repo "$REPO"
+          # The certificate's fingerprint is public: it matches Play Console → Test and release → App signing → Upload key.
+          {
+            echo "Upload key stored in GitHub secrets (RELEASE_KEYSTORE_BASE64, RELEASE_KEYSTORE_PASSWORD)."
+            echo
+            echo "Upload certificate SHA-256: $(keytool -list -v -keystore "$dir/upload.p12" -storepass "$pw" -alias upload | sed -n 's/^.*SHA256: //p')"
+            echo
+            echo "Now delete the SECRETS_TOKEN secret and the token itself (GitHub → Settings → Developer settings)."
+          } | tee -a "$GITHUB_STEP_SUMMARY"

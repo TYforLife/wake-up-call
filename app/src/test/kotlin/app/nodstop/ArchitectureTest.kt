@@ -72,6 +72,48 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `the release key and Play access stay out of the repo (DESIGN 6)`() {
+        val skip = setOf("build", ".gradle", ".git", ".kotlin", ".idea", "node_modules")
+        val files = repo.canonicalFile.walkTopDown().onEnter { it.name !in skip }.filter { it.isFile }.toList()
+        val keyFiles = files.filter { it.extension.lowercase() in setOf("jks", "keystore", "p12", "pfx", "pem") }.map(::rel)
+        assertTrue(
+            keyFiles == listOf("keystore/debug.keystore"),
+            "key files in the repo: $keyFiles. Only the debug keystore is committed; the Play upload key lives in GitHub " +
+                "secrets only (make-release-key workflow, DESIGN §6).",
+        )
+        // Built from parts so this test doesn't match itself.
+        val secrets = listOf("-----BEGIN " + "PRIVATE KEY-----", "\"type\": \"" + "service_account\"")
+        val leaks = files.filter { it.length() < 2_000_000 && it.extension !in setOf("png", "jpg", "pcm", "jar", "keystore") }
+            .filter { f -> f.readText().let { t -> secrets.any { it in t } } }.map(::rel)
+        assertTrue(leaks.isEmpty(), "a private key or service-account key in $leaks. Delete it, rotate it, and keep it in GitHub secrets only.")
+        val gradle = File("build.gradle.kts").readText()
+        assertTrue(
+            Regex("""storePassword\s*=\s*"""").findAll(gradle).count() == 1 && "environmentVariable(\"RELEASE_KEYSTORE_PASSWORD\")" in gradle,
+            "the release signing config must read its keystore and password from the environment (GitHub secrets in CI), " +
+                "never from a value in the repo. Only the debug key's password is written down.",
+        )
+    }
+
+    @Test
+    fun `the debug APK installs next to the Play build (DESIGN 6)`() {
+        val gradle = File("build.gradle.kts").readText()
+        assertTrue(
+            Regex("""debug\s*\{[^}]*applicationIdSuffix\s*=\s*"\.debug"""").containsMatchIn(gradle),
+            "the debug build must keep its own application ID, or installing it would replace (or be refused by) the Play build.",
+        )
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        val authorities = Regex("""android:authorities="([^"]*)"""").findAll(manifest).map { it.groupValues[1] }.toList()
+        assertTrue(
+            authorities.all { it.startsWith("\${applicationId}") },
+            "provider authorities $authorities must start with \${applicationId}: two installs can't share one.",
+        )
+        val name = Regex("""name="app_name">([^<]*)<""")
+        val main = name.find(File("src/main/res/values/strings.xml").readText())?.groupValues?.get(1)
+        val debug = name.find(File("src/debug/res/values/strings.xml").readText())?.groupValues?.get(1)
+        assertTrue(debug != null && debug != main, "the debug app needs its own name on the home screen (it is \"$debug\", Play's is \"$main\").")
+    }
+
+    @Test
     fun `no comment justifies a workaround`() {
         val phrases = listOf(
             "workaround", "work around", "hack", "for now", "quick fix", "temporary fix", "band-aid", "bandaid",

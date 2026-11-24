@@ -7,6 +7,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      # A main build that Play can take: signed with the upload key from GitHub secrets (DESIGN §6).
+      play: ${{ steps.play.outputs.ready }}
+    env:
+      HAS_RELEASE_KEY: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' && secrets.RELEASE_KEYSTORE_PASSWORD != '' }}
     # Per-branch: a new push cancels that branch's older run, never another branch's tests.
     concurrency:
       group: build-${{ github.ref }}
@@ -74,6 +79,30 @@ jobs:
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GIT_SHA: ${{ github.sha }}
+      - name: Play upload key, from GitHub secrets only (DESIGN §6)
+        if: env.HAS_RELEASE_KEY == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.p12"
+          echo "RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/upload.p12" >> "$GITHUB_ENV"
+      - name: Play build (release .aab; signed once the upload key is in secrets)
+        run: ./gradlew :app:bundleRelease --console=plain
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GIT_SHA: ${{ github.sha }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      - name: Forget the upload key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.p12"
+      - id: play
+        run: echo "ready=${{ github.ref == 'refs/heads/main' && env.HAS_RELEASE_KEY == 'true' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.play.outputs.ready == 'true'
+        with:
+          name: app-release
+          path: app/build/outputs/bundle/release/app-release.aab
       - name: Trip planner on the real timetable (PLAN Run 13; prints sizes and timings)
         if: always()
         run: |
@@ -168,3 +197,49 @@ jobs:
             gh release upload debug-latest compare/*.png --repo "$REPO" --clobber
           fi
           gh release edit debug-latest --repo "$REPO" --prerelease --notes "$NOTES"
+
+  # Every merge to main goes to Play's internal testing track (BACKLOG F35, DESIGN §6). Skipped until the upload key is in
+  # GitHub secrets; the Play upload itself waits for PLAY_SERVICE_ACCOUNT_JSON.
+  play:
+    needs: build
+    if: needs.build.outputs.play == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # In order, never cancelled halfway: each upload's build number must be higher than the last one Play took.
+    concurrency:
+      group: play-release
+      cancel-in-progress: false
+    env:
+      HAS_PLAY_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-release
+      - name: Publish the .aab to the play-latest prerelease (for the first upload, by hand in Play Console)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          NOTES="Play build ${GITHUB_RUN_NUMBER}, commit ${GITHUB_SHA::7}. Upload it by hand only once, for the app's first release (docs/play/README.md). After that CI uploads every merge to the internal testing track."
+          if ! gh release view play-latest --repo "$REPO" > /dev/null 2>&1; then
+            gh release create play-latest --repo "$REPO" --prerelease \
+              --title "Play build (latest main)" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi
+          gh release upload play-latest app-release.aab --repo "$REPO" --clobber
+          gh release edit play-latest --repo "$REPO" --prerelease --notes "$NOTES"
+      - name: Upload to Play's internal testing track
+        if: env.HAS_PLAY_ACCOUNT == 'true'
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          pkg=$(sed -n 's/^ *applicationId = "\(.*\)"$/\1/p' app/build.gradle.kts)
+          tools/play_upload.sh "$pkg" app-release.aab internal | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Play upload waits for its key
+        if: env.HAS_PLAY_ACCOUNT != 'true'
+        run: echo "No PLAY_SERVICE_ACCOUNT_JSON secret yet, so nothing went to Play (docs/play/README.md)." | tee -a "$GITHUB_STEP_SUMMARY"

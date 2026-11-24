@@ -486,8 +486,7 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `MODIFY_AUDIO_SETTINGS` (media volume during the ring),
 `POST_PROMOTED_NOTIFICATIONS` (Android 16 Live Updates), `ACTIVITY_RECOGNITION` ("in a vehicle" / "on foot", asked
 only by Debug → Learn spike, `docs/LEARN.md`), `RECEIVE_BOOT_COMPLETED` (a trip's alarm survives a
-restart), `SYSTEM_ALERT_WINDOW` ("Display over other apps": the alarm screen opens over the app you're using),
-`INTERNET` (map tiles; and, only when you paste or share a `maps.app.goo.gl` short link, that link is sent to
+restart), `INTERNET` (map tiles; and, only when you paste or share a `maps.app.goo.gl` short link, that link is sent to
 Google to open it: `ShortLinks` follows its redirects to Google hosts over https only, PLAN Run 12; otherwise map tiles only, from
 OpenFreeMap; the tile server sees roughly which area you're looking at, nothing else is sent).
 
@@ -719,6 +718,20 @@ doesn't flash another colour while it opens.
   `gradle/libs.versions.toml`.
 - Debug signing: `keystore/debug.keystore` (standard debug credentials) is committed and
   `signingConfigs.debug` points at it, so every CI build installs over the previous one. It is never used for release.
+- The debug build's ID is `app.nodstop.debug`, named **Nodstop dev**, so it installs next to the Play build
+  (`app.nodstop`) instead of replacing it. `ArchitectureTest` checks the suffix, the provider authorities and the name.
+- **Play build (BACKLOG F35, `docs/play/`):** `:app:bundleRelease` makes `app-release.aab` on every push. It is signed
+  only when CI has the **upload key** from GitHub secrets (`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`,
+  alias `upload`), which are decoded to a temporary file for that one step. The key is made by the hand-run
+  `make-release-key` workflow straight into secrets, so it never exists in the repo, a log or an artifact.
+  Play App Signing holds the app signing key, and a lost upload key is reset in Play Console. `ArchitectureTest`
+  fails on any key file but the debug keystore, any private or service-account key in the repo, and any release
+  password written in the build file. Same ABI (arm64) as the debug APK.
+- `play` job, on `main` only and only with the upload key: it puts the `.aab` on the rolling prerelease
+  `play-latest` (for the app's very first release, which is uploaded by hand), then, if `PLAY_SERVICE_ACCOUNT_JSON`
+  exists, runs `tools/play_upload.sh` to put it on the **internal testing** track (Play Developer API v3 edits; the
+  service-account key signs its own token with openssl, so no third-party code sees it). It runs one at a time,
+  in order, so build numbers only rise.
 - `versionCode = GITHUB_RUN_NUMBER` (1 locally); `BuildConfig.GIT_SHA`.
 - GitHub Actions `.github/workflows/android.yml`:
   - On push to any branch, plus `workflow_dispatch`.
@@ -795,9 +808,9 @@ GPS dead-man's switch stays the guaranteed fallback; ghost buses or a dead feed 
 - **v2:** recorded-route matching (ride once, keep the trace as the route's path, use along-route
   distance; removes most of the early bias), a map view, adaptive GPS rate far from the stop (battery).
 - **Public release:** a caching proxy (for example a Cloudflare Worker) with one AT key, AT's
-  permission (§9), Play declarations (exact alarm, full-screen intent, location foreground service
-  with a demo video, and the battery-optimisation exemption request, which Play restricts), a
-  privacy policy ("your location never leaves the phone"), a real release key in GitHub secrets,
+  permission (§9), Play declarations and a privacy policy (written: `docs/play/declarations.md`,
+  `docs/privacy.md`), the closed test a new account needs (12 testers for 14 days, `docs/play/README.md`),
+  the other ABIs,
   battery steps for other phone brands, onboarding with first-ride safety notes, and a
   transit-provider interface so other cities (Wellington Metlink, Christchurch) can follow.
 - **Later:** the phone speaker as a default escalation, earbud tap gestures to stop the alarm, iOS.
@@ -818,8 +831,8 @@ GPS dead-man's switch stays the guaranteed fallback; ghost buses or a dead feed 
 
 - Donations on the Play Store: put the link on the project page or README rather than in the app.
   Check Play's payments policy before adding any in-app tip button.
-- Final name and application ID (Nodstop / `app.nodstop` for now): check the name is free on Play
-  and as a domain before the first release.
+- Final name and application ID (Nodstop / `app.nodstop` until the owner confirms them): the ID can't change after
+  the first upload to Play (`docs/play/README.md`, step 6). Check the name is free on Play first.
 
 ---
 

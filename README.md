@@ -8,7 +8,11 @@ you can sleep on the bus. It's built for Auckland Transport for now, with other 
 **Install the latest debug build** (on the phone):
 https://github.com/tyforlife/wake-up-call/releases/download/debug-latest/app-debug.apk
 
-The newest push on any branch wins. The build number is at the bottom of Settings.
+The newest push on any branch wins. The build number is at the bottom of Settings. It installs as **Nodstop dev**,
+next to the Play build.
+
+**From Google Play** (internal testing, every merge to `main`): set-up steps in [docs/play/README.md](docs/play/README.md).
+Privacy policy: [docs/privacy.md](docs/privacy.md).
 
 ## Why
 

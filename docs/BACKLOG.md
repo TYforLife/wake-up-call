@@ -45,16 +45,25 @@ And it should cost nothing to use: **no typing, no remembering, one tap or none*
 
 ### F35. [ ] On the Play Store, starting with Tae
 "high high prio." Install and update from Play instead of the GitHub APK, for him first, the public later.
+Steps only he can do, the plain answer to "is there no approval?", and the secrets' names: `docs/play/README.md`.
 - **Done when:**
-  - [ ] A release key in GitHub secrets (never in the repo) and a signed release build (`.aab`) from CI.
+  - [x] A release key in GitHub secrets (never in the repo) and a signed release build (`.aab`) from CI. CI side
+        done: `bundleRelease` on every push, signed from secrets, and the `make-release-key` workflow that makes the
+        key straight into secrets. `ArchitectureTest` keeps keys out of the repo. The key exists once Tae runs it (step 3).
   - [ ] An **internal testing** track he installs from: no 14-day wait, no review queue to speak of, updates
-        through Play. The debug APK keeps working alongside it.
-  - [ ] The Play declarations DESIGN §8 lists are written and pass: exact alarm and full-screen intent (an alarm
-        app), location foreground service (with a demo video), and the battery-optimisation request, which Play
-        restricts (if it's refused, open the battery settings page instead and say so in the PR).
-  - [ ] A privacy policy page: "your location never leaves the phone".
-  - [ ] The steps only Tae can do are listed in the PR, one line each (developer account, identity check, and the
-        12 testers for 14 days a new personal account needs before production).
+        through Play. The debug APK keeps working alongside it. CI side done: every merge to `main` uploads to the
+        internal track (`tools/play_upload.sh`), and the debug APK is now `app.nodstop.debug` ("Nodstop dev"), so
+        both install side by side. Ticked once Tae has installed from Play (steps 1–8).
+  - [x] The Play declarations DESIGN §8 lists are written (`docs/play/declarations.md`): exact alarm and full-screen
+        intent (an alarm app), location foreground service (with what the demo video must show). The
+        battery-optimisation request would likely be refused (alarm apps aren't on Google's list), so the app opens
+        App info → Battery instead (its own PR).
+  - [x] A privacy policy page (`docs/privacy.md`). "Your location never leaves the phone" holds for trips, but not
+        for Plan a trip, which sends its start and end points (your position when you start from here) to
+        OpenStreetMap's footpath and walking-route services. The policy says so. Making the slogan true again means
+        planning walks on the phone, which is Tae's call.
+  - [x] The steps only Tae can do are listed, one line each (`docs/play/README.md`): developer account, identity
+        check, and the 12 testers for 14 days a new personal account needs before production.
 - **Needs Tae:** the final name and application ID (DESIGN §9: the ID can't change after the first upload), and a
   Play developer account.
 
