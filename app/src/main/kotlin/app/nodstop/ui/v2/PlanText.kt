@@ -2,6 +2,7 @@ package app.nodstop.ui.v2
 
 import app.nodstop.data.Planner
 import app.nodstop.engine.LatLng
+import kotlin.math.roundToInt
 
 /** A place to plan from or to (PLAN Run 13, T3): home, work, an address, a stop, or where you are. */
 data class PlaceUi(
@@ -90,6 +91,18 @@ object PlanText {
         },
         code.takeIf { it.isNotEmpty() }?.let { "Stop $it" }, distance,
     ).joinToString(" · ")
+
+    /**
+     * Walking the whole way (BACKLOG F23: "walk back 9 min"), like Google's walking option: along the footpaths
+     * Plan a trip measured from where you start. Null when it's further than a first walk would go, or when the
+     * footpaths there aren't known (no straight-line guess here: the rides already cover it).
+     */
+    fun walkInstead(path: Planner.Path?): String? {
+        if (path == null || path.estimated || path.meters > Planner.MAX_WALK_M) return null
+        val min = maxOf(1, Math.ceil(path.meters / Planner.WALK_MPS / 60).toInt())
+        val dist = if (path.meters < 1_000) "${(path.meters / 10).roundToInt() * 10} m" else String.format(java.util.Locale.US, "%.1f km", path.meters / 1000)
+        return "Walk instead · $min min · $dist"
+    }
 
     /** "To work", "To Britomart": the new route's name. */
     fun routeName(to: PlaceUi): String = when (to.kind) {

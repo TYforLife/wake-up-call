@@ -110,8 +110,9 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
 - **Missed a stop:** after a "You passed your stop" ring: "Get off at Akoranga, walk back 9 min, or the 866 back
   at 8:04", tap for the map.
 - Built so far: after "You passed your stop", "You're awake" says "Get off at the next stop · You passed Symonds
-  St" and offers **Get back to Symonds St**, which opens Plan a trip from where you are (one way to plan). Next: a
-  walk-only option in the planner ("walk back 9 min"), then the missed connection.
+  St" and offers **Get back to Symonds St**, which opens Plan a trip from where you are (one way to plan). Plan a
+  trip also says "Walk instead · 9 min · 750 m" when it's a walk away, along the footpaths. Next: the missed
+  connection.
 - **Done when:**
   - [ ] Detection is pure and tested: on time; the bus left without you; you're on a different bus; no timetable.
   - [ ] Re-planning uses the existing planner (`Planner`), one way to plan.

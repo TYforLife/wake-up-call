@@ -85,4 +85,13 @@ class PlanTextTest {
         assertEquals("Ferry wharf", PlanText.stopSub(app.nodstop.engine.Mode.FERRY, "", null))
         assertEquals("Stop 1069 · 300 m", PlanText.stopSub(app.nodstop.engine.Mode.BUS, "1069", "300 m"))
     }
+
+    @Test
+    fun `walk instead, along the footpaths, when it's a walk away (F23)`() {
+        assertEquals("Walk instead · 10 min · 750 m", PlanText.walkInstead(app.nodstop.data.Planner.Path(750.0, emptyList())))
+        assertEquals("Walk instead · 17 min · 1.2 km", PlanText.walkInstead(app.nodstop.data.Planner.Path(1_240.0, emptyList())))
+        assertEquals(null, PlanText.walkInstead(app.nodstop.data.Planner.Path(2_000.0, emptyList())), "too far")
+        assertEquals(null, PlanText.walkInstead(app.nodstop.data.Planner.Path(500.0, emptyList(), estimated = true)), "never a straight-line guess")
+        assertEquals(null, PlanText.walkInstead(null))
+    }
 }

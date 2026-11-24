@@ -61,6 +61,8 @@ data class PlanUi(
     val canSwap: Boolean = true,
     /** First run's ride steps (PLAN Run 13, T5): every step can be skipped. */
     val canSkip: Boolean = false,
+    /** "Walk instead · 9 min · 750 m" when it's a walk away (BACKLOG F23), shown above the rides. */
+    val walk: String? = null,
 )
 
 class PlanActions(
@@ -103,6 +105,7 @@ fun PlanTripScreen(ui: PlanUi, a: PlanActions, modifier: Modifier = Modifier) {
             }
         } else {
             Row(Modifier.padding(top = 12.dp, bottom = 4.dp)) { Pill(ui.time, a.time) }
+            ui.walk?.let { ListRow(it, null, leading = { Icon(NIcons.Now, null, tint = LocalN.current.muted) }) }
             ui.rides.forEachIndexed { i, r -> RideRow(r, divider = i < ui.rides.lastIndex) { a.ride(i) } }
         }
         ui.note?.let { Hint(it, Modifier.padding(top = 16.dp)) }
