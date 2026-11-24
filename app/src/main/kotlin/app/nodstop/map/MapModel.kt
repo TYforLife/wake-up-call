@@ -57,6 +57,10 @@ object MapModel {
             pts?.let { LegPath(it, i == current) }
         }
 
+    /** The circle a tap is in (within [slackM]), the smallest if they overlap, so a small one inside a big one can be picked. */
+    fun pinAt(pins: List<Pin>, tap: LatLng, slackM: Double): Pin? =
+        pins.filter { CircleDrag.inside(it.pos, it.zoneM, tap, slackM) }.minByOrNull { it.zoneM }
+
     fun legPathsJson(l: Layers): String = collection(l.legPaths.map { feature(line(it.points), mapOf("current" to JsonPrimitive(it.current))) })
 
     /**

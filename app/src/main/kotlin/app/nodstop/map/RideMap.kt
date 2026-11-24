@@ -67,9 +67,10 @@ fun RideMap(
     var following by remember { mutableStateOf(true) }
     var cameraTick by remember { mutableIntStateOf(0) }
     // While you drag the circle's edge: its size, until the saved one comes back through [layers].
-    var preview by remember { mutableStateOf<Double?>(null) }
+    var preview by remember { mutableStateOf<Pair<Int, Double>?>(null) } // which leg, and its size while dragging
     val pin = layers.pins.firstOrNull { it.current && it.alarm }
-    val currentPin by rememberUpdatedState(pin)
+    // Every circle of the trip can be changed (owner, 2026-11-24): the stop it's watching and the ones after it.
+    val editable by rememberUpdatedState(MapModel.tripZones(layers).filter { it.alarm })
     val tap by rememberUpdatedState(onCircleTap)
     val resize by rememberUpdatedState(onCircleResize)
 
@@ -90,10 +91,9 @@ fun RideMap(
             m.addOnCameraIdleListener { cameraTick++ }
             // Tap inside your stop's circle (with a thumb's slack): its sizes (PLAN B4).
             m.addOnMapClickListener { ll ->
-                val p = currentPin ?: return@addOnMapClickListener false
-                val hit = CircleDrag.inside(p.pos, p.zoneM, LatLng(ll.latitude, ll.longitude), slackM = 15.0)
-                if (hit) tap(p)
-                hit
+                val p = MapModel.pinAt(editable, LatLng(ll.latitude, ll.longitude), slackM = 15.0) ?: return@addOnMapClickListener false
+                tap(p)
+                true
             }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
                 val pal = MapPalette.colors(colors.dark)
@@ -109,7 +109,13 @@ fun RideMap(
     Box(modifier) {
         // Touch the circle's edge and drag to resize it; anywhere else moves the map (owner: "no dot").
         val edge = remember {
-            EdgeDrag(density, { map }, { currentPin?.let { it.pos to (preview ?: it.zoneM) } }, { preview = it }, { r -> currentPin?.let { resize(it, r) } }, { currentPin?.let { tap(it) } })
+            EdgeDrag(
+                density, { map },
+                { editable.map { p -> p.pos to (preview?.takeIf { it.first == p.legIndex }?.second ?: p.zoneM) } },
+                { i, r -> editable.getOrNull(i)?.let { preview = it.legIndex to r } },
+                { i, r -> editable.getOrNull(i)?.let { resize(it, r) } },
+                { i -> editable.getOrNull(i)?.let { tap(it) } },
+            )
         }
         AndroidView(factory = { mapView.also { it.setOnTouchListener(edge) } }, modifier = Modifier.fillMaxSize())
         // How far is that (owner's feedback): a scale bar, like Google's, kept up to date as the map moves.
@@ -128,7 +134,7 @@ fun RideMap(
     }
     LaunchedEffect(style, layers, preview) {
         val s = style ?: return@LaunchedEffect
-        val zones = MapModel.tripZones(layers).map { p -> if (p.current) preview?.let { p.copy(zoneM = it) } ?: p else p }
+        val zones = MapModel.tripZones(layers).map { p -> preview?.takeIf { it.first == p.legIndex }?.let { p.copy(zoneM = it.second) } ?: p }
         s.getSourceAs<GeoJsonSource>("ride-zone")?.setGeoJson(MapModel.zonesJson(layers.copy(pins = zones)))
     }
     // Off one bus and on to the next stop (owner's feedback): frame you and the new stop again.

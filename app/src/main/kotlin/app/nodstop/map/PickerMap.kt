@@ -125,7 +125,7 @@ fun PickerMap(
     Box(modifier) {
         // Touch the circle's edge and drag to resize it; anywhere else moves the map (owner: "no dot").
         val edge = remember {
-            EdgeDrag(density, { map }, { target to zone }, { radius(it) }, { radius(it) }, { tap() })
+            EdgeDrag(density, { map }, { listOf(target to zone) }, { _, r -> radius(r) }, { _, r -> radius(r) }, { tap() })
         }
         AndroidView(factory = { mapView.also { it.setOnTouchListener(edge) } }, modifier = Modifier.fillMaxSize())
     }

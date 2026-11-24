@@ -521,7 +521,11 @@ doesn't flash another colour while it opens.
     - It shows only this trip's stops: your stop as Google's red pin with its circle shaded blue, the others as
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
     - The stops still to come have their circles too, fainter (`MapModel.tripZones`). Stops behind you have none.
-    - A scale bar, top left, like Google's (`Scale`: the longest round distance under 96 dp).
+    - A scale bar, top left (owner, 2026-11-24: "fixed length, change units"). It's always 72 dp long, and its label says
+      how far that is: "140 m", "1.4 km" (`Scale`).
+    - Every circle of the trip can be changed, not only the one it's watching (owner, 2026-11-24): tap inside any for
+      its sizes (the smallest if they overlap, `MapModel.pinAt`), or drag any edge (the nearest, `CircleDrag.pickEdge`).
+      It's saved to that stop of that route and applies to the trip at once.
     - Every leg's way (owner, 2026-11-24): the one you're on in route blue, the others grey (`MapModel.legPaths`):
       - the bus's **road**, when Plan a trip knows the bus (`Departures.path`). That's the feed's `shapes.txt`:
         `tools/gtfs_index.py` keeps each pattern's most common shape, simplified to 8 m, as an encoded polyline with
