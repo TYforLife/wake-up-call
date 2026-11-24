@@ -526,6 +526,8 @@ doesn't flash another colour while it opens.
       - the bus's **road**, when Plan a trip knows the bus (`Departures.path`). That's the feed's `shapes.txt`:
         `tools/gtfs_index.py` keeps each pattern's most common shape, simplified to 8 m, as an encoded polyline with
         the point at each stop (`shapes.tsv`, `Timetable.road`). Without a shape it goes stop to stop;
+      - for a route that doesn't know its bus (set by hand, or made before routes kept it), the road of the bus that
+        most likely runs from near the stop before (or where the trip started) to this stop (`Departures.likelyPath`);
       - else the newest learned ride to that stop;
       - else a straight line from the stop before.
 

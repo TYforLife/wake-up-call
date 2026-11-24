@@ -69,6 +69,32 @@ object Departures {
         }.filter { it.first >= fromS }.minByOrNull { it.first }
     }
 
+    /**
+     * The road of the bus that most likely takes you from near [from] to [to], for a route that doesn't know its bus
+     * (set by hand, or made before routes kept it): any pattern that calls within [fromM] of [from] and later within
+     * 150 m of [to], the nearest boarding first, then the fewest stops. Its road when the feed has one, else stop to
+     * stop; null if no bus does that. For the map only.
+     */
+    fun likelyPath(ix: TransitIndex, tt: Timetable, from: LatLng, to: LatLng, fromM: Double): List<LatLng>? {
+        val on = ix.near(from, fromM).toMap()
+        val off = ix.near(to, 150.0).toMap()
+        if (on.isEmpty() || off.isEmpty()) return null
+        var best: Triple<Int, Int, Int>? = null // pattern, from, to positions
+        var bestKey = Double.MAX_VALUE
+        tt.patterns.forEachIndexed { pi, p ->
+            for (a in 0 until p.stops.size - 1) {
+                val da = on[p.stops[a]] ?: continue
+                val b = (a + 1 until p.stops.size).firstOrNull { off.containsKey(p.stops[it]) } ?: continue
+                // Metres to walk to the bus first, then a few metres per stop, then how close it gets you.
+                val key = da + (b - a) * 5.0 + (off[p.stops[b]] ?: 0.0)
+                if (key < bestKey) { bestKey = key; best = Triple(pi, a, b) }
+            }
+        }
+        val (pi, a, b) = best ?: return null
+        val p = tt.patterns[pi]
+        return tt.road(pi, a, b) ?: (a..b).map { ix.stops[p.stops[it]].pos }
+    }
+
     /** On the bus's line: within this of the straight line between two of its stops. */
     private const val ON_LINE_M = 400.0
 
