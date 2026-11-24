@@ -48,7 +48,7 @@ class RealTimetableTest {
             if (name.startsWith("Westlake")) assertTrue(js.any { j -> j.buses.any { it.route == "866" } }, "$name: the 866 (Smales Farm to the hospital)")
             // Every bus leg follows its road: more points than stops, and the road ends where you get on and off.
             for (b in js.flatMap { it.buses }) {
-                assertTrue(b.road.size > b.path.size, "$name: ${b.route} has no road (${b.road.size} points for ${b.path.size} stops)")
+                assertTrue(b.road.size >= b.path.size && b.road.size >= 2, "$name: ${b.route} has no road (${b.road.size} points for ${b.path.size} stops)")
                 assertTrue(app.nodstop.engine.Geo.distanceM(b.road.first(), ix.stops[b.board].pos) < 150.0, "$name: ${b.route}'s road starts at its stop")
                 assertTrue(app.nodstop.engine.Geo.distanceM(b.road.last(), ix.stops[b.alight].pos) < 150.0, "$name: ${b.route}'s road ends at its stop")
             }

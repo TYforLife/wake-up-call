@@ -110,20 +110,38 @@ def encode(pts):
 
 
 def stops_on(shape, stop_pts):
-    """For each stop in order, the index of the shape point at it: the first local closest point after the
-    previous stop's, so a route that comes back past the same place isn't read out of order."""
+    """For each stop in order, the index of the (full-detail) shape point at it: after the previous stop's, the first
+    point about as close as the route ever comes (within 30 m of that), so a loop or a route that comes back past the
+    same place isn't read out of order."""
     out, start = [], 0
     for sp in stop_pts:
-        best, best_d = start, float("inf")
-        for k in range(start, len(shape)):
-            d = metres(shape[k], sp)
-            if d < best_d:
-                best, best_d = k, d
-            elif best_d < 60.0 and d > best_d + 200.0:
-                break
-        out.append(best)
-        start = best
+        ds = [metres(shape[k], sp) for k in range(start, len(shape))]
+        if not ds:
+            out.append(len(shape) - 1)
+            continue
+        near = min(ds) + 30.0
+        k = next(i for i, d in enumerate(ds) if d <= near)
+        # Down to the bottom of that approach.
+        while k + 1 < len(ds) and ds[k + 1] < ds[k]:
+            k += 1
+        out.append(start + k)
+        start = start + k
     return out
+
+
+def simplify_keeping(pts, keep):
+    """[simplify] between the points that must stay (each stop's), and those points' new indexes."""
+    keep = sorted(set(keep) | {0, len(pts) - 1})
+    out, at = [], {}
+    for a, b in zip(keep, keep[1:]):
+        part = simplify(pts[a:b + 1])
+        if not out:
+            at[a] = 0
+            out += part
+        else:
+            out += part[1:]
+        at[b] = len(out) - 1
+    return out, at
 
 
 def main():
@@ -251,7 +269,7 @@ def main():
                     raw[r["shape_id"]].append((int(r["shape_pt_sequence"]), float(r["shape_pt_lat"]), float(r["shape_pt_lon"])))
     except KeyError:
         pass
-    shapes = {sid: simplify([(la, ln) for _, la, ln in sorted(pts)]) for sid, pts in raw.items()}
+    shapes = {sid: [(la, ln) for _, la, ln in sorted(pts)] for sid, pts in raw.items()}
 
     os.makedirs(args.out, exist_ok=True)
     with open(os.path.join(args.out, "stops.tsv"), "w", encoding="utf-8", newline="\n") as f:
@@ -281,8 +299,11 @@ def main():
             if not shape or len(shape) < 2:
                 f.write("\n")
                 continue
-            at = stops_on(shape, [(stops[i][3], stops[i][4]) for i in seq])
-            f.write(f"{encode(shape)}\t{','.join(map(str, at))}\n")
+            # Stops are placed on the full-detail shape, then kept through the simplifying, so each stop has a road
+            # point at it (a long straight stretch would otherwise leave its nearest point far away).
+            on = stops_on(shape, [(stops[i][3], stops[i][4]) for i in seq])
+            simple, moved = simplify_keeping(shape, on)
+            f.write(f"{encode(simple)}\t{','.join(str(moved[i]) for i in on)}\n")
             shaped += 1
     with open(os.path.join(args.out, "meta.txt"), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"{ATTRIBUTION}\nstops={len(stops)}\npatterns={len(patterns)}\n")
