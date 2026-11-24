@@ -23,6 +23,13 @@ object CircleDrag {
         Geo.distanceM(center, tap) <= radiusM + slackM
 
     /**
+     * Which stop a tap selects for editing its circle (owner, 2026-11-24: "make the user click on the station to enable
+     * edit"): the stop nearest the tap within [tolPx]. [distsPx]: each stop's distance from the tap on screen.
+     */
+    fun pickStop(distsPx: List<Double>, tolPx: Double): Int? =
+        distsPx.indices.filter { distsPx[it] <= tolPx }.minByOrNull { distsPx[it] }
+
+    /**
      * Which circle's edge a touch grabs (owner, 2026-11-24: change any stop's circle): of the circles whose edge it
      * lands on ([onEdge]), the one whose edge is closest. [circles]: each one's (touch distance from its centre,
      * radius), in px. Null: none.

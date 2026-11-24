@@ -100,7 +100,10 @@ new, or repeats something, add it here in the same PR.
   it, per stop and per route, updated mid-trip; the stop's own timing only as the 30 s minimum. Don't go back to
   "a circle only adds an earlier ring".
 - He likes the route map (buses on their roads, current blue, the rest grey). He wants every stop's circle editable on
-  the trip map, and a fixed-length scale bar whose label changes.
+  the trip map, but not by accident: tap the stop first (bold circle), then drag. A fixed-length scale bar whose label
+  changes.
+- **"Fucking don't wake me up early."** Woken about 4 km out, outside his circle (screenshot, 2026-11-24). Never ring on
+  an estimate outside his circle; v_est never above V_MAX. Treat early rings as seriously as missed ones.
 - He didn't like the made-up Pūkeko sound. He then gave his own recordings, and Pūkeko is back made from those
   (PR #56).
 - **pstack** (Lauren Tan's skills, `cursor/plugins`): he asked for it to be used in this project. It is enabled

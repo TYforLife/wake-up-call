@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Box
+import kotlin.math.hypot
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.Alignment
@@ -56,6 +57,8 @@ fun RideMap(
     onUserGesture: () -> Unit = {},
     /** Tapped inside your stop's circle: show its sizes (PLAN Run 11, B4). */
     onCircleTap: (MapModel.Pin) -> Unit = {},
+    /** The stop whose circle is being edited (tapped on its stop), or null: only that circle's edge can be dragged. */
+    selectedLeg: Int? = null,
     /** Dragged its edge to a new size, in metres: save it. */
     onCircleResize: (MapModel.Pin, Double) -> Unit = { _, _ -> },
 ) {
@@ -71,6 +74,8 @@ fun RideMap(
     val pin = layers.pins.firstOrNull { it.current && it.alarm }
     // Every circle of the trip can be changed (owner, 2026-11-24): the stop it's watching and the ones after it.
     val editable by rememberUpdatedState(MapModel.tripZones(layers).filter { it.alarm })
+    // Only the selected one moves (owner, 2026-11-24: "don't make the circles too easy to edit").
+    val selected by rememberUpdatedState(editable.filter { it.legIndex == selectedLeg })
     val tap by rememberUpdatedState(onCircleTap)
     val resize by rememberUpdatedState(onCircleResize)
 
@@ -90,9 +95,13 @@ fun RideMap(
             m.addOnCameraMoveListener { cameraTick++ }
             m.addOnCameraIdleListener { cameraTick++ }
             // Tap inside your stop's circle (with a thumb's slack): its sizes (PLAN B4).
+            // Tap a stop (its pin or dot, within a finger's width) to edit its circle: the circle turns bold and its
+            // sizes open; then its edge can be dragged.
             m.addOnMapClickListener { ll ->
-                val p = MapModel.pinAt(editable, LatLng(ll.latitude, ll.longitude), slackM = 15.0) ?: return@addOnMapClickListener false
-                tap(p)
+                val at = m.projection.toScreenLocation(ll)
+                val d = editable.map { p -> m.projection.toScreenLocation(MLatLng(p.pos.lat, p.pos.lng)).let { s -> hypot((s.x - at.x).toDouble(), (s.y - at.y).toDouble()) } }
+                val i = CircleDrag.pickStop(d, STOP_TAP_DP * px) ?: return@addOnMapClickListener false
+                tap(editable[i])
                 true
             }
             m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
@@ -111,10 +120,10 @@ fun RideMap(
         val edge = remember {
             EdgeDrag(
                 density, { map },
-                { editable.map { p -> p.pos to (preview?.takeIf { it.first == p.legIndex }?.second ?: p.zoneM) } },
-                { i, r -> editable.getOrNull(i)?.let { preview = it.legIndex to r } },
-                { i, r -> editable.getOrNull(i)?.let { resize(it, r) } },
-                { i -> editable.getOrNull(i)?.let { tap(it) } },
+                { selected.map { p -> p.pos to (preview?.takeIf { it.first == p.legIndex }?.second ?: p.zoneM) } },
+                { i, r -> selected.getOrNull(i)?.let { preview = it.legIndex to r } },
+                { i, r -> selected.getOrNull(i)?.let { resize(it, r) } },
+                { i -> selected.getOrNull(i)?.let { tap(it) } },
             )
         }
         AndroidView(factory = { mapView.also { it.setOnTouchListener(edge) } }, modifier = Modifier.fillMaxSize())
@@ -132,10 +141,10 @@ fun RideMap(
         s.getSourceAs<GeoJsonSource>("ride-legs")?.setGeoJson(MapModel.legPathsJson(layers))
         s.getSourceAs<GeoJsonSource>("ride-pins")?.setGeoJson(MapModel.pinsJson(layers))
     }
-    LaunchedEffect(style, layers, preview) {
+    LaunchedEffect(style, layers, preview, selectedLeg) {
         val s = style ?: return@LaunchedEffect
         val zones = MapModel.tripZones(layers).map { p -> preview?.takeIf { it.first == p.legIndex }?.let { p.copy(zoneM = it.second) } ?: p }
-        s.getSourceAs<GeoJsonSource>("ride-zone")?.setGeoJson(MapModel.zonesJson(layers.copy(pins = zones)))
+        s.getSourceAs<GeoJsonSource>("ride-zone")?.setGeoJson(MapModel.zonesJson(layers.copy(pins = zones), selectedLeg))
     }
     // Off one bus and on to the next stop (owner's feedback): frame you and the new stop again.
     LaunchedEffect(pin?.legIndex) { following = true }
@@ -192,6 +201,9 @@ internal fun rememberMapView(): MapView {
     return mapView
 }
 
+/** How near a stop (on screen) a tap selects it for editing its circle. */
+private const val STOP_TAP_DP = 32.0
+
 /** OpenFreeMap's `liberty`: streets, parks, water, places and transit, recoloured to Google's map (PLAN B2). */
 internal const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 
@@ -210,7 +222,14 @@ private fun addRideLayers(s: Style, c: MapPalette.Colors) {
         LineLayer("nod-zone-l", "ride-zone").withProperties(
             PropertyFactory.lineColor(blue), PropertyFactory.lineWidth(2f),
             PropertyFactory.lineOpacity(Expression.switchCase(current, Expression.literal(0.6f), Expression.literal(0.25f))),
-        ),
+        ).withFilter(Expression.eq(Expression.get("selected"), false)),
+    )
+    // The circle being edited: a bold, dashed edge (it's the one that moves when you drag it).
+    s.addLayer(
+        LineLayer("nod-zone-edit", "ride-zone").withProperties(
+            PropertyFactory.lineColor(blue), PropertyFactory.lineWidth(5f), PropertyFactory.lineOpacity(1f),
+            PropertyFactory.lineDasharray(arrayOf(2f, 1f)),
+        ).withFilter(Expression.eq(Expression.get("selected"), true)),
     )
     // The trip's legs (owner, 2026-11-24): the others grey under, the one you're on in route blue on a darker edge.
     s.addLayer(

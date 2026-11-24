@@ -257,6 +257,7 @@ private fun NowRidingTab(t: TripService.TripUi) {
             RideMap(
                 layers, t.status.position, colors, recentre, m, onUserGesture = { expanded = false; full = false },
                 onCircleTap = { p -> circleLeg = p.legIndex },
+                selectedLeg = circleLeg,
                 onCircleResize = { p, r -> saveCircle(p, r) },
             )
         },

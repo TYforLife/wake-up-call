@@ -16,15 +16,17 @@ class ScaleTest {
     }
 
     @Test
-    fun `any of the trip's circles can be picked - the one a tap is in, the smallest if they overlap, the nearest edge for a drag`() {
-        val big = MapModel.Pin(LatLng(-36.80, 174.75), "Big", true, true, "r", 0, 800.0)
-        val small = MapModel.Pin(LatLng(-36.80, 174.751), "Small", false, true, "r", 1, 150.0)
-        assertEquals("Small", MapModel.pinAt(listOf(big, small), LatLng(-36.80, 174.751), 15.0)?.label)
-        assertEquals("Big", MapModel.pinAt(listOf(big, small), LatLng(-36.804, 174.75), 15.0)?.label)
-        assertEquals(null, MapModel.pinAt(listOf(big, small), LatLng(-36.90, 174.75), 15.0))
-        // Edges in px: (touch distance from centre, radius). The second's edge is closer.
+    fun `editing a circle - tap its stop first, then only that circle's edge can be dragged`() {
+        // A tap selects the stop nearest it on screen, within a finger's width; a tap elsewhere selects none.
+        assertEquals(1, CircleDrag.pickStop(listOf(80.0, 12.0, 30.0), 32.0))
+        assertEquals(null, CircleDrag.pickStop(listOf(80.0, 45.0), 32.0), "inside a circle but not on its stop: nothing")
+        // The selected circle is drawn bold.
+        val a = MapModel.Pin(LatLng(-36.80, 174.75), "A", true, true, "r", 0, 400.0)
+        val b = MapModel.Pin(LatLng(-36.82, 174.76), "B", false, true, "r", 1, 300.0)
+        val json = MapModel.zonesJson(MapModel.Layers(listOf(a, b), emptyList()), selectedLeg = 1)
+        assertEquals(1, Regex("\"selected\":true").findAll(json).count())
+        // Of the edges under a finger, the nearest (px: touch distance from centre, radius).
         assertEquals(1, CircleDrag.pickEdge(listOf(200.0 to 180.0, 95.0 to 100.0), 28.0))
-        assertEquals(null, CircleDrag.pickEdge(listOf(50.0 to 180.0), 28.0))
     }
 
     @Test
