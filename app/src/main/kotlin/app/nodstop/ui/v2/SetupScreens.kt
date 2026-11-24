@@ -166,6 +166,8 @@ data class SoundsUi(
     val volume: Int = 100,
     /** Test rings on the phone speaker. */
     val testOnSpeaker: Boolean = false,
+    /** The ring keeps buzzing your watch (BACKLOG F3). */
+    val watch: Boolean = false,
 )
 
 class SoundsActions(
@@ -175,6 +177,7 @@ class SoundsActions(
     val tryIt: () -> Unit = {},
     val volume: (Int) -> Unit = {},
     val testOnSpeaker: (Boolean) -> Unit = {},
+    val watch: (Boolean) -> Unit = {},
 )
 
 /** The alarm's sound: four built in, or your own file. "Try it" is a real test ring through the alarm. */
@@ -200,7 +203,8 @@ fun SoundsScreen(ui: SoundsUi, a: SoundsActions, modifier: Modifier = Modifier) 
                 ui.volume.toFloat(), { a.volume((it / 10).roundToInt() * 10) }, valueRange = 10f..100f, steps = 8,
                 colors = SliderDefaults.colors(thumbColor = c.fg, activeTrackColor = c.fg, inactiveTrackColor = c.line),
             )
-            SwitchRow("Test on the phone speaker", "Try it plays out loud. Only tests, never a trip's alarm.", ui.testOnSpeaker, a.testOnSpeaker, divider = false)
+            SwitchRow("Test on the phone speaker", "Try it plays out loud. Only tests, never a trip's alarm.", ui.testOnSpeaker, a.testOnSpeaker)
+            SwitchRow("Buzz my watch", SetupText.WATCH_STEPS, ui.watch, a.watch, divider = false)
             ui.note?.let { Hint(it, Modifier.fillMaxWidth().padding(top = 12.dp)) }
         }
         if (ui.canTry) {

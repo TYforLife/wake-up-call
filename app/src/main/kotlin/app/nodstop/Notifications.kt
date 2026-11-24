@@ -28,6 +28,7 @@ object Notifications {
     const val CH_TRIP = "trip"
     const val CH_AT_STOP = "at_stop"
     const val CH_ALARM = "alarm"
+    const val CH_WATCH = "watch"
 
     const val ID_TRIP = 1
     const val ID_RING = 2
@@ -35,6 +36,8 @@ object Notifications {
     const val ID_RATE = 4
     const val ID_MISSED = 5
     const val ID_PAUSED = 6
+    /** The ring, again and again, for a watch that mirrors notifications (BACKLOG F3). */
+    const val ID_WATCH = 8
     /** Debug → Learn spike recording (docs/LEARN.md L0). */
     const val ID_LEARN_SPIKE = 7
 
@@ -63,6 +66,15 @@ object Notifications {
                 description = "One light buzz when the bus is at your stop"
                 setSound(null, null)
                 enableVibration(false) // the app buzzes once itself, through Do Not Disturb
+            },
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CH_WATCH, "Wake-up on your watch", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "The alarm again every few seconds, so a watch that mirrors notifications keeps buzzing"
+                // The phone already rings and buzzes on the alarm channel: this one is for the watch only.
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
             },
         )
         ensureAlarmChannel(ctx)
@@ -290,6 +302,33 @@ object Notifications {
     /** The ring notification's two lines: the ring screen's words (mockup `ring`). */
     fun ringText(legName: String?, reason: AlarmReason?, test: Boolean): RingTextUi =
         RingText.of(legName, reason, overshoot = false, test = test, etaS = null)
+
+    /**
+     * One buzz on a watch that mirrors the phone's notifications (BACKLOG F3, COROS): the ring's words, posted anew
+     * (a watch buzzes for a new notification, not an update). Only `RingService` calls it, while it rings, so the
+     * watch never rings on its own; [clearWatch] at I'm awake.
+     */
+    fun buzzWatch(ctx: Context, legName: String?, reason: AlarmReason?, test: Boolean) {
+        val t = ringText(legName, reason, test)
+        val open = PendingIntent.getActivity(
+            ctx, 13, Intent(ctx, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = Notification.Builder(ctx, CH_WATCH)
+            .setSmallIcon(R.drawable.ic_tile)
+            .setContentTitle(t.title)
+            .setContentText(t.line)
+            .setCategory(Notification.CATEGORY_ALARM)
+            .setContentIntent(open)
+            // Gone by itself if a ring ends without clearing it.
+            .setTimeoutAfter(60_000L)
+            .build()
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.cancel(ID_WATCH)
+        nm.notify(ID_WATCH, n)
+    }
+
+    fun clearWatch(ctx: Context) = ctx.getSystemService(NotificationManager::class.java).cancel(ID_WATCH)
 
     fun ring(ctx: Context, legName: String?, reason: AlarmReason?, test: Boolean = false): Notification {
         val full = PendingIntent.getActivity(

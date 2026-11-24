@@ -89,11 +89,13 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
   - [ ] Coros: Coros has no app platform for this; the COROS app mirrors phone notifications to the watch. So the
         ring's notification must reach the watch and **keep buzzing** it until "I'm awake" (one buzz isn't an
         alarm). The session finds what makes the Coros buzz again (re-posting from `RingService` every few seconds,
-        or a separate alerting notification) and proves it on Tae's watch.
+        or a separate alerting notification) and proves it on Tae's watch. Built: a new notification every 6 s on
+        its own silent channel ("Wake-up on your watch"); ticked once it buzzes his Coros.
   - [ ] Galaxy Watch: the same mirroring first; a watch app with hold-to-stop only if mirroring can't buzz enough.
-  - [ ] Everything comes from the ring itself (`RingService`): the watch never rings on its own or at another time
+  - [x] Everything comes from the ring itself (`RingService`): the watch never rings on its own or at another time
         (rule 1), and losing the watch never stops or delays the phone's ring. `RingPathTest` covers it.
-  - [ ] Setup or Settings says "Turn on Nodstop in the COROS app's notifications" with the steps.
+  - [x] Setup or Settings says "Turn on Nodstop in the COROS app's notifications" with the steps (Alarm sound →
+        Buzz my watch).
 - **Test on phone:** a test ring buzzes the Coros until you hold "I'm awake".
 
 ## Medium-high

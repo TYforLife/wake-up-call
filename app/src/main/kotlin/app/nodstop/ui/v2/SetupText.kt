@@ -7,6 +7,8 @@ data class SetupRowUi(val id: String, val title: String, val subtitle: String, v
 
 /** The words on Setup (mockup `setup`) and Settings (mockup `settings`). Pure. */
 object SetupText {
+    /** Alarm sound → Buzz my watch (BACKLOG F3): what the watch's own app needs, in one line. */
+    const val WATCH_STEPS = "Keeps buzzing until you're awake. Turn on Nodstop in the COROS app: Profile → Settings → Notifications."
     /** Settings' "Alarm sound" line: the sound's name, or your file's. */
     fun sound(id: String?, customName: String?): String {
         val s = app.nodstop.alarm.Sounds.Id.of(id)
