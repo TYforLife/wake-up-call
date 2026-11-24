@@ -73,14 +73,15 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
   - [ ] Plan a trip, stop search and the map show stations and wharves with train and ferry icons, and rides
         that mix them ("Western Line › 866"). AT's feed has them; `tools/gtfs_index.py` doesn't filter by mode, so
         check what's already in the index first.
-  - [ ] Words say train or ferry, not bus, wherever the ride knows its mode.
   - [x] The engine's limits fit trains: `V_MAX` and boarding detection are checked against a train's speed.
         Underground stations lose GPS, so the failsafe rings early there (rule 4); engine tests for a fast train
         and for a tunnel just before the station, with the invariant holding. Each leg has a mode; a train's
         failsafe assumes 120 km/h (`TrainFerryTest`, `InvariantPropertyTest` on trains).
   - [x] A ferry ride (open water, no roads) rings in time: a synthetic test.
-  - Next: the index learns each route's mode from AT's feed, and Plan a trip marks train legs (until then every
-    leg is a bus).
+  - [x] The index knows each route's mode from AT's feed (`modes.tsv`), and Plan a trip marks train and ferry legs.
+  - [x] Words say train or ferry, not bus, wherever the ride knows its mode ("I'm off this train", "Then ferry 2 to
+        Devonport"); bus when it doesn't (`ModeWordsTest`).
+  - Next: train and ferry icons in search and on the map, and a stop set by hand at a station counted as a train.
 
 ### F3. [ ] Buzz on the watch: Coros first, Galaxy Watch too
 "and for Coros as well. I use coros. somewhat high prio." The ring buzzes the wrist.

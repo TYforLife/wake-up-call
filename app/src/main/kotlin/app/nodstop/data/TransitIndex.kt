@@ -2,6 +2,7 @@ package app.nodstop.data
 
 import app.nodstop.engine.Geo
 import app.nodstop.engine.LatLng
+import app.nodstop.engine.Mode
 
 /**
  * Auckland Transport's stops and route patterns, offline (PLAN Run 12, C2 and C3), as `tools/gtfs_index.py` writes
@@ -9,9 +10,12 @@ import app.nodstop.engine.LatLng
  * headsign, stop indexes in order). Public data. Pure: tested on the JVM with a fixture feed. It only ever fills in
  * stops: it never changes an alarm (rule 6).
  */
-class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>) {
+class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>, private val modes: Map<String, Mode> = emptyMap()) {
     data class Stop(val code: String, val name: String, val pos: LatLng)
     data class Pattern(val route: String, val headsign: String, val stops: List<Int>)
+
+    /** What [route] is ridden on (BACKLOG F29, `modes.tsv`): a bus unless the feed says train or ferry. */
+    fun modeOf(route: String): Mode = modes[route] ?: Mode.BUS
 
     /** A stop found by a search: its index, and how far it is from you if known. */
     data class Hit(val index: Int, val stop: Stop, val distanceM: Double?)
@@ -164,7 +168,18 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>) {
         /** What changing to another bus costs, in stops ridden. */
         const val BUS_COST = 8.0
 
-        fun parse(stopsTsv: String, routesTsv: String): TransitIndex {
+        /** `modes.tsv` (BACKLOG F29): "short name, train or ferry" per line; anything else is a bus. */
+        fun parseModes(tsv: String): Map<String, Mode> = tsv.lineSequence().mapNotNull { l ->
+            val f = l.split('\t')
+            val mode = when (f.getOrNull(1)?.trim()) {
+                "train" -> Mode.TRAIN
+                "ferry" -> Mode.FERRY
+                else -> null
+            }
+            if (f[0].isEmpty() || mode == null) null else f[0] to mode
+        }.toMap()
+
+        fun parse(stopsTsv: String, routesTsv: String, modesTsv: String = ""): TransitIndex {
             val stops = stopsTsv.lineSequence().filter { it.isNotBlank() }.mapNotNull { l ->
                 val f = l.split('\t')
                 val lat = f.getOrNull(2)?.toDoubleOrNull()
@@ -176,7 +191,7 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>) {
                 if (f.size < 3) null
                 else Pattern(f[0], f[1], f[2].split(',').mapNotNull { it.toIntOrNull() }.filter { it in stops.indices })
             }.toList()
-            return TransitIndex(stops, patterns)
+            return TransitIndex(stops, patterns, parseModes(modesTsv))
         }
     }
 }

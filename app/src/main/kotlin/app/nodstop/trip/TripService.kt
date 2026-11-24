@@ -41,6 +41,7 @@ import app.nodstop.data.RouteSuggest
 import app.nodstop.data.Resume
 import app.nodstop.engine.AlarmReason
 import app.nodstop.engine.Engine
+import app.nodstop.engine.Mode
 import app.nodstop.engine.Sleep
 import app.nodstop.engine.EngineState
 import app.nodstop.engine.Fix
@@ -76,8 +77,17 @@ class TripService : Service() {
         val startedMs: Long,
         /** Each stop's own circle, or null for automatic (so a simulated trip's circles show and change, PLAN B4). */
         val legRadii: List<Double?> = emptyList(),
+        /** What each leg is ridden on (BACKLOG F29), for the words: "I'm off this train". */
+        val legModes: List<Mode> = emptyList(),
     ) {
         val legName: String? get() = legNames.getOrNull(legIndex)
+
+        /** "bus", "train" or "ferry": what leg [i] (this one by default) is ridden on. */
+        fun vehicle(i: Int = legIndex): String = when (legModes.getOrNull(i)) {
+            Mode.TRAIN -> "train"
+            Mode.FERRY -> "ferry"
+            Mode.BUS, null -> "bus"
+        }
     }
 
     private val app get() = App.instance
@@ -309,7 +319,7 @@ class TripService : Service() {
         val shown = busEta(updated, out.status)?.let { out.status.copy(etaS = it) } ?: out.status
         val ui = TripUi(
             updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, shown, updated.simulated,
-            updated.startedMs, updated.legs.map { it.wakeRadiusM },
+            updated.startedMs, updated.legs.map { it.wakeRadiusM }, updated.legs.map { it.mode },
         )
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
@@ -556,8 +566,8 @@ class TripService : Service() {
         }
 
         fun phaseLabel(ui: TripUi): String = when (ui.status.phase) {
-            Phase.WAITING -> "Waiting for the bus"
-            Phase.RIDING -> "On the bus"
+            Phase.WAITING -> "Waiting for the ${ui.vehicle()}"
+            Phase.RIDING -> "On the ${ui.vehicle()}"
             Phase.RINGING -> "Wake up"
             Phase.AWAKE -> "Get off at ${ui.legName ?: "your stop"}"
             Phase.DONE -> "Trip done"

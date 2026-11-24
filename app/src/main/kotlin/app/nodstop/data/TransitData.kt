@@ -21,9 +21,12 @@ object TransitData {
             // A build without the data (CI couldn't download it) has no files: search then offers the map only.
             try {
                 val a = ctx.applicationContext.assets
+                // Which routes are trains or ferries (BACKLOG F29): optional, so an older build's data still loads.
+                val modes = try { a.open("gtfs/modes.tsv").bufferedReader().use { it.readText() } } catch (_: IOException) { "" }
                 TransitIndex.parse(
                     a.open("gtfs/stops.tsv").bufferedReader().use { it.readText() },
                     a.open("gtfs/routes.tsv").bufferedReader().use { it.readText() },
+                    modes,
                 ).takeIf { it.stops.isNotEmpty() }
             } catch (_: IOException) {
                 null

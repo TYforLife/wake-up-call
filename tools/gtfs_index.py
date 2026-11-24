@@ -16,6 +16,8 @@ and the timetable, for the journey planner (PLAN Run 13, T1):
   trips.tsv     pattern id, profile id, service id, first departure (seconds after midnight; may pass 86400)
   services.tsv  one service per line: days Mon..Sun as 7 digits, start and end dates (yyyymmdd), dates added,
                 dates removed (comma-separated); the line number is the service id
+  modes.tsv     the routes that aren't buses (BACKLOG F29): short name, then train or ferry; a name used by both a train
+                and a bus is a train (its failsafe assumes the faster one)
   shapes.tsv    one line per timetable pattern (same line numbers): its road shape from shapes.txt as an encoded
                 polyline (Google's format, 1e-5 degrees), simplified to about 8 m, then for each of its stops the
                 index of the shape point at it (comma-separated); an empty line when the feed has no shape for it
@@ -52,6 +54,19 @@ def opener(args):
         path = tmp.name
     z = zipfile.ZipFile(path)
     return lambda name: io.TextIOWrapper(z.open(name), encoding="utf-8-sig", newline="")
+
+
+def mode_of(route_type):
+    """GTFS route_type (basic and extended) as Nodstop's mode: train, ferry or bus."""
+    try:
+        t = int(route_type)
+    except ValueError:
+        return "bus"
+    if t in (0, 1, 2, 5, 7, 12) or 100 <= t < 200 or 400 <= t < 500 or 900 <= t < 1000:
+        return "train"
+    if t == 4 or 1000 <= t < 1300:
+        return "ferry"
+    return "bus"
 
 
 def clean(s):
@@ -164,9 +179,15 @@ def main():
     index = {s[2]: i for i, s in enumerate(stops)}
 
     routes = {}
+    modes = {}
     with open_txt("routes.txt") as f:
         for r in csv.DictReader(f):
-            routes[r["route_id"]] = clean(r.get("route_short_name")) or clean(r.get("route_long_name"))
+            short = clean(r.get("route_short_name")) or clean(r.get("route_long_name"))
+            routes[r["route_id"]] = short
+            mode = mode_of(r.get("route_type") or "3")
+            # The faster wins: a train's failsafe is the safe one for a name both use.
+            if mode == "train" or (mode == "ferry" and modes.get(short) != "train"):
+                modes[short] = mode
 
     trip_key = {}
     with open_txt("trips.txt") as f:
@@ -305,10 +326,13 @@ def main():
             simple, moved = simplify_keeping(shape, on)
             f.write(f"{encode(simple)}\t{','.join(str(moved[i]) for i in on)}\n")
             shaped += 1
+    with open(os.path.join(args.out, "modes.tsv"), "w", encoding="utf-8", newline="\n") as f:
+        for short in sorted(modes):
+            f.write(f"{short}\t{modes[short]}\n")
     with open(os.path.join(args.out, "meta.txt"), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"{ATTRIBUTION}\nstops={len(stops)}\npatterns={len(patterns)}\n")
         f.write(f"timetable_patterns={len(pattern_index)}\nprofiles={len(profile_index)}\ntrips={len(timed)}\nservices={len(service_ids)}\n")
-        f.write(f"shapes={shaped}\n")
+        f.write(f"shapes={shaped}\nmodes={len(modes)}\n")
     size = sum(os.path.getsize(os.path.join(args.out, n)) for n in os.listdir(args.out))
     print(f"gtfs index: {len(stops)} stops, {len(patterns)} route patterns, {len(timed)} trips, "
           f"{len(pattern_index)} timetable patterns, {len(profile_index)} profiles, {shaped} shapes, {size // 1024} KB -> {args.out}")

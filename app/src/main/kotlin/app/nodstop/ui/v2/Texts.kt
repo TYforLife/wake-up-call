@@ -59,6 +59,7 @@ object TripSheetText {
         val stopAt = s.etaS?.let { "stop ~${clock(nowMs + (it * 1000).toLong())}" }
         // Started past a stop (BACKLOG 5): say so, and offer the first one skipped. Never a silent skip.
         val first = t.legIndex - s.pickedPast
+        val v = t.vehicle()
         val skip = if (s.pickedPast > 0 && first >= 0 && (s.phase == Phase.WAITING || s.phase == Phase.RIDING)) {
             "Started past ${t.legNames[t.legIndex - 1]}" to "Start at ${t.legNames[first]}"
         } else null
@@ -68,17 +69,17 @@ object TripSheetText {
                 figure = listOfNotNull(distance, s.lastFixAgeS?.let { "${it.roundToInt()} s ago" }).joinToString(" · "),
                 figureMuted = true,
                 alarm = alarmAt?.let { "GPS lost. Alarm at $it at the latest." } ?: "GPS lost.",
-                alarmDanger = true, action = "I'm off this bus",
+                alarmDanger = true, action = "I'm off this $v",
             )
             transfer -> TripSheetUi(
                 eyebrow = "Off at ${t.legNames[t.legIndex - 1]} · next stop", stop = stop,
-                figure = nextBus ?: "Waiting for bus ${t.legIndex + 1}", figureMuted = true,
-                alarm = "Alarm set until you're on it", alarmDanger = false, action = "Skip this bus",
+                figure = nextBus ?: "Waiting for $v ${t.legIndex + 1}", figureMuted = true,
+                alarm = "Alarm set until you're on it", alarmDanger = false, action = "Skip this $v",
             )
             waiting -> TripSheetUi(
                 eyebrow = "Get off at", stop = stop,
-                figure = nextBus ?: listOfNotNull(distance, "waiting for the bus").joinToString(" · "), figureMuted = true,
-                alarm = "Alarm set until you're on it", alarmDanger = false, action = "I'm off this bus",
+                figure = nextBus ?: listOfNotNull(distance, "waiting for the $v").joinToString(" · "), figureMuted = true,
+                alarm = "Alarm set until you're on it", alarmDanger = false, action = "I'm off this $v",
             )
             else -> TripSheetUi(
                 eyebrow = "Get off at", stop = stop,
@@ -93,7 +94,7 @@ object TripSheetText {
                     alarmAt != null -> "Alarm set"
                     else -> null
                 },
-                alarmDanger = false, action = "I'm off this bus",
+                alarmDanger = false, action = "I'm off this $v",
             )
         }, skip)
     }
@@ -116,13 +117,14 @@ object CompactSheetText {
         val alarmAt = s.alarmAtMs?.let(clock)
         val gpsLost = s.lastFixAgeS != null && !s.gpsOk
         val transfer = s.phase == Phase.WAITING && t.legIndex > 0
-        val action = if (transfer) "Skip this bus" else "I'm off this bus"
+        val v = t.vehicle()
+        val action = if (transfer) "Skip this $v" else "I'm off this $v"
         val parts = when {
             s.phase == Phase.RINGING -> listOf(stop, "ringing")
             s.phase == Phase.AWAKE || s.phase == Phase.DONE -> listOf("Get off at $stop")
             gpsLost -> listOfNotNull(stop, "GPS lost", alarmAt?.let { "alarm by $it" })
-            transfer -> listOf(stop, "waiting for bus ${t.legIndex + 1}")
-            s.phase == Phase.WAITING -> listOf(stop, "waiting for the bus")
+            transfer -> listOf(stop, "waiting for $v ${t.legIndex + 1}")
+            s.phase == Phase.WAITING -> listOf(stop, "waiting for the $v")
             else -> listOfNotNull(
                 stop,
                 s.etaS?.let(TripSheetText::minutes) ?: s.distanceM?.let { TripService.distance(it) },
@@ -149,12 +151,12 @@ object AwakeText {
                 "Get off at $stop",
                 listOfNotNull(
                     s.etaS?.takeIf { it < 600 }?.let { "About ${if (it < 90) "${it.roundToInt()} s" else TripSheetText.minutes(it)} away." },
-                    if (next != null) "Then bus ${t.legIndex + 2} to $next." else "It's your last bus.",
+                    if (next != null) "Then ${t.vehicle(t.legIndex + 1)} ${t.legIndex + 2} to $next." else "It's your last ${t.vehicle()}.",
                 ).joinToString(" "),
             )
             s.ringReason == AlarmReason.URGENT -> AwakeUi("Still riding to $stop", "It rang for an urgent message. Your stop alarm is still on.")
             else -> AwakeUi(
-                "Stay on the bus",
+                "Stay on the ${t.vehicle()}",
                 when (s.ringReason) {
                     AlarmReason.NO_GPS -> "No GPS yet, so it rang to be safe. It will ring again near $stop."
                     AlarmReason.NEXT_LEG -> "GPS stopped, so it rang to be safe. It will ring again near $stop."
@@ -218,8 +220,8 @@ object TripNoteText {
             s.phase == Phase.RINGING -> "Wake up" to "$stop is close"
             s.phase == Phase.AWAKE || s.phase == Phase.DONE -> "Get off at $stop" to "You're awake for this stop"
             gpsLost -> "$stop · GPS lost" to (alarmAt?.let { "Alarm at $it at the latest" } ?: "Check where you are")
-            s.phase == Phase.WAITING && t.legIndex > 0 -> "Waiting for bus ${t.legIndex + 1} · $stop" to "Alarm set until you're on it"
-            s.phase == Phase.WAITING -> "$stop · waiting for the bus" to "Alarm set until you're on it"
+            s.phase == Phase.WAITING && t.legIndex > 0 -> "Waiting for ${t.vehicle()} ${t.legIndex + 1} · $stop" to "Alarm set until you're on it"
+            s.phase == Phase.WAITING -> "$stop · waiting for the ${t.vehicle()}" to "Alarm set until you're on it"
             else -> {
                 val eta = s.etaS?.let { "$stop in ${TripSheetText.minutes(it)}" }
                 (eta ?: s.distanceM?.let { "$stop · ${TripService.distance(it)}" } ?: "$stop · finding you") to
@@ -243,11 +245,12 @@ object TripNoteText {
     fun actions(t: TripService.TripUi, radiusM: Double?): List<TripActionUi> {
         val s = t.status
         val stop = TripActionUi("Stop trip", TripActionUi.Kind.STOP, unlock = true)
+        val v = t.vehicle()
         val off = when (s.phase) {
-            Phase.WAITING -> if (t.legIndex > 0) TripActionUi("Skip this bus", TripActionUi.Kind.OFF, unlock = true)
-            else TripActionUi("I'm off this bus", TripActionUi.Kind.OFF, unlock = !near(s.distanceM, radiusM))
-            Phase.RIDING -> TripActionUi("I'm off this bus", TripActionUi.Kind.OFF, unlock = !near(s.distanceM, radiusM))
-            Phase.RINGING, Phase.AWAKE -> TripActionUi("I'm off this bus", TripActionUi.Kind.OFF, unlock = false)
+            Phase.WAITING -> if (t.legIndex > 0) TripActionUi("Skip this $v", TripActionUi.Kind.OFF, unlock = true)
+            else TripActionUi("I'm off this $v", TripActionUi.Kind.OFF, unlock = !near(s.distanceM, radiusM))
+            Phase.RIDING -> TripActionUi("I'm off this $v", TripActionUi.Kind.OFF, unlock = !near(s.distanceM, radiusM))
+            Phase.RINGING, Phase.AWAKE -> TripActionUi("I'm off this $v", TripActionUi.Kind.OFF, unlock = false)
             Phase.IDLE, Phase.DONE -> null
         }
         return listOfNotNull(off, stop)
@@ -341,7 +344,7 @@ object WidgetText {
         val line = CompactSheetText.of(t, clock, nowMs)
         val off = TripNoteText.actions(t, t.legRadii.getOrNull(t.legIndex)).firstOrNull { it.kind == TripActionUi.Kind.OFF }
         val legs = t.legNames.size
-        val where = if (legs > 1) "${t.routeName} · bus ${t.legIndex + 1} of $legs" else t.routeName
+        val where = if (legs > 1) "${t.routeName} · ${t.vehicle()} ${t.legIndex + 1} of $legs" else t.routeName
         return WidgetUi(line.line, where, off?.let { WidgetUi.Action(it.label, WidgetUi.Kind.OFF) }, live = true, danger = line.danger)
     }
 
