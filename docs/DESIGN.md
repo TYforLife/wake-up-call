@@ -92,8 +92,8 @@ first stop (a short hop with good GPS: due, then pushed 5 s out every 2 s until 
   stopped (GPS lost, No GPS, the next leg's safety alarm) can still be pushed later by a fix: that fix is the news they
   were waiting for (`Engine.hold`).
 - **An alarm due within 5 s stays** when the new one is due within them too: set again, it would ring 5 s from now,
-  later than either (rule 4: err early). A bus slower than `V_FLOOR` is estimated at `V_FLOOR`, so its ring can land
-  a few seconds before your circle.
+  later than either (rule 4: err early). A circle rings from the first fix inside it, so up to a fix and 5 s after the
+  bus enters it.
 - **The shell sets exactly what the engine asks**, except that it never replaces a pending alarm with a sooner time
   Android would fire later (`SystemAlarm.update`): inside its last 5 s, a sooner time set again would ring later.
 - The engine tests ring the alarm this way too (`Harness`), so every scenario and property test checks it. With the
