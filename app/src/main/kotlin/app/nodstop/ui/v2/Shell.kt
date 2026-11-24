@@ -8,6 +8,7 @@ import app.nodstop.data.TransitData
 import app.nodstop.data.Timetable
 import app.nodstop.data.TransitIndex
 import app.nodstop.openIfPossible
+import app.nodstop.ui.ShareArrival
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -270,6 +271,11 @@ private fun NowRidingTab(t: TripService.TripUi) {
         onAction = { TripService.instance?.skipLeg() },
         onRecentre = { recentre++ },
         onStopTrip = { confirmStop = true },
+        onShare = {
+            // One line of text, sent only where you choose (BACKLOG F16): never a position or a link.
+            val bus = routes.firstOrNull { it.name == t.routeName }?.legs?.getOrNull(t.legIndex)?.bus
+            ShareArrival.share(ctx, ShareArrivalText.of(t, bus, ::hm, System.currentTimeMillis()))
+        },
         onSkipped = { TripService.instance?.restartAt(t.legIndex - t.status.pickedPast) },
         journey = journey, full = full, onFullChange = { full = it },
         map = { m ->

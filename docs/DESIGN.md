@@ -497,6 +497,13 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
 - **Your trip is still on** (after an update or a restart): one tap resumes tracking; the alarm is already set.
 - **Ring timing** (optional, silent, gone after 15 min): "How was the ring timing?", Too early / Good / Too late.
 
+### Share my arrival
+
+Trip sheet ⋯ → **Share my arrival** (BACKLOG F16): the system share sheet with one line from `ShareArrivalText`,
+"On the 866, at Symonds St about 8:22 · Nodstop" (the time is the sheet's "stop ~8:22"; "Waiting for the 866 to
+Symonds St" before the bus; train or ferry when the leg is one). Text only, never a position or a link, sent only
+where you pick, on a tap (`ui/ShareArrival`, one of the files `NotifyIsolationTest` allows `ACTION_SEND` in).
+
 ### Widget
 
 The home screen widget (BACKLOG F10, `widget/TripWidget`, RemoteViews: no new dependency). Its words come from
