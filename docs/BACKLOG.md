@@ -170,8 +170,6 @@ its own kind welcome joke (Product direction). Don't start until Tae says the MV
   key). Notifications only; never changes an alarm.
 - [ ] **F17. Battery saver.** Slower GPS far from your stop, back to 1–2 s near it. A slower rate may only make the
   failsafe fire earlier; the property tests run with it. Battery per trip measured on the A17.
-- [ ] **F15. Arrival time at the destination.** "should be simple." "Work about 8:22" on the sheet, from the
-  timetable for the buses still to come.
 - [ ] **F27. Departures board** for any stop, like AT's: the next buses, timetable times (live with F13).
 - [ ] **F26. More saved places** (gym, a friend's), "if clean": only if it reuses Home and work's code as one list
   of places, not a second mechanism.
@@ -216,6 +214,9 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F15. Arrival time at the destination (2026-11-24).** "should be simple." "Work about 8:22" on the trip
+  sheet while buses are still to come, from the journey's own times (the timetable for the buses still to come;
+  nothing when it doesn't know one). `JourneyText.arrival`, `ArrivalTextTest`.
 - [x] **F16. Share my arrival (2026-11-24).** "nice. medium-high prio." Trip sheet ⋯ → Share my arrival: the share
   sheet with one line, "On the 866, at Symonds St about 8:22 · Nodstop" (the sheet's own time). Text only, never a
   position or a link, only on a tap (`ShareArrivalText`, `ShareArrivalTextTest`, `NotifyIsolationTest`). Not on the
