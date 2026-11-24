@@ -271,6 +271,8 @@ data class TripSheetUi(
     /** "Started past Smales Farm", when the trip began past a stop (BACKLOG 5), with [skippedAction] to go back. */
     val skipped: String? = null,
     val skippedAction: String? = null,
+    /** "Work about 8:22": when the whole trip gets there, on a trip with buses still to come (BACKLOG F15). */
+    val arrival: String? = null,
 )
 
 /** The sheet while riding: where you get off, how long, that the alarm is set, one button. */
@@ -307,6 +309,7 @@ fun TripSheet(
                 color = if (ui.alarmDanger) c.danger else c.muted,
             )
         } else Spacer(Modifier.height(12.dp))
+        ui.arrival?.let { Text(it, style = NType.secondary, color = c.muted, modifier = Modifier.padding(bottom = 12.dp)) }
         GhostButton(ui.action, onAction)
         if (journey != null) JourneyList(journey)
     }

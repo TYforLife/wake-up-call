@@ -267,7 +267,7 @@ private fun NowRidingTab(t: TripService.TripUi) {
     var circleLeg by remember { mutableStateOf<Int?>(null) }
     val circlePin = circleLeg?.let { leg -> MapModel.tripZones(layers).firstOrNull { it.legIndex == leg } }
     NowRiding(
-        sheet = TripSheetText.of(t, ::hm, nextBus = rememberNextBus(t, routes)),
+        sheet = TripSheetText.of(t, ::hm, nextBus = rememberNextBus(t, routes)).copy(arrival = JourneyText.arrival(t, journey)),
         onAction = { TripService.instance?.skipLeg() },
         onRecentre = { recentre++ },
         onStopTrip = { confirmStop = true },

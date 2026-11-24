@@ -266,6 +266,20 @@ data class JourneyRowUi(val time: String, val title: String, val sub: String, va
 
 object JourneyText {
     /**
+     * "Work about 8:22" (BACKLOG F15): when the trip reaches its last stop, from the journey's own times (the
+     * timetable for the buses still to come). Null on the last bus (the sheet already says "stop ~8:22"), or when the
+     * timetable doesn't know a bus still to come. "To work" is going to Work; another route says its last stop.
+     */
+    fun arrival(t: TripService.TripUi, rows: List<JourneyRowUi>): String? {
+        if (t.legIndex >= t.legNames.lastIndex) return null
+        val last = rows.lastOrNull() ?: return null
+        val time = last.time.takeIf { it.startsWith("~") }?.removePrefix("~") ?: return null
+        val where = t.routeName.removePrefix("To ").takeIf { t.routeName.startsWith("To ") && it.isNotBlank() }
+            ?.replaceFirstChar { it.uppercase() } ?: last.title
+        return "$where about $time"
+    }
+
+    /**
      * Every stop of the trip, in order: done, the one you're heading for (its time from now and the ETA), and the
      * ones after it with the timetable's times when Plan a trip knows their bus ([ride]: leg index and the earliest
      * time you can board, both in seconds after midnight, to that ride's departure and arrival).
