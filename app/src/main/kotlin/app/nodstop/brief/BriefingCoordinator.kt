@@ -1,5 +1,6 @@
 package app.nodstop.brief
 
+import app.nodstop.model.ModelManager
 import android.content.Context
 import app.nodstop.App
 import app.nodstop.notify.MessageStore
@@ -42,9 +43,8 @@ class BriefingCoordinator(
             synchronized(checked) { checked.clear() }
         }
         if (job?.isActive == true) return
-        // Only a model that finished a Briefing lab run on this phone (a model that's too big would otherwise be
-        // loaded here, in the trip's own process). Until then, the alarm screen shows the plain digest.
-        val model = App.instance.models.current()?.takeIf { it.name == App.instance.settings.modelVerified } ?: return
+        val model = tripModel(App.instance.settings.modelOnTrips.value, App.instance.models.current(), App.instance.settings.modelVerified)
+            ?: return
         val device = DeviceReadings.read(ctx)
         val battery = device.batteryPct
         // Memory, heat and battery first: the trip shares this process and must never be put at risk.
@@ -136,4 +136,14 @@ class BriefingCoordinator(
         llm = null
     }
 
+    companion object {
+        /**
+         * The model a trip may use, or null for none: the alarm screen then shows the plain message summary.
+         * - Only with Debug → "Use the model on trips" on (BACKLOG F33: off by default; nothing loads a model on a trip).
+         * - Only a model that finished a Briefing lab run on this phone: a model that's too big would otherwise be
+         *   loaded here, in the trip's own process.
+         */
+        fun tripModel(onTrips: Boolean, current: ModelManager.Model?, verified: String?): ModelManager.Model? =
+            current?.takeIf { onTrips && it.name == verified }
+    }
 }

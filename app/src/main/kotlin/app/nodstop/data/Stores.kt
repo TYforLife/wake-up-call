@@ -321,6 +321,15 @@ class Settings(context: Context) {
 
     fun setTeaTone(on: Boolean) { prefs.edit().putBoolean(KEY_TEA, on).apply(); _teaTone.value = on }
 
+    private val _modelOnTrips = MutableStateFlow(prefs.getBoolean(KEY_MODEL_TRIPS, false))
+    /**
+     * BACKLOG F33: a trip may load the verified model (Debug only). Off, no trip loads a model, and the alarm shows the
+     * plain message summary: the A17 can't hold the model, and the AI work comes later.
+     */
+    val modelOnTrips: StateFlow<Boolean> = _modelOnTrips
+
+    fun setModelOnTrips(on: Boolean) { prefs.edit().putBoolean(KEY_MODEL_TRIPS, on).apply(); _modelOnTrips.value = on }
+
     private val _useGpu = MutableStateFlow(prefs.getBoolean(KEY_GPU, false))
     /** While You Slept: run the model on the GPU (experimental, falls back to the CPU). */
     val useGpu: StateFlow<Boolean> = _useGpu
@@ -423,6 +432,7 @@ class Settings(context: Context) {
         const val KEY_STARTS = "route_starts"
         const val KEY_VIPS = "wys_vip_names"
         const val KEY_TEA = "wys_tea_tone"
+        const val KEY_MODEL_TRIPS = "wys_model_on_trips"
         const val KEY_GPU = "wys_use_gpu"
         const val KEY_GPU_OK = "wys_gpu_verified"
         const val KEY_MODEL_OK = "wys_model_verified"

@@ -975,7 +975,9 @@ Kotlin 2.2.21; 0.17+ needs Kotlin 2.4), CPU backend by default. Debug → **Use 
 tries the GPU first and falls back to the CPU if the phone or model can't use it; the lab shows which
 one ran, so both can be compared. A GPU driver can crash natively, past any `try`, so trips use the GPU
 only after the lab has loaded the model on it successfully on this phone (`gpuVerified`). **Trips use a model
-only after it has finished a lab run on this phone** (`modelVerified`, 2026-11-21). On the owner's Galaxy A17,
+only with Debug → Use the model on trips on (off by default, BACKLOG F33: the message summary only, AI later), and
+only after it has finished a lab run on this phone** (`modelOnTrips`, `modelVerified`, 2026-11-21;
+`BriefingCoordinator.tripModel`, `TripModelTest`). On the owner's Galaxy A17,
 loading Gemma 4 E2B in the lab closed the app. A model too big for the phone's memory would otherwise be loaded
 mid-trip, in the trip's own process, and take tracking down with it. Until a run finishes, the alarm screen
 shows the digest. If a lab run closes the app, the next lab visit says why (`LabExit`, from Android's
