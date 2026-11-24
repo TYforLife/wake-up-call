@@ -5,3 +5,4 @@ timetable_patterns=7
 profiles=6
 trips=12
 services=2
+shapes=1

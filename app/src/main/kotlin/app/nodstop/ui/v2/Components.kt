@@ -18,6 +18,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -271,7 +275,11 @@ data class TripSheetUi(
 
 /** The sheet while riding: where you get off, how long, that the alarm is set, one button. */
 @Composable
-fun TripSheet(ui: TripSheetUi, onAction: () -> Unit, modifier: Modifier = Modifier, onSkipped: () -> Unit = {}) {
+fun TripSheet(
+    ui: TripSheetUi, onAction: () -> Unit, modifier: Modifier = Modifier, onSkipped: () -> Unit = {},
+    /** Pulled all the way up: the whole journey under the sheet (owner, 2026-11-24). */
+    journey: List<JourneyRowUi>? = null,
+) {
     val c = LocalN.current
     Sheet(modifier) {
         if (ui.skipped != null) Row(
@@ -300,6 +308,32 @@ fun TripSheet(ui: TripSheetUi, onAction: () -> Unit, modifier: Modifier = Modifi
             )
         } else Spacer(Modifier.height(12.dp))
         GhostButton(ui.action, onAction)
+        if (journey != null) JourneyList(journey)
+    }
+}
+
+/** The journey, stop by stop: done (muted), the one you're heading for (bold), the ones after it. */
+@Composable
+fun JourneyList(rows: List<JourneyRowUi>, modifier: Modifier = Modifier) {
+    val c = LocalN.current
+    Column(modifier.fillMaxWidth().heightIn(max = 340.dp).verticalScroll(rememberScrollState()).padding(top = 14.dp)) {
+        Eyebrow("Your journey")
+        rows.forEachIndexed { i, r ->
+            val done = r.state == JourneyRowUi.State.DONE
+            val now = r.state == JourneyRowUi.State.NOW
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(r.time, style = NType.secondary, color = if (now) c.fg else c.muted, modifier = Modifier.width(52.dp).padding(top = 2.dp))
+                Column(Modifier.width(16.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(4.dp))
+                    Box(Modifier.size(12.dp).clip(CircleShape).background(if (now) c.fg else c.line))
+                    if (i < rows.lastIndex) Box(Modifier.weight(1f).width(2.dp).background(if (done) c.line else c.fg.copy(alpha = if (now) 1f else 0.35f)))
+                }
+                Column(Modifier.weight(1f).padding(bottom = 10.dp)) {
+                    Text(r.title, style = if (now) NType.row else NType.body, color = if (done) c.muted else c.fg)
+                    Text(r.sub, style = NType.secondary, color = c.muted)
+                }
+            }
+        }
     }
 }
 

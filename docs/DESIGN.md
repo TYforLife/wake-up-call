@@ -190,20 +190,32 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
   - Or touch its edge and drag in or out (no handle: a touch within a finger's width of the edge grabs it,
     `EdgeDrag`): the circle follows your finger, and the size is rounded like the
     slider's (`CircleDrag`).
-  - It's stored on that stop (`LegDraft.wakeRadiusM`), from the riding map or Set a stop. **A saved circle applies to a running trip at once**
-  (`Input.UpdateLegs`: only circles, only for legs whose stop is unchanged; a circle you're already inside
-  rings now; property-tested never to make an alarm later). A simulated trip's stops can be set too (for
-  that trip only). Once you're on the bus and inside
-  it, it rings, unless the timing rang first: **whichever comes first**, so it can only ring earlier.
-  "On the bus" is boarding detected **or bus speed right now** (≥ 15 km/h over the last 15 s), so a
-  trip started on a crawling bus, where boarding was never detected, still rings on entry (PLAN R3).
-  From outside the circle, the estimate and the failsafe also aim at **its edge**, with no extra lead
-  (the circle is your margin): `ft + (d − r) / v_est` and `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`,
-  each taken only if earlier. GPS already runs at 1–2 s for the whole trip, so no faster checking is
-  needed near the circle; a GPS gap is covered by the failsafe (tested: a gap from 60 s before the edge
-  still rings before it). Waiting at a stop inside the zone doesn't ring until you're on the bus.
-  Property-tested: with a circle, the first ring is never later than without one (300 random trips). Shrinking a
-  circle mid-trip, even to 50 m, never rings later than having no circle (200 random trips, PLAN B4).
+  - It's stored on that stop of that route (`LegDraft.wakeRadiusM`), from the riding map or Set a stop: per stop
+    and per route ("the ring is per station and per trip", owner 2026-11-24). Another route's circle at the same stop
+    is that route's.
+- **A saved circle applies to a running trip at once.** `Route.circlesFor` takes the trip's own route's circles, and
+  `Input.UpdateLegs` changes only circles, only for legs whose stop is unchanged. A circle you're already inside
+  rings now. A simulated trip's stops can be set too, for that trip only.
+- **Your circle decides where it rings** (owner, 2026-11-24: "the alarm woke me outside the ring"):
+  - It rings when the bus enters it. "On the bus" means boarding detected **or bus speed right now** (≥ 15 km/h over
+    the last 15 s), so a trip started on a crawling bus, where boarding was never detected, still rings on entry
+    (PLAN R3).
+  - The stop's own timing then uses the **30 s minimum lead** (`Config.minLeadS`, `Engine.wakeLead`) instead of 45 s.
+    It only rings first for a circle so small that the bus is less than 30 s from the stop at its edge: about
+    250 m at 30 km/h, 375 m at 45 km/h. The circle sheet says so.
+  - Before, a circle only ever added an earlier ring, so the stop's 45 s timing (about 500–600 m out at 40–50 km/h)
+    rang before every circle of the sizes offered (150–400 m).
+  - From outside the circle, the estimate and the failsafe also aim at **its edge**, with no extra lead:
+    `ft + (d − r) / v_est` and `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`.
+    - Recomputed at every fix (1–2 s), the estimate fires at most a fix early while GPS is fine.
+    - A GPS gap is covered: a gap from 60 s before the edge still rings before it.
+  - Waiting at a stop inside the zone doesn't ring until you're on the bus.
+- **Property-tested.** The 30 s minimum's invariant holds (`InvariantPropertyTest` at a 30 s lead).
+  - With a circle, the first ring is never later than the same trip with no circle at a 30 s lead (300 random
+    trips).
+  - With steady GPS it comes at the edge: from 4 s before to 3 s after entering, for circles reached at least 60 s
+    out.
+  - Shrinking or editing a circle mid-trip never rings later than that minimum (200 and 500 random trips).
 
 ### Why the approximations err early
 
@@ -510,9 +522,41 @@ doesn't flash another colour while it opens.
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
     - The stops still to come have their circles too, fainter (`MapModel.tripZones`). Stops behind you have none.
     - A scale bar, top left, like Google's (`Scale`: the longest round distance under 96 dp).
+    - Every leg's way (owner, 2026-11-24): the one you're on in route blue, the others grey (`MapModel.legPaths`):
+      - the bus's **road**, when Plan a trip knows the bus (`Departures.path`). That's the feed's `shapes.txt`:
+        `tools/gtfs_index.py` keeps each pattern's most common shape, simplified to 8 m, as an encoded polyline with
+        the point at each stop (`shapes.tsv`, `Timetable.road`). Without a shape it goes stop to stop;
+      - else the newest learned ride to that stop;
+      - else a straight line from the stop before.
+
+      Learned rides aren't drawn separately on a trip.
     - It has recentre, rotation and the compass, and opens framing you and your stop (`MapModel.frame`; the owner
       likes this). After you change buses it frames you and the next stop again, even if you'd moved the map.
     - Tap your stop's circle for its sizes, or touch its edge and drag (§2.6).
+  - The sheet has three heights (owner, 2026-11-24). Drag it up or down; touching the map folds it:
+    - folded: one line, for the map;
+    - the sheet below;
+    - pulled all the way up: the sheet and **Your journey**, every stop in order (`JourneyText`):
+      - done;
+      - the one you're heading for, with "~7:46" and its bus;
+      - the ones after it, with the timetable's arrival and departure when Plan a trip knows their bus
+        (`Departures.ride`, after a 2-minute change).
+  - **The time left on the bus** (owner, 2026-11-24: "the ETAs are very off… I know my bus times") is worked out
+    from the timetable when Plan a trip knows the bus and where you got on (`Departures.remainingS`, in
+    `TripService.busEta`):
+    - you're placed on the line of its stops (within 400 m);
+    - the run due at that point about now (within 30 min) gives the time left from there to your stop.
+
+    Your real position holds the delay so far, and the timetable gives the rest. On a learned route, past rides come
+    first (the engine's ETA: past rides × today's pace); the timetable is for buses not learned yet. It's shown in
+    "6 min", "stop ~7:46", the journey list and the notification. The alarm keeps the engine's own, deliberately
+    earlier estimate.
+  - **"Alarm about 7:45"** (owner, 2026-11-24: "not consistent with the time until arrival") is when the alarm aims to
+    ring: the time left shown, minus the stop's lead, or, with your own circle, when the bus reaches it
+    (`TripSheetText.aimMs`).
+    - It's not the scheduled system alarm. While GPS is fine that's the dead-man's switch (§2), a few minutes ahead
+      and pushed on with every fix.
+    - With no time left known it says "Alarm set". With GPS lost it says the real "at the latest" time.
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45 · stop ~7:46", and I'm off
     this bus. The alarm is meant to come first. With your own circle it says so: "Alarm about 7:42 at your 400 m
     circle · stop ~7:46".
@@ -566,8 +610,9 @@ doesn't flash another colour while it opens.
     - Arrive by: the rides that get there in time, leaving latest, none more than 45 minutes before the last.
       Going to work or home, the Arrive by you set is remembered for next time (Settings, on the phone); Leave now
       or Leave at forgets it. The owner never wants to type times.
-  - Tap a ride for its **map** (the buses in route blue through every stop, walks dotted, where you get on and off,
-    the end as the red pin) and its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
+  - Tap a ride for its **map**: the buses in route blue along their roads (`Leg.Bus.road`), and walks dotted along the
+    footpaths (`Leg.Walk.path`: the way `WalkGraph` found, not a straight line), where you get on and off, and
+    the end as the red pin. Then its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
     then **Use this** or **Start now**. Using it makes a route whose stops are where you get off each bus, named "To <place>"
     ("To work" updates that route rather than adding another).
   - Pasting or sharing Google Maps directions fills From and To.

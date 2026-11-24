@@ -57,11 +57,20 @@ class TextsTest {
         val t = trip(status()).copy(legRadii = listOf(null, 400.0))
         assertEquals("Alarm about 7:45 at your 400 m circle · stop ~7:45", TripSheetText.of(t, clock).alarm)
         val inside = trip(status(d = 300.0, eta = null)).copy(legRadii = listOf(null, 400.0))
-        assertEquals("Alarm about 7:45", TripSheetText.of(inside, clock).alarm)
+        assertEquals("Alarm set", TripSheetText.of(inside, clock).alarm, "no time left known: no made-up time")
         // The stop's time is now + its ETA: 6 min 12 s after 7:40 is 7:46.
         val real: (Long) -> String = { ms -> "%d:%02d".format(ms / 3_600_000 % 24, ms / 60_000 % 60) }
         val at740 = (7 * 60 + 40) * 60_000L
-        assertEquals("Alarm about 0:00 · stop ~7:46", TripSheetText.of(trip(status(alarmAt = 0L)), real, at740).alarm)
+        // The alarm aims at the stop's time minus its lead (6 min 12 s - 45 s after 7:40), not the scheduled
+        // dead-man's switch (alarmAt), which sits a few minutes ahead while GPS is fine.
+        assertEquals("Alarm about 7:45 · stop ~7:46", TripSheetText.of(trip(status(alarmAt = 0L)), real, at740).alarm)
+        assertEquals("Alarm about 7:42 · stop ~7:46", TripSheetText.of(trip(status(alarmAt = 0L).copy(leadS = 240.0)), real, at740).alarm)
+        // Own 400 m circle, 2.34 km out: the bus reaches it at 1940/2340 of the time left.
+        val circled = trip(status(alarmAt = 0L)).copy(legRadii = listOf(null, 400.0))
+        assertEquals("Alarm about 7:45 at your 400 m circle · stop ~7:46", TripSheetText.of(circled, real, at740).alarm)
+        // A circle the bus reaches less than 30 s before the stop: the 30 s minimum (6:12 - 0:30 after 7:40 = 7:45:42).
+        val tiny = trip(status(alarmAt = 0L, d = 2_340.0, eta = 372.0)).copy(legRadii = listOf(null, 50.0))
+        assertEquals("Alarm about 7:45 at your 50 m circle · stop ~7:46", TripSheetText.of(tiny, real, at740).alarm)
     }
 
     @Test
@@ -169,12 +178,34 @@ class TextsTest {
     @Test
     fun `the folded sheet - one line with the essentials (PLAN B3)`() {
         assertEquals(CompactSheetUi("Harbour St · 6 min · alarm 7:45", false, "I'm off this bus"), CompactSheetText.of(trip(status()), clock))
-        assertEquals("Harbour St · 2.3 km · alarm 7:45", CompactSheetText.of(trip(status(eta = null)), clock).line)
+        assertEquals("Harbour St · 2.3 km", CompactSheetText.of(trip(status(eta = null)), clock).line, "no time left: no alarm time")
         val lost = CompactSheetText.of(trip(status(gpsOk = false, age = 40.0)), { "7:44" })
         assertEquals(CompactSheetUi("Harbour St · GPS lost · alarm by 7:44", true, "I'm off this bus"), lost)
         assertEquals(CompactSheetUi("Harbour St · waiting for bus 2", false, "Skip this bus"), CompactSheetText.of(trip(status(phase = Phase.WAITING)), clock))
         assertEquals("Central Station · waiting for the bus", CompactSheetText.of(trip(status(phase = Phase.WAITING, leg = 0), leg = 0), clock).line)
         assertEquals("Get off at Harbour St", CompactSheetText.of(trip(status(phase = Phase.AWAKE)), clock).line)
     }
-}
 
+    @Test
+    fun `the journey, pulled up - done, the stop you're heading for with its time, the next with the timetable's`() {
+        val legs = listOf(
+            app.nodstop.data.LegDraft("Central Station", "-36.8, 174.7", bus = "871", boardName = "Wairau Road"),
+            app.nodstop.data.LegDraft("Harbour St", "-36.85, 174.76", bus = "866", boardName = "Stop A"),
+            app.nodstop.data.LegDraft("Hill Ave", "-36.86, 174.77"),
+        )
+        val ui = trip(status(eta = 300.0), leg = 0, legs = listOf("Central Station", "Harbour St", "Hill Ave"))
+        val at740 = 7 * 3600 + 40 * 60
+        val rows = JourneyText.of(ui, legs, at740) { i, from -> if (i == 1) (from + 60) to (from + 1_500) else null }
+        assertEquals(
+            listOf(
+                JourneyRowUi("~7:45", "Central Station", "871 from Wairau Road · next stop", JourneyRowUi.State.NOW),
+                JourneyRowUi("~8:12", "Harbour St", "866 from Stop A · leaves 7:48", JourneyRowUi.State.LATER),
+                JourneyRowUi("", "Hill Ave", "Stop 3", JourneyRowUi.State.LATER),
+            ),
+            rows,
+        )
+        val later = JourneyText.of(trip(status(eta = null), leg = 1, legs = listOf("Central Station", "Harbour St", "Hill Ave")), legs, at740)
+        assertEquals(JourneyRowUi.State.DONE, later[0].state)
+        assertEquals("Now", later[1].time)
+    }
+}

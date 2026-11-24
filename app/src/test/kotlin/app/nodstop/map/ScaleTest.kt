@@ -2,6 +2,7 @@ package app.nodstop.map
 
 import app.nodstop.engine.LatLng
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ScaleTest {
@@ -22,5 +23,17 @@ class ScaleTest {
         val zones = MapModel.tripZones(MapModel.Layers(pins, emptyList()))
         assertEquals(listOf(1 to true, 2 to false), zones.map { it.legIndex to it.current })
         assertEquals(emptyList<MapModel.Pin>(), MapModel.tripZones(MapModel.Layers(listOf(pin(0, false)), emptyList())))
+    }
+
+    @Test
+    fun `the trip legs on the map - the bus stops, else the learned ride, else a straight line, the current one marked`() {
+        val a = LatLng(-36.80, 174.75); val b = LatLng(-36.85, 174.76); val start = LatLng(-36.78, 174.75)
+        val bus = listOf(start, LatLng(-36.79, 174.75), a)
+        val learned = listOf(a, LatLng(-36.82, 174.76), b)
+        val paths = MapModel.legPaths(listOf(a, b), current = 1, start = start, bus = { if (it == 0) bus else null }, learned = { if (it == 1) learned else null })
+        assertEquals(listOf(bus to false, learned to true), paths.map { it.points to it.current })
+        val straight = MapModel.legPaths(listOf(a, b), current = 0, start = null, bus = { null }, learned = { null })
+        assertEquals(listOf(listOf(a, b) to false), straight.map { it.points to it.current }, "no start known: the first leg has no line yet")
+        assertTrue(MapModel.legPathsJson(MapModel.Layers(emptyList(), emptyList(), paths)).contains("\"current\":true"))
     }
 }

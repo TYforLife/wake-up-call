@@ -85,4 +85,22 @@ class RoutesAndResumeTest {
     @Test fun `stop keys are stable to about a metre`() {
         assertEquals(Route.stopKey(LatLng(-36.784269, 174.751024)), Route.stopKey(LatLng(-36.7842691, 174.7510239)))
     }
+
+    @Test
+    fun `a trip takes its own route's circles - per stop and per route, at once mid-trip`() {
+        val a = "-36.80, 174.75"
+        val b = "-36.85, 174.76"
+        val toWork = Route(name = "To work", legs = listOf(LegDraft("A", a, wakeRadiusM = 400.0), LegDraft("B", b)))
+        val trip = toWork.toLegs()!!
+        // Mid-trip you set B's circle on the map: the trip takes it; A keeps its own.
+        val edited = toWork.copy(legs = listOf(LegDraft("A", a, wakeRadiusM = 400.0), LegDraft("B", b, wakeRadiusM = 250.0)))
+        assertEquals(listOf(400.0, 250.0), edited.circlesFor(trip).map { it.wakeRadiusM })
+        // Back to automatic.
+        val auto = toWork.copy(legs = listOf(LegDraft("A", a), LegDraft("B", b)))
+        assertEquals(listOf(null, null), auto.circlesFor(trip).map { it.wakeRadiusM })
+        // Another route's circle at the same stop is that route's, not this trip's.
+        val fromWork = Route(name = "From work", legs = listOf(LegDraft("B", b, wakeRadiusM = 900.0)))
+        assertEquals(listOf(400.0, null), toWork.circlesFor(trip).map { it.wakeRadiusM })
+        assertEquals(listOf(null, 900.0), fromWork.circlesFor(trip.map { it.copy(wakeRadiusM = null) }).map { it.wakeRadiusM }, "only for its own trips")
+    }
 }

@@ -23,8 +23,31 @@ object TripSheetText {
      * - after changing buses: "Off at <last stop> · next stop" / "Waiting for bus 2"
      */
     /** [nowMs]: when the sheet is drawn, for "stop ~8:02" (the stop's time from now). */
+    /**
+     * When the alarm aims to ring, for "Alarm about 7:45" (owner, 2026-11-24: it "is not consistent with the time
+     * until arrival"): the shown time left minus the stop's lead, or, with your own circle and outside it, when the
+     * bus reaches it. Not the scheduled system alarm: while GPS is fine that's the dead-man's switch (DESIGN §2), a
+     * few minutes ahead and pushed on with every fix, so it says nothing about when it will ring. The ring itself may
+     * come a little earlier (the alarm errs early). Null without a time left.
+     */
+    fun aimMs(t: TripService.TripUi, nowMs: Long): Long? {
+        val s = t.status
+        val eta = s.etaS ?: return null
+        val r = t.legRadii.getOrNull(t.legIndex)
+        val d = s.distanceM
+        // Your circle: when the bus reaches it, but never later than the 30 s minimum (Engine.wakeLead).
+        val toRing = if (r != null && d != null && d > r) minOf(eta * (d - r) / d, eta - MIN_LEAD_S)
+        else if (r != null) eta - MIN_LEAD_S
+        else eta - (s.leadS ?: DEFAULT_LEAD_S)
+        return nowMs + (maxOf(0.0, toRing) * 1000).toLong()
+    }
+
+    private const val DEFAULT_LEAD_S = 45.0
+    private const val MIN_LEAD_S = 30.0
+
     fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis(), nextBus: String? = null): TripSheetUi {
         val s = t.status
+        val aimAt = aimMs(t, nowMs)?.let(clock)
         val stop = t.legName ?: "your stop"
         val distance = s.distanceM?.let { TripService.distance(it) }
         val gpsLost = s.lastFixAgeS != null && !s.gpsOk
@@ -65,8 +88,9 @@ object TripSheetText {
                     s.phase == Phase.RINGING -> "Ringing"
                     s.phase == Phase.AWAKE -> "You're awake for this stop"
                     // Both times, labelled (BACKLOG 1): the alarm is meant to come before the stop.
-                    alarmAt != null && circle != null -> listOfNotNull("Alarm about $alarmAt at your ${TripService.distance(circle)} circle", stopAt).joinToString(" · ")
-                    alarmAt != null -> listOfNotNull("Alarm about $alarmAt", stopAt).joinToString(" · ")
+                    aimAt != null && circle != null -> listOfNotNull("Alarm about $aimAt at your ${TripService.distance(circle)} circle", stopAt).joinToString(" · ")
+                    aimAt != null -> listOfNotNull("Alarm about $aimAt", stopAt).joinToString(" · ")
+                    alarmAt != null -> "Alarm set"
                     else -> null
                 },
                 alarmDanger = false, action = "I'm off this bus",
@@ -85,8 +109,9 @@ data class CompactSheetUi(val line: String, val danger: Boolean, val action: Str
 
 object CompactSheetText {
     /** "Harbour St · 6 min · alarm 7:45"; "Harbour St · GPS lost · alarm by 7:44" (red); waiting; ringing; awake. */
-    fun of(t: TripService.TripUi, clock: (Long) -> String): CompactSheetUi {
+    fun of(t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis()): CompactSheetUi {
         val s = t.status
+        val aimAt = TripSheetText.aimMs(t, nowMs)?.let(clock)
         val stop = t.legName ?: "Your stop"
         val alarmAt = s.alarmAtMs?.let(clock)
         val gpsLost = s.lastFixAgeS != null && !s.gpsOk
@@ -101,7 +126,7 @@ object CompactSheetText {
             else -> listOfNotNull(
                 stop,
                 s.etaS?.let(TripSheetText::minutes) ?: s.distanceM?.let { TripService.distance(it) },
-                alarmAt?.let { "alarm $it" },
+                aimAt?.let { "alarm $it" },
             )
         }
         return CompactSheetUi(parts.joinToString(" · "), gpsLost, action)
@@ -183,8 +208,9 @@ object TripNoteText {
      * - waiting: "Harbour St · waiting for the bus" (or "Waiting for bus 2 · Harbour St") / "Alarm set until you're on it"
      * [quiet] (the quiet-trip note) goes after the second line.
      */
-    fun of(t: TripService.TripUi, clock: (Long) -> String, quiet: String? = null): TripNoteUi {
+    fun of(t: TripService.TripUi, clock: (Long) -> String, quiet: String? = null, nowMs: Long = System.currentTimeMillis()): TripNoteUi {
         val s = t.status
+        val aimAt = TripSheetText.aimMs(t, nowMs)?.let(clock)
         val stop = t.legName ?: "Your stop"
         val alarmAt = s.alarmAtMs?.let(clock)
         val gpsLost = s.lastFixAgeS != null && !s.gpsOk
@@ -197,7 +223,7 @@ object TripNoteText {
             else -> {
                 val eta = s.etaS?.let { "$stop in ${TripSheetText.minutes(it)}" }
                 (eta ?: s.distanceM?.let { "$stop · ${TripService.distance(it)}" } ?: "$stop · finding you") to
-                    (alarmAt?.let { "Alarm about $it" } ?: "Alarm on")
+                    (aimAt?.let { "Alarm about $it" } ?: "Alarm on")
             }
         }
         val start = s.startDistanceM
@@ -228,4 +254,44 @@ object TripNoteText {
     }
 
     private fun near(d: Double?, radiusM: Double?) = d != null && d <= maxOf(radiusM ?: 0.0, NEAR_M)
+}
+
+/** One stop of the journey list (owner, 2026-11-24): pull the trip sheet up to see the whole journey. */
+data class JourneyRowUi(val time: String, val title: String, val sub: String, val state: State) {
+    enum class State { DONE, NOW, LATER }
+}
+
+object JourneyText {
+    /**
+     * Every stop of the trip, in order: done, the one you're heading for (its time from now and the ETA), and the
+     * ones after it with the timetable's times when Plan a trip knows their bus ([ride]: leg index and the earliest
+     * time you can board, both in seconds after midnight, to that ride's departure and arrival).
+     */
+    fun of(
+        t: TripService.TripUi, legs: List<app.nodstop.data.LegDraft>?, nowS: Int,
+        ride: (Int, Int) -> Pair<Int, Int>? = { _, _ -> null },
+    ): List<JourneyRowUi> {
+        var ready: Int? = t.status.etaS?.let { nowS + it.toInt() }
+        return t.legNames.indices.map { i ->
+            val leg = legs?.getOrNull(i)
+            val bus = leg?.bus?.let { b -> leg.boardName?.let { "$b from $it" } ?: b }
+            when {
+                i < t.legIndex -> JourneyRowUi("Done", t.legNames[i], bus ?: "Stop ${i + 1}", JourneyRowUi.State.DONE)
+                i == t.legIndex -> JourneyRowUi(
+                    ready?.let { "~${PlanText.clock(it)}" } ?: "Now", t.legNames[i],
+                    listOfNotNull(bus, "next stop").joinToString(" · "), JourneyRowUi.State.NOW,
+                )
+                else -> {
+                    // A change takes at least 2 minutes (the planner's rule).
+                    val r = ready?.let { ride(i, it + 120) }
+                    ready = r?.second
+                    JourneyRowUi(
+                        r?.let { "~${PlanText.clock(it.second)}" } ?: "", t.legNames[i],
+                        listOfNotNull(bus, r?.let { "leaves ${PlanText.clock(it.first)}" }).joinToString(" · ").ifEmpty { "Stop ${i + 1}" },
+                        JourneyRowUi.State.LATER,
+                    )
+                }
+            }
+        }
+    }
 }

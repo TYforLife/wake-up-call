@@ -28,8 +28,9 @@ object JourneyShape {
         fun at(s: Int?, end: LatLng) = s?.let(stop) ?: end
         val lines = j.legs.map { leg ->
             when (leg) {
+                // Along footpaths and the bus's road when known; else straight (an estimate), and stop to stop.
                 is Planner.Leg.Walk -> Line(leg.points.ifEmpty { listOf(at(leg.from, from), at(leg.to, to)) }, walk = true, estimated = leg.estimated)
-                is Planner.Leg.Bus -> Line(leg.path.ifEmpty { listOf(leg.board, leg.alight) }.map(stop), walk = false, route = leg.route)
+                is Planner.Leg.Bus -> Line(leg.road.ifEmpty { leg.path.ifEmpty { listOf(leg.board, leg.alight) }.map(stop) }, walk = false, route = leg.route)
             }
         }
         val marks = listOf(Mark(from, Mark.Kind.START)) +

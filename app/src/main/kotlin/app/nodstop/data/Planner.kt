@@ -51,6 +51,8 @@ object Planner {
         data class Bus(
             val route: String, val headsign: String, val board: Int, val alight: Int, val departS: Int, val arriveS: Int, val stops: Int,
             val path: List<Int> = emptyList(),
+            /** The bus's road from [board] to [alight] (the feed's shape), for the map; empty: stop to stop. */
+            val road: List<LatLng> = emptyList(),
         ) : Leg
     }
 
@@ -332,6 +334,7 @@ object Planner {
                         p.route, p.headsign, p.stops[st.boardPos], cur,
                         day.time(st.pattern, st.run, st.boardPos), day.time(st.pattern, st.run, st.alightPos), st.alightPos - st.boardPos,
                         (st.boardPos..st.alightPos).map { p.stops[it] },
+                        tt.road(st.pattern, st.boardPos, st.alightPos).orEmpty(),
                     )
                     cur = p.stops[st.boardPos]
                     round -= 1
