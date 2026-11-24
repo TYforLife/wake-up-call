@@ -13,9 +13,7 @@ import app.nodstop.App
 import app.nodstop.Notifications
 import app.nodstop.R
 import app.nodstop.Shortcuts
-import app.nodstop.data.Departures
 import app.nodstop.data.TransitData
-import app.nodstop.engine.CoordParser
 import app.nodstop.isolated
 import app.nodstop.trip.TripService
 import app.nodstop.ui.v2.RouteOption
@@ -99,7 +97,7 @@ class TripWidget : AppWidgetProvider() {
             val first = route?.legs?.firstOrNull()
             val bus = first?.bus
             val nowS = LocalTime.now().toSecondOfDay()
-            val deps = if (bus != null && first.boardCoords != null) departures(ctx, bus, first.boardCoords) else emptyList()
+            val deps = if (bus != null && first.boardCoords != null) TransitData.todayDepartures(ctx, bus, first.boardCoords) else emptyList()
             WidgetText.redrawAtS(deps, nowS)?.let { redrawAt(ctx, it) }
             return WidgetText.idle(option, bus, deps, nowS)
         }
@@ -131,26 +129,6 @@ class TripWidget : AppWidgetProvider() {
             } ?: Notifications.openApp(ctx)
         }
 
-        private fun prefs(ctx: Context) = ctx.getSharedPreferences("widget", Context.MODE_PRIVATE)
-
-        /**
-         * Today's timetabled departures of [bus] from [board] ("lat, lng"), read from the timetable once a day and
-         * kept, so a redraw doesn't load the whole timetable again. Empty without a bundled timetable.
-         */
-        private suspend fun departures(ctx: Context, bus: String, board: String): List<Int> {
-            val key = "${LocalDate.now()}|$bus|$board"
-            val p = prefs(ctx)
-            if (p.getString(KEY_DEPS_FOR, null) == key) {
-                return p.getString(KEY_DEPS, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() }
-            }
-            val pos = CoordParser.parse(board) ?: return emptyList()
-            val ix = TransitData.get(ctx) ?: return emptyList()
-            val tt = TransitData.timetable(ctx) ?: return emptyList()
-            val deps = Departures.next(ix, tt, pos, bus, LocalDate.now(), 0, count = Int.MAX_VALUE)
-            p.edit().putString(KEY_DEPS_FOR, key).putString(KEY_DEPS, deps.joinToString(",")).apply()
-            return deps
-        }
-
         /**
          * Draw again from [atS] (seconds after today's midnight), so the first bus shown has not left. Not the ring:
          * RTC, not a wakeup type, so it waits for the screen to be on and costs nothing while the phone sleeps; and
@@ -171,7 +149,5 @@ class TripWidget : AppWidgetProvider() {
         private const val WINDOW_MS = 10 * 60_000L
         private const val START_CODE = 30
         private const val REDRAW_CODE = 31
-        private const val KEY_DEPS_FOR = "deps_for"
-        private const val KEY_DEPS = "deps"
     }
 }

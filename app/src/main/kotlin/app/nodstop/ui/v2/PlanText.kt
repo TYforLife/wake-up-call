@@ -146,6 +146,10 @@ object PlanText {
         else -> null
     }
 
+    /** Your bus's next two from now ([departuresS] soonest first), "866 7:43, 7:51" (BACKLOG F8, F10); null for none. */
+    fun nextBuses(bus: String, departuresS: List<Int>, nowS: Int): String? =
+        departuresS.filter { it >= nowS }.take(2).takeIf { it.isNotEmpty() }?.let { n -> "$bus ${n.joinToString(", ") { clock(it) }}" }
+
     /** The trip sheet while you wait (BACKLOG): "871 due 7:43, then 7:51"; null when none are due. */
     fun nextBus(route: String, departures: List<Int>): String? = when (departures.size) {
         0 -> null

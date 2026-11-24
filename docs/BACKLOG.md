@@ -181,8 +181,6 @@ its own kind welcome joke (Product direction). Don't start until Tae says the MV
 - [ ] **F27. Departures board** for any stop, like AT's: the next buses, timetable times (live with F13).
 - [ ] **F26. More saved places** (gym, a friend's), "if clean": only if it reuses Home and work's code as one list
   of places, not a second mechanism.
-- [ ] **F8. Suggest the right ride from use.** Not a morning nudge: as he uses it more, Now preselects the route
-  *and* the bus he usually takes at this time ("To work · 866 7:43").
 - [ ] **F4. Stop the alarm from the earbuds.** "would like to have. actually pretty nice." A press or squeeze on
   the earbuds (media button) counts as "I'm awake", held like the volume key so a brush can't stop it.
 - [ ] **F38. Other languages** (yes; accessibility not yet: keep the app intuitive). Which languages first: ask Tae.
@@ -222,6 +220,9 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F8. Suggest the right ride from use (2026-11-24).** Now preselects the route you start most at this time
+  (as before) and each route's line leads with its bus's next two: "866 7:43, 7:51 · Smales Farm, then Symonds St",
+  redrawn each minute, from the same once-a-day departures the widget uses (`TransitData.todayDepartures`).
 - [x] **F15. Arrival time at the destination (2026-11-24).** "should be simple." "Work about 8:22" on the trip
   sheet while buses are still to come, from the journey's own times (the timetable for the buses still to come;
   nothing when it doesn't know one). `JourneyText.arrival`, `ArrivalTextTest`.

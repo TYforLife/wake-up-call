@@ -27,6 +27,9 @@ object RouteText {
         generateSequence(1) { it + 1 }.map { "Route $it" }.first { it !in taken }
 
     /** A new route: a default name and Stop 1, ready to be set on the map. */
+    /** A route's line on Now with its bus's next two first (BACKLOG F8): "866 7:43, 7:51 · Smales Farm, then Symonds St". */
+    fun withNextBuses(subtitle: String, nextBuses: String?): String = if (nextBuses == null) subtitle else "$nextBuses · $subtitle"
+
     fun newRoute(taken: List<String>): Route = Route(name = nextRouteName(taken), legs = listOf(LegDraft(name = stopName(0))))
 
     /** The route's add link: "Add stop 2". */

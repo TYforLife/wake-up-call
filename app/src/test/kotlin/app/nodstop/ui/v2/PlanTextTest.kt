@@ -94,4 +94,14 @@ class PlanTextTest {
         assertEquals(null, PlanText.walkInstead(app.nodstop.data.Planner.Path(500.0, emptyList(), estimated = true)), "never a straight-line guess")
         assertEquals(null, PlanText.walkInstead(null))
     }
+
+    @Test
+    fun `your bus's next two, from now (F8)`() {
+        fun s(h: Int, m: Int) = h * 3600 + m * 60
+        assertEquals("866 7:43, 7:51", PlanText.nextBuses("866", listOf(s(7, 35), s(7, 43), s(7, 51), s(7, 59)), s(7, 40)))
+        assertEquals("866 7:43", PlanText.nextBuses("866", listOf(s(7, 43)), s(7, 43)))
+        assertEquals(null, PlanText.nextBuses("866", listOf(s(7, 35)), s(7, 40)))
+        assertEquals("866 7:43, 7:51 · Smales Farm, then Symonds St", RouteText.withNextBuses("Smales Farm, then Symonds St", "866 7:43, 7:51"))
+        assertEquals("Smales Farm, then Symonds St", RouteText.withNextBuses("Smales Farm, then Symonds St", null))
+    }
 }

@@ -60,6 +60,26 @@ object TransitData {
         }
     }
 
+    /**
+     * Today's timetabled departures of [bus] from [board] ("lat, lng"), seconds after midnight, soonest first: read
+     * from the timetable once a day per bus and stop and kept, so the widget and Now don't load the whole timetable
+     * again for it. Empty without a bundled timetable.
+     */
+    suspend fun todayDepartures(ctx: Context, bus: String, board: String): List<Int> {
+        val today = java.time.LocalDate.now()
+        val prefs = ctx.applicationContext.getSharedPreferences("departures", Context.MODE_PRIVATE)
+        val key = "$bus|$board"
+        prefs.getString(key, null)?.split('|', limit = 2)?.takeIf { it.size == 2 && it[0] == today.toString() }?.let { kept ->
+            return kept[1].split(',').mapNotNull { it.toIntOrNull() }
+        }
+        val pos = app.nodstop.engine.CoordParser.parse(board) ?: return emptyList()
+        val ix = get(ctx) ?: return emptyList()
+        val tt = timetable(ctx) ?: return emptyList()
+        val deps = withContext(Dispatchers.Default) { Departures.next(ix, tt, pos, bus, today, 0, count = Int.MAX_VALUE) }
+        prefs.edit().putString(key, "$today|${deps.joinToString(",")}").apply()
+        return deps
+    }
+
     /** "Stop and route data: Auckland Transport, CC BY 4.0", or null when there's no data in this build. */
     fun attribution(ctx: Context): String? =
         try { ctx.assets.open("gtfs/meta.txt").bufferedReader().use { it.readLine() } } catch (_: IOException) { null }
