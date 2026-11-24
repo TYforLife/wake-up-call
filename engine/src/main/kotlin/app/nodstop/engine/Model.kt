@@ -39,10 +39,16 @@ data class Leg(
     val learned: Learned? = null,
     /** Your own wake zone: once on the bus and within this many metres of the stop, ring (if not already). */
     val wakeRadiusM: Double? = null,
+    /** What you ride to this stop (BACKLOG F29): its top speed bounds the failsafe (DESIGN §2). */
+    val mode: Mode = Mode.BUS,
 ) {
     /** The stop the engine aims for: always your pin. */
     val stop: LatLng get() = dest
 }
+
+/** What a leg is ridden on (BACKLOG F29). A train is faster than a bus, so its failsafe must assume more. */
+@Serializable
+enum class Mode { BUS, TRAIN, FERRY }
 
 /** A location fix. [fixTimeMs] is when the position was measured, on the same clock as [tMs]. */
 data class Fix(val tMs: Long, val fixTimeMs: Long, val pos: LatLng, val accuracyM: Float)

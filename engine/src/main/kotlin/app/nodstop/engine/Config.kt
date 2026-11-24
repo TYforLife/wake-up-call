@@ -6,8 +6,10 @@ data class Config(
     val leadS: Double = 45.0,
     /** Stops the ETA blowing up at lights: also a distance floor of LEAD × V_FLOOR ≈ 310 m. */
     val vFloorKmh: Double = 25.0,
-    /** Worst-case bus speed, used by the failsafe. */
+    /** Worst-case bus speed, used by the failsafe. Ferries use it too (Auckland's fastest are about 65 km/h). */
     val vMaxKmh: Double = 90.0,
+    /** Worst-case train speed (Auckland's trains run up to 110 km/h), for the failsafe on a train leg (F29). */
+    val trainVMaxKmh: Double = 120.0,
     /** Current speed window (path length ÷ time). */
     val winShortS: Double = 15.0,
     /**
@@ -96,6 +98,12 @@ data class Config(
     val vFloor: Double get() = vFloorKmh / 3.6
     val vMax: Double get() = vMaxKmh / 3.6
 
+    /** The worst-case speed on [mode], in m/s. */
+    fun vMaxOf(mode: Mode): Double = when (mode) {
+        Mode.TRAIN -> maxOf(trainVMaxKmh, vMaxKmh) / 3.6
+        Mode.BUS, Mode.FERRY -> vMax
+    }
+
     /** Inside this straight-line distance the 30 s dead-man minimum dominates the V_MAX failsafe. */
-    val failsafeReachM: Double get() = (leadS + deadmanMinS) * vMax
+    val failsafeReachM: Double get() = (leadS + deadmanMinS) * vMax // on a bus; a train's is (LEAD + DEADMAN_MIN) × its V_MAX
 }
