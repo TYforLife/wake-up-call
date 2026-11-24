@@ -348,3 +348,29 @@ object WidgetText {
     /** When to draw the idle widget again: a minute after [nextS] leaves, so the bus shown is one you can still catch. */
     fun redrawAtS(departuresS: List<Int>, nowS: Int): Int? = departuresS.firstOrNull { it >= nowS }?.let { it + 60 }
 }
+
+/** Sleep on the bus, on Now (BACKLOG F30): counts only. */
+data class SleepUi(val title: String, val line: String)
+
+object SleepText {
+    /**
+     * "You slept 14 h on the bus this month" / "3 h 20 min this week · last ride 25 min". Null until a ride this month
+     * has counted some sleep: nothing to say yet.
+     */
+    fun of(monthMs: Long, weekMs: Long, lastRideMs: Long?): SleepUi? {
+        if (monthMs < 60_000) return null
+        val line = listOfNotNull("${duration(weekMs)} this week", lastRideMs?.let { "last ride ${duration(it)}" })
+        return SleepUi("You slept ${duration(monthMs)} on the bus this month", line.joinToString(" · "))
+    }
+
+    /** "25 min", "2 h 10 min", "14 h" (whole hours from 10 h), "0 min". */
+    fun duration(ms: Long): String {
+        val m = (ms / 60_000).toInt()
+        return when {
+            m < 60 -> "$m min"
+            m >= 600 -> "${(m + 30) / 60} h"
+            m % 60 == 0 -> "${m / 60} h"
+            else -> "${m / 60} h ${m % 60} min"
+        }
+    }
+}

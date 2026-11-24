@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.util.Log
@@ -40,6 +41,7 @@ import app.nodstop.data.RouteSuggest
 import app.nodstop.data.Resume
 import app.nodstop.engine.AlarmReason
 import app.nodstop.engine.Engine
+import app.nodstop.engine.Sleep
 import app.nodstop.engine.EngineState
 import app.nodstop.engine.Fix
 import app.nodstop.engine.Input
@@ -101,8 +103,17 @@ class TripService : Service() {
     private val screen = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (trip == null) return
-            DndController.update(this@TripService, tripRunning = true, screenOn = intent.action == Intent.ACTION_SCREEN_ON)
+            val on = intent.action == Intent.ACTION_SCREEN_ON
+            DndController.update(this@TripService, tripRunning = true, screenOn = on)
+            logScreen(on)
         }
+    }
+
+    /** Sleep on the bus (BACKLOG F30): the screen's state in the trip log, on real trips only. */
+    private fun logScreen(on: Boolean) {
+        val t = trip ?: return
+        if (t.simulated) return
+        app.traces.write(listOf(TraceEvent(System.currentTimeMillis(), Sleep.KIND, msg = if (on) Sleep.ON else Sleep.OFF)))
     }
 
     private val tick = object : Runnable {
@@ -231,6 +242,7 @@ class TripService : Service() {
             simulated = simulated, simKm = simKm, simKmh = simKmh)
         state = EngineState()
         input(Input.Start(now, allLegs.drop(legOffset), awakeOnFirst, lastKnown, autoLeg))
+        logScreen(getSystemService(PowerManager::class.java).isInteractive)
         val src = sim ?: FusedLocationSource(this)
         source = src
         notes = RideNotes()

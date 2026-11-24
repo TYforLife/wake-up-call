@@ -325,8 +325,15 @@ Kinds: `start` (with `legs` including what's learned, optional `awake` and last-
 d, eta, v, leg, ph`), plus app annotations ignored by replay: `rate`, `note`, `wys` (While You Slept
 counts at each ring, §10), `ringd` (how a ring reached you, §5), `gps` (GPS gaps over 10 s and the
 longest, at each ring and at the trip's end) and `zone` (the first time you're inside a leg's circle: was
-boarding detected, and when the alarm was set). `wys`, `ringd`, `gps` and `zone` are kept in
-location-hidden exports like `rate`, since they have no positions or text. Input kinds also include
+boarding detected, and when the alarm was set) and `scr` (`msg` `on` or `off`: the screen at the trip's start
+and whenever it changes, real trips only, for sleep on the bus, BACKLOG F30). `wys`, `ringd`, `gps`, `zone` and
+`scr` are kept in location-hidden exports like `rate`, since they have no positions or text.
+
+**Sleep on the bus** (`Sleep`, BACKLOG F30): time on a trip with the screen off, from `scr off` to the next `scr on`,
+`stop`, trip done or the log's last line. Time using the phone never counts. A trip resumed in the same log counts
+nothing for the gap before it, so the count errs short. Now shows "You slept 14 h on the bus this month" / "3 h 20 min
+this week · last ride 25 min" (`SleepText`), from the logs on the phone: each log is read once and its count kept
+with its length. Counts only, no positions; nothing leaves the phone. Input kinds also include
 `urgent` (§10) and `legs` (a wake circle changed mid-trip, §2.6).
 
 Replaying the inputs of a recorded trace must reproduce the recorded `out` lines exactly.

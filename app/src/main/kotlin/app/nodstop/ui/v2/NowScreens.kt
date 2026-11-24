@@ -53,6 +53,8 @@ data class NowIdleUi(
     val rate: List<RateLeg> = emptyList(),
     /** Did each alarm of the last trip reach you (PLAN Run 10, A0)? Empty: nothing to say. */
     val lastTrip: List<app.nodstop.alarm.VerdictLine> = emptyList(),
+    /** Sleep on the bus this month (BACKLOG F30), or null for nothing to say yet. */
+    val sleep: SleepUi? = null,
 )
 
 class NowActions(
@@ -105,6 +107,10 @@ fun NowIdle(ui: NowIdleUi, a: NowActions, modifier: Modifier = Modifier) {
             }
             ui.routes.forEachIndexed { i, r ->
                 RadioRow(r.title, r.problem ?: r.subtitle, r.id == selected?.id, { a.select(r.id) }, divider = i < ui.routes.lastIndex)
+            }
+            ui.sleep?.let { z ->
+                Spacer(Modifier.height(16.dp))
+                ListRow(z.title, z.line, divider = false)
             }
             if (ui.rate.isNotEmpty()) {
                 Spacer(Modifier.height(24.dp))

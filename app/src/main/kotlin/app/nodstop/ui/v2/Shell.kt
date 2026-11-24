@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import app.nodstop.App
 import app.nodstop.alarm.TripVerdict
 import app.nodstop.alarm.VerdictLine
+import app.nodstop.engine.Sleep
 import app.nodstop.engine.Trace
 import app.nodstop.BuildConfig
 import app.nodstop.Shortcuts
@@ -110,6 +111,8 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     val lastTrip by produceState<Pair<String, List<VerdictLine>>?>(null, resumeTick, stopTick, verdictTick) {
         value = withContext(Dispatchers.IO) { lastTripVerdict() }
     }
+    // Every trip log, read once each (BACKLOG F30): off the main thread.
+    val sleep by produceState<SleepUi?>(null, resumeTick) { value = withContext(Dispatchers.IO) { sleepOnTheBus() } }
     val startNow: (String) -> Unit = { id ->
         if (Readiness.canStartTrip(ctx)) TripService.startRoute(ctx, id) else go(Screen.Setup)
     }
@@ -121,6 +124,7 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
         interruptedAlarm = persisted?.let { app.scheduler.scheduledAtMs?.let(::hm) ?: "" },
         rate = rating?.legs?.map { (leg, name) -> RateLeg(leg, name) }.orEmpty(),
         lastTrip = lastTrip?.second.orEmpty(),
+        sleep = sleep,
     )
     NowIdle(
         ui,
@@ -174,6 +178,17 @@ private fun NowIdleTab(resumeTick: Int, go: (Screen) -> Unit) {
     }
     if (confirmStop) StopTripDialog({ confirmStop = false }) { TripService.stop(ctx); stopTick++ }
     LaunchedEffect(routes) { Shortcuts.update(ctx, routes); TripWidget.refresh(ctx) }
+}
+
+/** Sleep on the bus this month, this week (from Monday) and on the last ride, from the trip logs (BACKLOG F30). */
+private fun sleepOnTheBus(): SleepUi? {
+    val rides = App.instance.traces.sleepRides()
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now()
+    fun from(d: java.time.LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
+    val month = from(today.withDayOfMonth(1))
+    val week = from(today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)))
+    return SleepText.of(Sleep.since(rides, month), Sleep.since(rides, week), rides.maxByOrNull { it.startMs }?.sleptMs)
 }
 
 /** The last trip's log and what it says about each alarm, unless dismissed or a trip is still saved (PLAN A0). */
