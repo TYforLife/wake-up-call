@@ -69,4 +69,16 @@ class TripVerdictTest {
         val v = TripVerdict.of(listOf(start(), out(1, 0, ar = "URGENT"), rang(2), ringd(3, good), out(4, 0, ar = "WAKE")))
         assertEquals(VerdictLine("Central Station", "No ring at Central Station", "The trip was cut off before it ended", true), v.single())
     }
+
+    private fun arrived(t: Long, leg: Int) = TraceEvent(t, "out", leg = leg, ph = "RIDING", ar = "WAKE", arrived = true)
+
+    @Test
+    fun `how long before the stop it rang (F1)`() {
+        val v = TripVerdict.of(listOf(start(), out(1, 0), rang(10_000), ringd(10_500, good), arrived(52_000, 0), out(53_000, 1)))
+        assertEquals("Rang 42 s before Central Station", v[0].title)
+        val far = TripVerdict.of(listOf(start(), out(1, 0), rang(10_000), ringd(10_500, good), arrived(160_000, 0)))
+        assertEquals("Rang 3 min before Central Station", far[0].title)
+        val late = TripVerdict.of(listOf(start(), out(1, 0), arrived(10_000, 0), rang(25_000), ringd(25_500, good)))
+        assertEquals("Rang 15 s after reaching Central Station", late[0].title)
+    }
 }

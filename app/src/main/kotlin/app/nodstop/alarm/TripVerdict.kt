@@ -13,7 +13,7 @@ data class VerdictLine(val stop: String, val title: String, val detail: String, 
 object TripVerdict {
     private enum class End { PASSED, SKIPPED, STOPPED }
 
-    private class Ring(var reason: String?, var report: RingReport?)
+    private class Ring(var reason: String?, var report: RingReport?, val atMs: Long)
 
     fun of(events: List<TraceEvent>): List<VerdictLine> {
         var names: List<String> = emptyList()
@@ -24,6 +24,8 @@ object TripVerdict {
         var done = false
         val rings = HashMap<Int, MutableList<Ring>>()
         val ended = HashMap<Int, End>()
+        // When the bus reached each stop (the engine's "arrived", the get-off nudge): how early the ring was (BACKLOG F1).
+        val arrived = HashMap<Int, Long>()
 
         fun openRing(leg: Int): Ring? = rings[leg]?.lastOrNull()?.takeIf { it.report?.ackSource == null }
 
@@ -44,16 +46,17 @@ object TripVerdict {
                 if (prev != null && leg > prev) for (l in prev until leg) ended.putIfAbsent(l, End.PASSED)
                 current = leg
                 lastReason = e.ar ?: lastReason
+                if (e.arrived == true) arrived.putIfAbsent(leg, e.t)
                 if (e.ph == "DONE") { done = true; ended.putIfAbsent(leg, End.PASSED) }
             }
             "rang" -> current?.let { leg ->
-                if (openRing(leg) == null) rings.getOrPut(leg) { mutableListOf() } += Ring(lastReason, null)
+                if (openRing(leg) == null) rings.getOrPut(leg) { mutableListOf() } += Ring(lastReason, null, e.t)
             }
             "ringd" -> {
                 val leg = current ?: continue
                 val r = RingReport.decode(e.msg.orEmpty(), e.t)
                 val open = openRing(leg)
-                if (open != null) open.report = r else rings.getOrPut(leg) { mutableListOf() } += Ring(lastReason, r)
+                if (open != null) open.report = r else rings.getOrPut(leg) { mutableListOf() } += Ring(lastReason, r, e.t)
             }
             "skip" -> current?.let { ended.putIfAbsent(it, End.SKIPPED) }
             "stop" -> current?.let { ended.putIfAbsent(it, End.STOPPED); done = true }
@@ -61,11 +64,14 @@ object TripVerdict {
 
         val last = current ?: return emptyList()
         return (0..minOf(last, names.lastIndex)).filter { alarms.getOrElse(it) { false } }.mapNotNull { leg ->
-            line(names[leg], rings[leg].orEmpty().filter { it.reason != "URGENT" }, ended[leg], done)
+            line(names[leg], rings[leg].orEmpty().filter { it.reason != "URGENT" }, ended[leg], done, arrived[leg])
         }
     }
 
-    private fun line(stop: String, rings: List<Ring>, end: End?, done: Boolean): VerdictLine? {
+    /** "42 s", "2 min". */
+    private fun span(ms: Long): String { val s = ms / 1000; return if (s < 90) "$s s" else "${(s + 30) / 60} min" }
+
+    private fun line(stop: String, rings: List<Ring>, end: End?, done: Boolean, arrivedMs: Long?): VerdictLine? {
         if (rings.isEmpty()) return when (end) {
             End.STOPPED -> VerdictLine(stop, "No ring at $stop", "You stopped the trip first", false)
             End.SKIPPED -> VerdictLine(stop, "No ring at $stop", "You tapped I'm off first", false)
@@ -75,7 +81,14 @@ object TripVerdict {
         }
         val ring = rings.first()
         val early = ring.reason == "FAILSAFE" || ring.reason == "NO_GPS" || ring.reason == "NEXT_LEG"
-        val title = if (early) "Rang early for $stop" else "Rang at $stop"
+        // How long before the bus reached the stop it rang (BACKLOG F1): the owner wants 30-60 s.
+        val lead = arrivedMs?.let { it - ring.atMs }
+        val title = when {
+            early -> "Rang early for $stop"
+            lead == null -> "Rang at $stop"
+            lead >= 0 -> "Rang ${span(lead)} before $stop"
+            else -> "Rang ${span(-lead)} after reaching $stop"
+        }
         val r = ring.report ?: return VerdictLine(stop, title, if (early) "GPS was lost" else "No ring report", false)
         val problems = listOfNotNull(
             when {
