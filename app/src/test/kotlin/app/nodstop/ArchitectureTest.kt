@@ -31,6 +31,18 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `only the ring alarm wakes the phone, and the widget redraw never changes it (rule 1, BACKLOG F10)`() {
+        // The ring is the one exact, waking alarm (setAlarmClock). Anything else that waits for a time (the widget's
+        // redraw) is inexact and non-waking, so it can never be mistaken for, or replace, the ring.
+        val waking = listOf("RTC_WAKEUP", "ELAPSED_REALTIME_WAKEUP", "setExact", "setAndAllowWhileIdle", "setRepeating", "setInexactRepeating")
+        val users = kt(app).flatMap { f -> code(f).filter { (_, l) -> waking.any { it in l } }.map { (i, _) -> "${rel(f)}:${i + 1}" } }
+        assertTrue(users.isEmpty(), "a waking or exact alarm at $users. Only AlarmScheduler sets one (CLAUDE.md rule 1).")
+        val widget = code(File(app, "widget/TripWidget.kt")).map { it.value }
+        val bad = widget.filter { l -> listOf("setAlarmClock", "SystemAlarm", "scheduler.set", "scheduler.cancel", "scheduler.markFired").any { it in l } }
+        assertTrue(bad.isEmpty(), "the widget changes the ring's alarm: $bad. It may read when it is set; it only redraws itself.")
+    }
+
+    @Test
     fun `only the ring service makes sound (rule 1)`() {
         val audio = listOf("AudioTrack", "MediaPlayer", "SoundPool", "Ringtone", "ToneGenerator")
         val allowed = setOf("alarm/RingService.kt", "alarm/Tone.kt").map { "app/src/main/kotlin/app/nodstop/$it" }.toSet()

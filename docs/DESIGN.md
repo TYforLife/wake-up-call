@@ -478,6 +478,26 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
 - **Your trip is still on** (after an update or a restart): one tap resumes tracking; the alarm is already set.
 - **Ring timing** (optional, silent, gone after 15 min): "How was the ring timing?", Too early / Good / Too late.
 
+### Widget
+
+The home screen widget (BACKLOG F10, `widget/TripWidget`, RemoteViews: no new dependency). Its words come from
+`WidgetText` in `ui/v2/Texts.kt`, built on the screens' own text functions. Black and white, the v2 tokens; an accent
+bar while a trip runs.
+- **No trip:** the route Now selects (`suggestedRoute`), with its first bus's next two timetabled departures when Plan a
+  trip knows it: "To work · 866 7:43, 7:51" / "Smales Farm, then Symonds St" / **Start**. Start opens the app to start that
+  route, as the Quick Settings tile and the launcher shortcut do (same readiness check, and the location service starts
+  from the foreground). A route that can't start says why and opens the app; a trip the app lost while its alarm is set
+  says so, as Now does.
+- **Riding:** the trip sheet folded to one line (`CompactSheetText`), "Smales Farm · 6 min · alarm 7:45", red when GPS
+  is lost, and the notification's **I'm off this bus** (or Skip this bus): the same action, redrawn with the trip
+  notification, only when its words change.
+- Home screen only (`widgetCategory`), which you reach unlocked, so the notification's unlock rule holds
+  (`WidgetResourcesTest`).
+- Today's departures of that bus are read from the timetable once a day and kept. The widget redraws a minute after
+  the first bus it shows leaves, on an inexact, non-waking RTC alarm (it waits for the screen to be on; Android may
+  deliver it up to 10 min late, hence two buses), and every 30 min. That alarm only redraws the widget: the ring stays
+  the one exact, waking alarm (`ArchitectureTest`).
+
 ### Permissions
 
 `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`,

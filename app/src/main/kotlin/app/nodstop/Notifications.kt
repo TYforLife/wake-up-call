@@ -135,6 +135,16 @@ object Notifications {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
+    /** A trip button (I'm off this bus, Stop trip): the notification's, and the home screen widget's (BACKLOG F10). */
+    fun tripAction(ctx: Context, kind: TripActionUi.Kind): PendingIntent {
+        val intent = when (kind) {
+            TripActionUi.Kind.OFF -> TripService.offIntent(ctx)
+            TripActionUi.Kind.STOP -> TripService.stopIntent(ctx)
+        }
+        val code = if (kind == TripActionUi.Kind.OFF) 22 else 21
+        return PendingIntent.getService(ctx, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
     fun tripStarting(ctx: Context): Notification =
         Notification.Builder(ctx, CH_TRIP)
             .setSmallIcon(R.drawable.ic_tile)
@@ -169,16 +179,9 @@ object Notifications {
         // The "island" (PLAN U2, Run 10 A3): get off, or stop the trip, from the notification or the status-bar
         // chip. Stop trip, and getting off before it rang or you're near, need the phone unlocked.
         for (a in TripNoteText.actions(ui, radiusM)) {
-            val intent = when (a.kind) {
-                TripActionUi.Kind.OFF -> TripService.offIntent(ctx)
-                TripActionUi.Kind.STOP -> TripService.stopIntent(ctx)
-            }
-            val code = if (a.kind == TripActionUi.Kind.OFF) 22 else 21
             b.addAction(
-                Notification.Action.Builder(
-                    Icon.createWithResource(ctx, R.drawable.ic_tile), a.label,
-                    PendingIntent.getService(ctx, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
-                ).setAuthenticationRequired(a.unlock).build(),
+                Notification.Action.Builder(Icon.createWithResource(ctx, R.drawable.ic_tile), a.label, tripAction(ctx, a.kind))
+                    .setAuthenticationRequired(a.unlock).build(),
             )
         }
         if (Build.VERSION.SDK_INT >= 36) {
