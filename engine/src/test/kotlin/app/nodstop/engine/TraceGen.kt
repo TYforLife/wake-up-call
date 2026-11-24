@@ -194,6 +194,8 @@ class FixPlan(
     val untilS: Double? = null,
     val tickS: Double = 5.0,
     val lastKnown: Boolean = true,
+    /** How old the last known position is at Start (the phone keeps it up to 3 min). */
+    val lastKnownAgeS: Double = 0.0,
 ) {
     fun fixTimes(rnd: Random, endS: Double): List<Double> {
         val out = ArrayList<Double>()
@@ -210,7 +212,7 @@ class FixPlan(
     fun inputs(sim: Sim, t0Ms: Long, legs: List<Leg>, rnd: Random, times: List<Double> = fixTimes(rnd, sim.endS)): List<Input> {
         val out = ArrayList<Input>()
         // The phone's last known position when you tap Start (where you are).
-        out += Input.Start(t0Ms, legs, lastKnown = if (lastKnown) Fix(t0Ms, t0Ms, sim.posAt(0.0), 10f) else null)
+        out += Input.Start(t0Ms, legs, lastKnown = if (lastKnown) Fix(t0Ms, t0Ms - (lastKnownAgeS * 1000).roundToLong(), sim.posAt(0.0), 10f) else null)
         var ex = rnd.nextGaussian() * noiseM
         var ey = rnd.nextGaussian() * noiseM
         var lastT = 0.0
@@ -265,8 +267,10 @@ fun Random.nextGaussian(): Double {
 }
 
 /**
- * Drives the engine like the Android shell would: inputs in time order, and the system alarm firing
- * (a Rang input) whenever time reaches the scheduled alarm. Optionally acks each ring after a delay.
+ * Drives the engine like the Android shell would: inputs in time order; the shell sets the one system alarm as
+ * `TripService` does ([SystemAlarm.update]); and the system fires it (a Rang input) when Android would:
+ * never sooner than 5 s after it was last set, each set replacing the last ([SystemAlarm.firesAt]).
+ * Optionally acks each ring after a delay.
  */
 class Harness(val cfg: Config = Config()) {
     val engine = Engine(cfg)
@@ -275,7 +279,8 @@ class Harness(val cfg: Config = Config()) {
         val ALARM_PHASES = setOf(Phase.WAITING, Phase.RIDING, Phase.AWAKE)
     }
 
-    class Step(val input: Input, val before: EngineState, val state: EngineState, val out: Output)
+    /** [systemFiresAtMs]: when the system alarm will fire after this step, as Android runs it (null: none set). */
+    class Step(val input: Input, val before: EngineState, val state: EngineState, val out: Output, val systemFiresAtMs: Long? = null)
 
     class Result(val steps: List<Step>) {
         val rings: List<Long> get() = steps.filter { it.input is Input.Rang }.map { it.input.tMs }
@@ -292,9 +297,13 @@ class Harness(val cfg: Config = Config()) {
         var state = EngineState()
         var ackAt: Long? = null
         val steps = ArrayList<Step>()
+        // What the shell last set (TripService.pending). A fired alarm is no longer pending (TripService.onRang).
+        var pending: SystemAlarm.Pending? = null
         fun apply(input: Input) {
             val (next, out) = engine.step(state, input)
-            val st = Step(input, state, next, out)
+            if (input is Input.Rang) pending = null
+            pending = SystemAlarm.update(pending, out.alarmAtMs, input.tMs)
+            val st = Step(input, state, next, out, pending?.firesMs)
             steps += st
             onStep(st)
             state = next
@@ -302,7 +311,7 @@ class Harness(val cfg: Config = Config()) {
         }
         while (true) {
             val nextInput = queue.firstOrNull()?.tMs
-            val alarm = if (state.phase in ALARM_PHASES) state.alarmAtMs else null
+            val alarm = if (state.phase in ALARM_PHASES) pending?.firesMs else null
             val candidates = listOfNotNull(nextInput, alarm, ackAt)
             if (candidates.isEmpty()) break
             val t = candidates.min()

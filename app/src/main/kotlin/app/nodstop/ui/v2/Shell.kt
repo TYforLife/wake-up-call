@@ -1,5 +1,12 @@
 package app.nodstop.ui.v2
 
+import app.nodstop.data.Departures
+import app.nodstop.data.Planner
+import app.nodstop.engine.CoordParser
+import app.nodstop.engine.LatLng
+import app.nodstop.data.TransitData
+import app.nodstop.data.Timetable
+import app.nodstop.data.TransitIndex
 import app.nodstop.openIfPossible
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -192,36 +199,76 @@ private fun NowRidingTab(t: TripService.TripUi) {
             legs = t.legNames.zip(t.legStops).mapIndexed { i, (n, p) -> LegDraft(n, "${p.lat}, ${p.lng}", wakeRadiusM = t.legRadii.getOrNull(i)) },
         )
     else routes
-    val layers = remember(all, learned, t.routeName, t.legIndex) {
+    // The timetable, for each leg's bus path and the journey's later times (none in a build without it).
+    var ix by remember { mutableStateOf<TransitIndex?>(null) }
+    var tt by remember { mutableStateOf<Timetable?>(null) }
+    LaunchedEffect(Unit) { ix = TransitData.get(ctx); tt = TransitData.timetable(ctx) }
+    val drafts = routes.firstOrNull { it.name == t.routeName }?.legs
+    // Where the trip started: the first leg's line when there's no bus path or learned ride for it.
+    var start by remember { mutableStateOf<LatLng?>(null) }
+    LaunchedEffect(t.status.position) { if (start == null) start = t.status.position }
+    val paths = remember(drafts, t.legStops, t.legIndex, ix, tt, learned, start) {
+        MapModel.legPaths(
+            t.legStops, t.legIndex, start,
+            bus = { i ->
+                val d = drafts?.getOrNull(i)
+                val board = d?.boardCoords?.let { CoordParser.parse(it) }
+                val i2 = ix; val t2 = tt
+                when {
+                    i2 == null || t2 == null -> null
+                    d?.bus != null && board != null -> Departures.path(i2, t2, d.bus, board, t.legStops[i])
+                    // A route that doesn't know its bus: the bus from near the stop before (or where you started).
+                    else -> (if (i == 0) start else t.legStops[i - 1])?.let { from ->
+                        Departures.likelyPath(i2, t2, from, t.legStops[i], if (i == 0) Planner.ACCESS_M else Planner.CHANGE_M + 150.0)
+                    }
+                }
+            },
+            learned = { i -> learned[Route.stopKey(t.legStops[i])]?.tracks?.firstOrNull()?.points?.map { it.pos } },
+        )
+    }
+    val layers = remember(all, learned, t.routeName, t.legIndex, paths) {
+        // On a trip the map shows the trip's legs (blue now, grey the rest), not every learned ride in blue.
         MapModel.layers(MapModel.visibleRoutes(all, t.routeName, null, null), { learned[Route.stopKey(it)] }, t.routeName, t.legIndex)
+            .copy(tracks = emptyList(), legPaths = paths)
+    }
+    var full by rememberSaveable { mutableStateOf(false) }
+    val journey = JourneyText.of(t, drafts, java.time.LocalTime.now().toSecondOfDay()) { i, from ->
+        val d = drafts?.getOrNull(i)
+        val board = d?.boardCoords?.let { CoordParser.parse(it) }
+        val i2 = ix; val t2 = tt
+        if (d?.bus == null || board == null || i2 == null || t2 == null) null
+        else Departures.ride(i2, t2, d.bus, board, t.legStops[i], java.time.LocalDate.now(), from)
     }
     val colors = LocalN.current
     // More map, less panel (PLAN B3): touching the map folds the sheet; it remembers while the trip runs.
     var expanded by rememberSaveable { mutableStateOf(true) }
     // Your stop's circle, tapped on the map (PLAN B4): its sizes replace the sheet until Done.
-    var circleOpen by remember { mutableStateOf(false) }
-    val circlePin = layers.pins.firstOrNull { it.current && it.alarm }
+    // Any of the trip's circles (owner, 2026-11-24): the leg whose circle was tapped.
+    var circleLeg by remember { mutableStateOf<Int?>(null) }
+    val circlePin = circleLeg?.let { leg -> MapModel.tripZones(layers).firstOrNull { it.legIndex == leg } }
     NowRiding(
         sheet = TripSheetText.of(t, ::hm, nextBus = rememberNextBus(t, routes)),
         onAction = { TripService.instance?.skipLeg() },
         onRecentre = { recentre++ },
         onStopTrip = { confirmStop = true },
         onSkipped = { TripService.instance?.restartAt(t.legIndex - t.status.pickedPast) },
+        journey = journey, full = full, onFullChange = { full = it },
         map = { m ->
             RideMap(
-                layers, t.status.position, colors, recentre, m, onUserGesture = { expanded = false },
-                onCircleTap = { circleOpen = true },
+                layers, t.status.position, colors, recentre, m, onUserGesture = { expanded = false; full = false },
+                onCircleTap = { p -> circleLeg = p.legIndex },
+                selectedLeg = circleLeg,
                 onCircleResize = { p, r -> saveCircle(p, r) },
             )
         },
         compact = CompactSheetText.of(t, ::hm),
         expanded = expanded,
         onExpandedChange = { expanded = it },
-        overlay = circlePin?.takeIf { circleOpen }?.let { p ->
+        overlay = circlePin?.let { p ->
             {
                 CircleSheet(
                     CircleSheetUi(p.label, if (p.zoneIsYours) p.zoneM else null, p.zoneM),
-                    onChange = { saveCircle(p, it) }, onDone = { circleOpen = false },
+                    onChange = { saveCircle(p, it) }, onDone = { circleLeg = null },
                 )
             }
         },

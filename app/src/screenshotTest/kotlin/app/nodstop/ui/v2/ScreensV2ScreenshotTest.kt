@@ -83,6 +83,20 @@ class ScreensV2ScreenshotTest {
         }
     }
 
+    /** Owner, 2026-11-24: the sheet pulled all the way up shows the whole journey. */
+    @Test fun riding_journey() = shot("riding-journey") {
+        withTabs(true) {
+            NowRiding(
+                riding, {}, {}, {}, flatMap, full = true,
+                journey = listOf(
+                    JourneyRowUi("Done", "Central Station", "871 from Wairau Road", JourneyRowUi.State.DONE),
+                    JourneyRowUi("~7:46", "Harbour St", "866 from Stop A · next stop", JourneyRowUi.State.NOW),
+                    JourneyRowUi("~8:12", "Hill Ave", "70 from Queen St · leaves 7:52", JourneyRowUi.State.LATER),
+                ),
+            )
+        }
+    }
+
     /** PLAN Run 11, B4: your stop's circle tapped on the map: its sizes. */
     @Test fun riding_circle() = shot("riding-circle") {
         withTabs(true) {

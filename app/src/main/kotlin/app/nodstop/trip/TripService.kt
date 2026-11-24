@@ -30,6 +30,10 @@ import app.nodstop.brief.RingStats
 import app.nodstop.notify.DndController
 import app.nodstop.notify.MessageStore
 import app.nodstop.data.ActiveTrip
+import app.nodstop.data.Departures
+import app.nodstop.data.Timetable
+import app.nodstop.data.TransitData
+import app.nodstop.data.TransitIndex
 import app.nodstop.data.PendingRating
 import app.nodstop.data.RouteSuggest
 import app.nodstop.data.Resume
@@ -44,12 +48,12 @@ import app.nodstop.engine.Phase
 import app.nodstop.engine.Geo
 import app.nodstop.engine.TraceEvent
 import app.nodstop.engine.Status
+import app.nodstop.engine.SystemAlarm
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -78,7 +82,8 @@ class TripService : Service() {
     private var state = EngineState()
     private var trip: ActiveTrip? = null
     private var source: LocationSource? = null
-    private var lastScheduled: Long? = null
+    /** The system alarm as last set: what was asked for, and when Android fires it. */
+    private var pending: SystemAlarm.Pending? = null
     private var lastPersistMs = 0L
     private var lastNotifyMs = 0L
     private var lastReason: AlarmReason? = null
@@ -87,6 +92,8 @@ class TripService : Service() {
     /** GPS gaps and circle entries for the trip log (PLAN R0). */
     private var notes = RideNotes()
     private val routesScope = MainScope()
+    private var index: TransitIndex? = null
+    private var timetable: Timetable? = null
     private var routesJob: Job? = null
 
     /** Quiet trip follows the screen (PLAN Run 10, A4): quiet while it's off, your notifications while it's on. */
@@ -103,7 +110,7 @@ class TripService : Service() {
             input(Input.Tick(now))
             // Also every tick: the setting or its access may change mid-trip, and a screen broadcast can be missed.
             if (trip != null) DndController.update(this@TripService, tripRunning = true)
-            briefing?.onTick(now, lastScheduled)
+            briefing?.onTick(now, pending?.atMs)
             handler.postDelayed(this, TICK_MS)
         }
     }
@@ -113,9 +120,11 @@ class TripService : Service() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        lastScheduled = app.scheduler.scheduledAtMs
+        pending = app.scheduler.scheduledAtMs?.let { SystemAlarm.Pending(it, it) }
         // A wake circle changed on the map applies to this trip at once (PLAN U3).
         routesJob = routesScope.launch { app.routes.routes.collect { onRoutesChanged(it) } }
+        // The timetable, for the bus's ETA on screen (`busEta`); a build without it keeps the engine's.
+        routesScope.launch { index = TransitData.get(this@TripService); timetable = TransitData.timetable(this@TripService) }
         val f = android.content.IntentFilter().apply { addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF) }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screen, f, RECEIVER_NOT_EXPORTED) else registerReceiver(screen, f)
     }
@@ -250,14 +259,10 @@ class TripService : Service() {
         app.traces.write(out.events)
         val now = out.events.first().t
 
-        // The ONE alarm: reschedule only when it changed by more than 1 s.
-        val at = out.alarmAtMs
-        val last = lastScheduled
-        if (at == null) {
-            if (last != null) { app.scheduler.cancel(); lastScheduled = null }
-        } else if (last == null || abs(at - last) > 1_000) {
-            app.scheduler.set(at); lastScheduled = at
-        }
+        // The ONE alarm, set the way the engine tests ring it (SystemAlarm, DESIGN §2 "The system alarm").
+        val next = SystemAlarm.update(pending, out.alarmAtMs, now)
+        if (next != pending) { if (next == null) app.scheduler.cancel() else app.scheduler.set(next.atMs) }
+        pending = next
 
         val legName = t.legs.getOrNull(t.legOffset + out.status.legIndex)?.name
         // Entering your circle: was boarding detected, and when is the alarm? (Explains a circle that didn't ring.)
@@ -287,8 +292,10 @@ class TripService : Service() {
             app.trips.save(updated); lastPersistMs = now
         }
 
+        // On a bus Plan a trip knows, the time left shown is the timetable's from where you are (owner, 2026-11-24).
+        val shown = busEta(updated, out.status)?.let { out.status.copy(etaS = it) } ?: out.status
         val ui = TripUi(
-            updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, out.status, updated.simulated,
+            updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, shown, updated.simulated,
             updated.startedMs, updated.legs.map { it.wakeRadiusM },
         )
         _status.value = ui
@@ -298,6 +305,25 @@ class TripService : Service() {
         }
 
         if (out.status.phase == Phase.DONE) finishTrip(updated)
+    }
+
+    /**
+     * The timetable's time left on this bus (`Departures.remainingS`): only on the bus, only when Plan a trip knows
+     * which bus it is and where you got on, and only off a learned route (past rides come first). For what's shown;
+     * the alarm keeps the engine's earlier estimate.
+     */
+    private fun busEta(t: ActiveTrip, s: Status): Double? {
+        if (s.phase != Phase.RIDING) return null
+        // Past rides on this route know your bus best (owner: "use the past rides as well"): then the engine's ETA.
+        if (s.onLearnedRoute && s.etaS != null) return null
+        val here = s.position ?: return null
+        val ix = index ?: return null
+        val tt = timetable ?: return null
+        val draft = t.routeId?.let { app.routes.get(it) }?.legs?.getOrNull(t.legOffset + s.legIndex) ?: return null
+        val bus = draft.bus ?: return null
+        val board = draft.boardCoords?.let { CoordParser.parse(it) } ?: return null
+        val alight = CoordParser.parse(draft.coords) ?: return null
+        return Departures.remainingS(ix, tt, bus, board, alight, here, java.time.LocalDate.now(), java.time.LocalTime.now().toSecondOfDay())
     }
 
     /** One light buzz and a notification: the bus is at your stop. Not the alarm: no sound. */
@@ -343,6 +369,7 @@ class TripService : Service() {
 
     fun onRang() {
         val now = System.currentTimeMillis()
+        pending = null // it fired: nothing is pending until the engine sets the next one
         input(Input.Rang(now))
         app.traces.write(listOf(TraceEvent(now, "gps", msg = notes.gpsLine())))
         logRingStats(now)
@@ -396,16 +423,11 @@ class TripService : Service() {
         if (trip != null) input(Input.Stop(System.currentTimeMillis())) else shutdown()
     }
 
-    /** Any saved leg with this trip's stop: take its wake circle (works for a simulated trip's stops too). */
+    /** This trip's route changed: take its circles (per stop, per route: `Route.circlesFor`). */
     private fun onRoutesChanged(routes: List<Route>) {
         val t = trip ?: return
-        val own = routes.firstOrNull { it.id == t.routeId }
-        val byStop = HashMap<LatLng, Double?>()
-        for (r in routes.filter { it !== own } + listOfNotNull(own)) {
-            r.legs.forEach { d -> CoordParser.parse(d.coords)?.let { p -> byStop[p] = d.wakeRadiusM } }
-        }
-        val merged = t.legs.map { l -> if (byStop.containsKey(l.dest)) l.copy(wakeRadiusM = byStop[l.dest]) else l }
-        applyLegs(merged)
+        val own = routes.firstOrNull { it.id == t.routeId } ?: return
+        applyLegs(own.circlesFor(t.legs))
     }
 
     /** A simulated trip's stop isn't in any saved route: the map sets its circle here (not saved). */

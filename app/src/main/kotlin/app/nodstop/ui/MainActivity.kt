@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.nodstop.App
 import app.nodstop.Shortcuts
+import app.nodstop.data.Footpaths
+import app.nodstop.engine.LatLng
 import app.nodstop.alarm.AlarmActivity
 import app.nodstop.alarm.RingService
 import app.nodstop.trip.TripService
@@ -124,6 +126,13 @@ private fun AppRoot(resumeTick: Int, pendingStart: MutableState<String?>, pendin
     // First run (PLAN Run 9, M6): Setup once, if anything the alarm needs is off. Later, Now's red row leads there.
     LaunchedEffect(Unit) {
         if (!App.instance.settings.setupSeen && Readiness.needsAttention(Readiness.checks(ctx)).isNotEmpty()) go(Screen.Setup)
+    }
+
+    // The commute's footpaths before you plan it (BACKLOG 27): home, work, and the stops where you change buses.
+    val routes by App.instance.routes.routes.collectAsState()
+    LaunchedEffect(routes) {
+        val st = App.instance.settings
+        Footpaths.prefetch(ctx, Footpaths.commute(st.home?.let { LatLng(it.lat, it.lng) }, st.work?.let { LatLng(it.lat, it.lng) }, routes))
     }
 
     LaunchedEffect(pendingShare.value) {

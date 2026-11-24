@@ -1,7 +1,8 @@
 Stop and route data: Auckland Transport, CC BY 4.0
-stops=8
-patterns=5
-timetable_patterns=6
-profiles=5
-trips=10
+stops=10
+patterns=6
+timetable_patterns=7
+profiles=6
+trips=12
 services=2
+shapes=1

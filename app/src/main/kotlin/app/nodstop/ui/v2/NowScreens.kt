@@ -159,6 +159,10 @@ fun NowRiding(
     overlay: (@Composable () -> Unit)? = null,
     /** The sheet's "Start at <stop>" when the trip began past a stop (BACKLOG 5). */
     onSkipped: () -> Unit = {},
+    /** The whole journey, shown when the sheet is pulled all the way up ([full]). */
+    journey: List<JourneyRowUi>? = null,
+    full: Boolean = false,
+    onFullChange: (Boolean) -> Unit = {},
 ) {
     Column(modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -183,14 +187,23 @@ fun NowRiding(
         val drag = Modifier.draggable(
             rememberDraggableState { dragged += it }, Orientation.Vertical,
             onDragStarted = { dragged = 0f },
-            onDragStopped = { if (dragged < -threshold) onExpandedChange(true) else if (dragged > threshold) onExpandedChange(false) },
+            // Up: folded → the sheet → the whole journey. Down: back the same way (owner, 2026-11-24).
+            onDragStopped = {
+                when {
+                    dragged < -threshold && !expanded -> onExpandedChange(true)
+                    dragged < -threshold && journey != null -> onFullChange(true)
+                    dragged > threshold && full -> onFullChange(false)
+                    dragged > threshold -> onExpandedChange(false)
+                }
+            },
         )
         // The sheet overlaps the map by its rounded corners.
         Box(Modifier.offsetUp(28).animateContentSize().then(drag)) {
             when {
                 overlay != null -> overlay()
                 // Started past a stop: the full sheet, so it's seen (BACKLOG 5).
-                expanded || compact == null || sheet.skipped != null -> TripSheet(sheet, onAction, onSkipped = onSkipped)
+                expanded || compact == null || sheet.skipped != null ->
+                    TripSheet(sheet, onAction, onSkipped = onSkipped, journey = journey?.takeIf { full && expanded })
                 else -> CompactTripSheet(compact, onAction, onExpand = { onExpandedChange(true) })
             }
         }
@@ -242,7 +255,11 @@ fun CircleSheet(ui: CircleSheetUi, onChange: (Double?) -> Unit, onDone: () -> Un
         } else {
             Text("Other size", style = NType.secondary, color = c.muted, modifier = Modifier.clickable { slider = true }.padding(vertical = 8.dp))
         }
-        Hint("Or touch the circle's edge on the map and drag it.", Modifier.padding(bottom = 8.dp))
+        Hint(
+            "It rings when the bus enters your circle, and never later than 30 s before the stop. Or drag the bold " +
+                "circle's edge on the map.",
+            Modifier.padding(bottom = 8.dp),
+        )
         PrimaryButton("Done", onDone)
     }
 }

@@ -256,6 +256,16 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
 - [x] **After changing buses, the map frames you and the next stop again.**
 - [x] **Walking along real footpaths (2026-11-23).** OpenStreetMap's paths around each end, by Overpass, cached
   30 days. Real walks near Auckland City Hospital were 1.4–2× the straight line.
+- [x] **F39. Every walk follows the footpaths, on the map too; the straight line is the last resort (2026-11-23,
+  was item 27).** "Make it match. Find a way. No nos. The fallback is last last last resort."
+  - The map draws each walk along the paths it measures. Walks between buses follow the footpaths too, and a
+    change the real walk can't make isn't offered.
+  - A stop the paths can't reach can't be walked to. Places up to 250 m from a street still walk, and a lane
+    that leads nowhere doesn't trap a walk. Trunk roads with footpaths count, and plazas are crossed.
+  - Sources, in order: the cache, Overpass and two mirrors, the old cache, FOSSGIS's foot router. Only then
+    the straight line, saying "about". Home, work and change stops are fetched ahead.
+  - CI fetches real paths with retries and fails rather than skips. It compares walks near Auckland City Hospital
+    with the foot router, and plans Britomart → the hospital (`RealWalkTest`). DESIGN "Plan a trip".
 - [x] **The alarm and "min left" agree.** The sheet shows both, labelled: "Alarm about 7:58 at your 400 m circle ·
   stop ~8:02". Live AT arrival times come with item 1.
 - [x] **Arrive by is remembered** for work and home ("To work" arrive by 8:30, set once).

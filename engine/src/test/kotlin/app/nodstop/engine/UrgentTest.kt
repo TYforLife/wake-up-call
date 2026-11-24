@@ -26,7 +26,7 @@ class UrgentTest {
         val at = T0 + 120_000
         val (_, inputs) = trip(extra = listOf(Input.Urgent(at)))
         val r = Harness(cfg).run(inputs)
-        assertEquals(at, r.rings.first())
+        assertEquals(SystemAlarm.firesAt(at, at), r.rings.first(), "now, as Android rings it: 5 s later")
         assertEquals(AlarmReason.URGENT, r.ringReasons.first())
     }
 
@@ -46,7 +46,7 @@ class UrgentTest {
         val r = Harness(cfg).run(inputs, ackAfterMs = 10_000)
         // 60 s rings; 61 s arrives while ringing (ignored); 200 s rings; 300 s is over the limit of 2.
         val urgentRings = r.steps.filter { it.input is Input.Rang && it.state.ringReason == AlarmReason.URGENT }.map { it.input.tMs }
-        assertEquals(listOf(T0 + 60_000, T0 + 200_000), urgentRings)
+        assertEquals(listOf(T0 + 60_000, T0 + 200_000).map { SystemAlarm.firesAt(it, it) }, urgentRings)
         assertEquals(cfg.maxUrgentRings, r.final.urgentRings)
 
         val done = e.step(r.final.copy(phase = Phase.DONE, alarmAtMs = null), Input.Urgent(T0 + 9_000_000)).first
@@ -104,6 +104,23 @@ class UrgentTest {
      * urgent ack, if that came after).
      */
     @Test
+    fun `a fix while an urgent ring waits for Android keeps the stop's own alarm, and the message rings once`() {
+        // GPS gone for a while: the stop's failsafe is set. An urgent message rings (5 s later, as Android does), and a
+        // fix with no speed yet arrives in between. That fix must not take the urgent ring as the stop's own alarm.
+        val (_, plain) = trip()
+        val gap = 150_000L..175_000L
+        val inputs = plain.filter { it !is Input.FixIn || it.tMs - T0 !in gap }
+        val base = Harness(cfg).run(inputs)
+        val urgentAt = T0 + 176_000
+        val fixAfter = inputs.first { it is Input.FixIn && it.tMs > urgentAt + 500 }.tMs
+        val r = Harness(cfg).run((inputs + Input.Urgent(urgentAt)).sortedBy { it.tMs }, ackAfterMs = 4_000)
+        assertTrue(fixAfter < SystemAlarm.firesAt(urgentAt, urgentAt), "a fix arrives before the urgent ring")
+        assertEquals(1, r.ringReasons.count { it == AlarmReason.URGENT }, "reasons ${r.ringReasons}")
+        val stopRing = r.steps.first { it.input is Input.Rang && it.state.ringReason != AlarmReason.URGENT }.input.tMs
+        assertTrue(stopRing <= base.rings.first() + 1_000, "stop ring ${(stopRing - T0) / 1000} s vs ${(base.rings.first() - T0) / 1000} s")
+    }
+
+    @Test
     fun `urgent rings never delay the stop alarm over 1000 random trips`() {
         var compared = 0L
         for (seed in 1..1_000) {
@@ -146,8 +163,9 @@ class UrgentTest {
                     baseAlarm = baseSteps[bi].state.alarmAtMs.takeIf { baseSteps[bi].state.phase in Harness.ALARM_PHASES }
                     bi++
                 }
-                val ours = if (st.state.phase == Phase.RINGING) t else st.state.alarmAtMs
-                val theirs = baseAlarm ?: return@run
+                // A due alarm (held until Android fires it) means "now" in either run.
+                val ours = if (st.state.phase == Phase.RINGING) t else st.state.alarmAtMs?.coerceAtLeast(t)
+                val theirs = baseAlarm?.coerceAtLeast(t) ?: return@run
                 compared++
                 assertTrue(ours != null && ours <= theirs + 1_000) {
                     "seed $seed at ${(t - T0) / 1000} s: ours ${ours?.let { (it - T0) / 1000 }} later than plain ${(theirs - T0) / 1000}"
@@ -155,7 +173,8 @@ class UrgentTest {
             }
             val lastUrgentAck = r.steps.filter { it.input is Input.Ack && it.before.ringReason == AlarmReason.URGENT }.maxOfOrNull { it.input.tMs }
             val stopRing = r.steps.firstOrNull { it.input is Input.Rang && it.state.ringReason != AlarmReason.URGENT }?.input?.tMs
-            val limit = maxOf(firstRing, lastUrgentAck ?: firstRing) + 1_000
+            // After the last urgent ack the stop alarm is set again, and Android can't fire it sooner than 5 s later.
+            val limit = maxOf(firstRing, (lastUrgentAck ?: firstRing) + SystemAlarm.MIN_FUTURE_MS) + 1_000
             assertTrue(stopRing != null && stopRing <= limit) { "seed $seed: stop ring ${stopRing?.let { (it - T0) / 1000 }} s, limit ${(limit - T0) / 1000} s" }
         }
         println("urgent property: $compared steps compared")

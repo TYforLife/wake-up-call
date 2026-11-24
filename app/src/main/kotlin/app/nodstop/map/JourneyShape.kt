@@ -11,11 +11,12 @@ import kotlinx.serialization.json.put
 
 /**
  * A planned ride on the map (owner's feedback on Run 13), as plain data: each bus as a line through every stop it
- * calls at, each walk as a dotted line, where you get on and off, where you start and where you're going. Pure:
- * tested on the JVM.
+ * calls at, each walk as a dotted line along the footpaths it follows (BACKLOG 27; straight, and marked estimated,
+ * only when they weren't known), where you get on and off, where you start and where you're going. Pure: tested on
+ * the JVM.
  */
 object JourneyShape {
-    data class Line(val points: List<LatLng>, val walk: Boolean, val route: String = "")
+    data class Line(val points: List<LatLng>, val walk: Boolean, val route: String = "", val estimated: Boolean = false)
     data class Mark(val pos: LatLng, val kind: Kind, val label: String = "") {
         enum class Kind { START, STOP, END }
     }
@@ -27,8 +28,9 @@ object JourneyShape {
         fun at(s: Int?, end: LatLng) = s?.let(stop) ?: end
         val lines = j.legs.map { leg ->
             when (leg) {
-                is Planner.Leg.Walk -> Line(listOf(at(leg.from, from), at(leg.to, to)), walk = true)
-                is Planner.Leg.Bus -> Line(leg.path.ifEmpty { listOf(leg.board, leg.alight) }.map(stop), walk = false, route = leg.route)
+                // Along footpaths and the bus's road when known; else straight (an estimate), and stop to stop.
+                is Planner.Leg.Walk -> Line(leg.points.ifEmpty { listOf(at(leg.from, from), at(leg.to, to)) }, walk = true, estimated = leg.estimated)
+                is Planner.Leg.Bus -> Line(leg.road.ifEmpty { leg.path.ifEmpty { listOf(leg.board, leg.alight) }.map(stop) }, walk = false, route = leg.route)
             }
         }
         val marks = listOf(Mark(from, Mark.Kind.START)) +
@@ -47,7 +49,7 @@ object JourneyShape {
     fun linesJson(s: Shape): String = collection(s.lines.map { l ->
         feature(
             buildJsonObject { put("type", "LineString"); put("coordinates", JsonArray(l.points.map(::coords))) },
-            mapOf("walk" to JsonPrimitive(l.walk), "route" to JsonPrimitive(l.route)),
+            mapOf("walk" to JsonPrimitive(l.walk), "route" to JsonPrimitive(l.route), "estimated" to JsonPrimitive(l.estimated)),
         )
     })
 

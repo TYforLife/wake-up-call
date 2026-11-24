@@ -62,6 +62,13 @@ new, or repeats something, add it here in the same PR.
   - Added `RingPathTest` in CI, and a "Last trip" verdict on Now.
 - If he reports a missed ring again: read Now's "Last trip" line and the `ringd` report in his log (he can tap
   Send), then add the case to `RingPathTest` before fixing it.
+- **2026-11-23, 4th missed first stop (Smales Farm):** "you claimed a fix and it didn't… I do not accept lie
+  anymore… if the previous fix overlaps, you're probably wrong." He was right: #43 and #50 fixed the leg pick, which
+  wasn't it. The cause was Android: an app's alarm fires no sooner than 5 s after it is set, and each set replaces
+  the last, so the due alarm, set again on every 2-s fix, never fired (DESIGN §2 "The system alarm"). The tests
+  never saw it because their harness rang alarms instantly. Lesson: **a test harness that models the OS must model
+  it as the OS really is**, from the Android source, not as we'd like it. Before calling a ring fixed, ask what the
+  tests assume about Android and check that against AOSP.
 
 ## Round 4 (2026-11-22): what he said after the couch test
 - The ring, Mute, Do Not Disturb and earbuds worked. He tests only what he cares about ("not bothered" with
@@ -92,6 +99,18 @@ new, or repeats something, add it here in the same PR.
 - **While he's using the phone, the ring must not take over the screen**: just buzz and sound, with the banner
   ("they are awake"). This replaces the 2026-11-22 full-screen overlay. `AlarmScreenTest` checks it.
 - Test rings ring at once, and a toggle lets them play on the phone speaker. He wants an alarm volume to judge.
+- On a trip: pull the panel up for the whole journey (stops and times); touching the map shrinks it. Every leg's way on
+  the map, the current one in colour and the rest grey.
+- ETA: the header was "somewhat accurate"; past rides must stay in it (the timetable only fills in). "Alarm about"
+  must agree with the time until arrival (the aimed time, not the dead-man's switch).
+- **His circle decides where it rings** (2026-11-24, "seen it fail multiple times… woke me outside the ring"): on entering
+  it, per stop and per route, updated mid-trip; the stop's own timing only as the 30 s minimum. Don't go back to
+  "a circle only adds an earlier ring".
+- He likes the route map (buses on their roads, current blue, the rest grey). He wants every stop's circle editable on
+  the trip map, but not by accident: tap the stop first (bold circle), then drag. A fixed-length scale bar whose label
+  changes.
+- **"Fucking don't wake me up early."** Woken about 4 km out, outside his circle (screenshot, 2026-11-24). Never ring on
+  an estimate outside his circle; v_est never above V_MAX. Treat early rings as seriously as missed ones.
 - He didn't like the made-up Pūkeko sound. He then gave his own recordings, and Pūkeko is back made from those
   (PR #56).
 - **pstack** (Lauren Tan's skills, `cursor/plugins`): he asked for it to be used in this project. It is enabled
@@ -99,6 +118,11 @@ new, or repeats something, add it here in the same PR.
 - **Pūkeko alarm, real this time.** The made-in-code one was "awful" and went (#53). He then sent his own
   recordings (a 20 s morning and three ~1.5 s screams) and asked for the morning looping with screams "happening
   stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
+
+## 2026-11-23 (walks)
+- **Walks must look and measure like Google's.** The map drew the walk as a straight line while its minutes followed
+  the footpaths: "make it match. Find a way. No nos." The straight line × 1.25 is the "last last last resort", not a
+  quiet default. BACKLOG F39 (was item 27). "No nos" means: don't come back with why it can't be done; find the way.
 
 ## 2026-11-23 (product review)
 - He asked for a product director's view and a backlog for later sessions. He rejected the first one (a ranked

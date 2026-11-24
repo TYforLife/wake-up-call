@@ -72,7 +72,8 @@ On every good GPS fix (time `ft`) for the leg you might sleep on, the engine sch
 
 While fixes keep arriving (every 1–3 s), `failsafeAt` keeps being pushed forward and never fires.
 Before the first fix of a trip, the phone's **last known position** (up to 3 min old) arms the
-failsafe from its own time, so a trip that never gets a fix is still covered. With no position at
+failsafe from its own time, so a trip that never gets a fix is still covered. The first fix replaces it
+with its own (an old position's failsafe is already due at Start; the property test covers ages up to 3 min). With no position at
 all, a **No GPS** alarm rings 3 min in: you're unprotected, stay awake.
 
 **While it rings, the alarm stays scheduled.** Each ring re-arms the one system alarm `RERING` (60 s)
@@ -81,6 +82,22 @@ trip cancels it. So if anything kills the ring before the ack (the process is ki
 service is stopped), the system rings again within a minute. After a cold start (no trip service),
 `RingService` keeps that re-ring itself; if the trip turns out to be over when "I'm awake" is held,
 the cold path cancels it.
+
+**The system alarm** (`SystemAlarm`, owner's 4th missed first-stop ring, 2026-11-23). Android fires an app's alarm
+no sooner than 5 s after it is set (`AlarmManagerService` `MIN_FUTURITY`), and each set deletes the pending one. So
+"ring now" rings 5 s later, and an alarm set again on every fix while it is due never rings: that was the missed
+first stop (a short hop with good GPS: due, then pushed 5 s out every 2 s until you'd long got off). So:
+- **A due ring stays where it is** until it rings, or you act (I'm awake, I'm off this bus, Stop). Due rings are the
+  stop's own timing, your circle, "you passed your stop" and urgent messages. Only alarms that ring because fixes
+  stopped (GPS lost, No GPS, the next leg's safety alarm) can still be pushed later by a fix: that fix is the news they
+  were waiting for (`Engine.hold`).
+- **An alarm due within 5 s stays** when the new one is due within them too: set again, it would ring 5 s from now,
+  later than either (rule 4: err early). A circle rings from the first fix inside it, so up to a fix and 5 s after the
+  bus enters it.
+- **The shell sets exactly what the engine asks**, except that it never replaces a pending alarm with a sooner time
+  Android would fire later (`SystemAlarm.update`): inside its last 5 s, a sooner time set again would ring later.
+- The engine tests ring the alarm this way too (`Harness`), so every scenario and property test checks it. With the
+  old behaviour and the faithful harness, 25 of them failed, the owner's morning among them (`SystemAlarmTest`).
 
 ### 2.1 Phases of a leg (no timers)
 
@@ -139,7 +156,7 @@ the cold path cancels it.
 | Roughly pasted stop | A pin past the real stop costs ~d/v seconds (e.g. 150 m at 40 km/h ≈ 14 s), and rides that never pass within 60 m of it aren't learned. Use "Use my location" at the stop. |
 
 There is a single ring path: `AlarmManager` → `AlarmReceiver` → `RingService` → `AlarmActivity`.
-"Ring now" means scheduling the alarm at `now`. The at-stop nudge is a single short vibration and a
+"Ring now" means scheduling the alarm at `now` (it rings 5 s later, see "The system alarm"). The at-stop nudge is a single short vibration and a
 notification, not the alarm.
 
 ### 2.3 Route learning
@@ -190,20 +207,37 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
   - Or touch its edge and drag in or out (no handle: a touch within a finger's width of the edge grabs it,
     `EdgeDrag`): the circle follows your finger, and the size is rounded like the
     slider's (`CircleDrag`).
-  - It's stored on that stop (`LegDraft.wakeRadiusM`), from the riding map or Set a stop. **A saved circle applies to a running trip at once**
-  (`Input.UpdateLegs`: only circles, only for legs whose stop is unchanged; a circle you're already inside
-  rings now; property-tested never to make an alarm later). A simulated trip's stops can be set too (for
-  that trip only). Once you're on the bus and inside
-  it, it rings, unless the timing rang first: **whichever comes first**, so it can only ring earlier.
-  "On the bus" is boarding detected **or bus speed right now** (≥ 15 km/h over the last 15 s), so a
-  trip started on a crawling bus, where boarding was never detected, still rings on entry (PLAN R3).
-  From outside the circle, the estimate and the failsafe also aim at **its edge**, with no extra lead
-  (the circle is your margin): `ft + (d − r) / v_est` and `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`,
-  each taken only if earlier. GPS already runs at 1–2 s for the whole trip, so no faster checking is
-  needed near the circle; a GPS gap is covered by the failsafe (tested: a gap from 60 s before the edge
-  still rings before it). Waiting at a stop inside the zone doesn't ring until you're on the bus.
-  Property-tested: with a circle, the first ring is never later than without one (300 random trips). Shrinking a
-  circle mid-trip, even to 50 m, never rings later than having no circle (200 random trips, PLAN B4).
+  - It's stored on that stop of that route (`LegDraft.wakeRadiusM`), from the riding map or Set a stop: per stop
+    and per route ("the ring is per station and per trip", owner 2026-11-24). Another route's circle at the same stop
+    is that route's.
+- **A saved circle applies to a running trip at once.** `Route.circlesFor` takes the trip's own route's circles, and
+  `Input.UpdateLegs` changes only circles, only for legs whose stop is unchanged. A circle you're already inside
+  rings now. A simulated trip's stops can be set too, for that trip only.
+- **Your circle decides where it rings** (owner, 2026-11-24: "the alarm woke me outside the ring"):
+  - It rings when the bus enters it. "On the bus" means boarding detected **or bus speed right now** (≥ 15 km/h over
+    the last 15 s), so a trip started on a crawling bus, where boarding was never detected, still rings on entry
+    (PLAN R3).
+  - The stop's own timing then uses the **30 s minimum lead** (`Config.minLeadS`, `Engine.wakeLead`) instead of 45 s.
+    It only rings first for a circle so small that the bus is less than 30 s from the stop at its edge: about
+    250 m at 30 km/h, 375 m at 45 km/h. The circle sheet says so.
+  - Before, a circle only ever added an earlier ring, so the stop's 45 s timing (about 500–600 m out at 40–50 km/h)
+    rang before every circle of the sizes offered (150–400 m).
+  - It rings from a **fix inside the circle**, never from an estimate of when the bus will get there.
+    - Owner, 2026-11-24, with a screenshot: it rang about 4 km out, far outside a 2 km circle. A past ride with bad
+      timing had made the estimate's speed impossible.
+    - Only the dead-man's switch aims at the edge, at V_MAX: `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`. While
+      fixes come it's pushed on; a GPS gap from 60 s before the edge still rings before it.
+  - **v_est is never above V_MAX** (all stops). §2's precondition already assumes the bus never exceeds V_MAX, so the
+    invariant holds (`InvariantPropertyTest`). Tested with a past ride whose times are a tenth of the real ones:
+    - with a circle, it rings at the edge and not before (100 random trips);
+    - without one, within 2 minutes of the stop, not 8.
+  - Waiting at a stop inside the zone doesn't ring until you're on the bus.
+- **Property-tested.** The 30 s minimum's invariant holds (`InvariantPropertyTest` at a 30 s lead).
+  - With a circle, the first ring is never later than the same trip with no circle at a 30 s lead (300 random
+    trips).
+  - With steady GPS it comes at the edge: from 4 s before to 3 s after entering, for circles reached at least 60 s
+    out.
+  - Shrinking or editing a circle mid-trip never rings later than that minimum (200 and 500 random trips).
 
 ### Why the approximations err early
 
@@ -360,7 +394,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | Component | Job |
 |---|---|
 | `TripService` | Foreground service, type `location`. Started from the UI (foreground), so no background-location permission is needed. Gets the last known position, then fused location at HIGH_ACCURACY every 2 s; fix age measured on the monotonic clock. Feeds the engine, applies `alarmAtMs`, buzzes once at the stop, stores learned rides, and runs the live trip notification (§5 Notifications). A `Tick` every 5 s. Writes the trace. Saves the active trip (legs, leg, alarm reason, time left) on every change and every 15 s. |
-| `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. |
+| `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. `TripService` calls it only through `SystemAlarm.update` (§2, "The system alarm"). |
 | `AlarmReceiver` | Rings with no conditions. First it posts the ring notification itself: full screen, insistent, on the alarm channel, which vibrates by itself. Then it starts `RingService`, which takes over the same notification ID. If the service can't start, the alarm is still on screen and buzzing, and the receiver re-arms the alarm a minute ahead (PLAN Run 10, A1). Sends `Rang` to the engine if the process is alive. |
 | `RestartReceiver` | After an app update (`MY_PACKAGE_REPLACED`) or a phone restart (`BOOT_COMPLETED`) during a trip (PLAN Run 10, A1): sets the saved alarm again at once (`Restart.plan`), or now if it passed while the phone was off. It then resumes tracking the same stop (`ACTION_RESUME`, not "awake for it"). It also posts "Your trip is still on, tap to keep tracking" in case Android refuses to start location tracking from the background. A stale or finished trip is dropped. |
 | `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the alarm channel. The channel has no sound, but it vibrates by itself, and the notification is insistent (PLAN Run 10). The service plays the audio and its own vibration, plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, the sound mode and Do Not Disturb at the start, whether it could buzz, when the speaker joined, how it was stopped, plus the alarm channel's state, "Display over other apps", quiet trip at the ring and a cold start) in the trip log (`ringd`; a ring that cold-started the app writes into the saved trip's log) and as the last-ring report that Settings → Report a missed alarm shares. |
@@ -508,10 +542,53 @@ doesn't flash another colour while it opens.
     - It shows only this trip's stops: your stop as Google's red pin with its circle shaded blue, the others as
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
     - The stops still to come have their circles too, fainter (`MapModel.tripZones`). Stops behind you have none.
-    - A scale bar, top left, like Google's (`Scale`: the longest round distance under 96 dp).
+    - A scale bar, top left (owner, 2026-11-24: "fixed length, change units"). It's always 72 dp long, and its label says
+      how far that is: "140 m", "1.4 km" (`Scale`).
+    - Every circle of the trip can be changed, not only the one it's watching, but not by accident (owner,
+      2026-11-24: "don't make the circles too easy to edit"):
+      - first tap the stop itself: within a finger's width of its pin or dot (`CircleDrag.pickStop`);
+      - its circle turns bold and dashed, and its sizes open;
+      - only then can that circle's edge be dragged.
+
+      Touching anywhere else moves the map. The size is saved to that stop of that route and applies to the trip at
+      once. Done in the sizes ends editing.
+    - Every leg's way (owner, 2026-11-24): the one you're on in route blue, the others grey (`MapModel.legPaths`):
+      - the bus's **road**, when Plan a trip knows the bus (`Departures.path`). That's the feed's `shapes.txt`:
+        `tools/gtfs_index.py` keeps each pattern's most common shape, simplified to 8 m, as an encoded polyline with
+        the point at each stop (`shapes.tsv`, `Timetable.road`). Without a shape it goes stop to stop;
+      - for a route that doesn't know its bus (set by hand, or made before routes kept it), the road of the bus that
+        most likely runs from near the stop before (or where the trip started) to this stop (`Departures.likelyPath`);
+      - else the newest learned ride to that stop;
+      - else a straight line from the stop before.
+
+      Learned rides aren't drawn separately on a trip.
     - It has recentre, rotation and the compass, and opens framing you and your stop (`MapModel.frame`; the owner
       likes this). After you change buses it frames you and the next stop again, even if you'd moved the map.
     - Tap your stop's circle for its sizes, or touch its edge and drag (§2.6).
+  - The sheet has three heights (owner, 2026-11-24). Drag it up or down; touching the map folds it:
+    - folded: one line, for the map;
+    - the sheet below;
+    - pulled all the way up: the sheet and **Your journey**, every stop in order (`JourneyText`):
+      - done;
+      - the one you're heading for, with "~7:46" and its bus;
+      - the ones after it, with the timetable's arrival and departure when Plan a trip knows their bus
+        (`Departures.ride`, after a 2-minute change).
+  - **The time left on the bus** (owner, 2026-11-24: "the ETAs are very off… I know my bus times") is worked out
+    from the timetable when Plan a trip knows the bus and where you got on (`Departures.remainingS`, in
+    `TripService.busEta`):
+    - you're placed on the line of its stops (within 400 m);
+    - the run due at that point about now (within 30 min) gives the time left from there to your stop.
+
+    Your real position holds the delay so far, and the timetable gives the rest. On a learned route, past rides come
+    first (the engine's ETA: past rides × today's pace); the timetable is for buses not learned yet. It's shown in
+    "6 min", "stop ~7:46", the journey list and the notification. The alarm keeps the engine's own, deliberately
+    earlier estimate.
+  - **"Alarm about 7:45"** (owner, 2026-11-24: "not consistent with the time until arrival") is when the alarm aims to
+    ring: the time left shown, minus the stop's lead, or, with your own circle, when the bus reaches it
+    (`TripSheetText.aimMs`).
+    - It's not the scheduled system alarm. While GPS is fine that's the dead-man's switch (§2), a few minutes ahead
+      and pushed on with every fix.
+    - With no time left known it says "Alarm set". With GPS lost it says the real "at the latest" time.
   - One sheet over the map: "Get off at", the stop, "6 min · 2.3 km", "Alarm about 7:45 · stop ~7:46", and I'm off
     this bus. The alarm is meant to come first. With your own circle it says so: "Alarm about 7:42 at your 400 m
     circle · stop ~7:46".
@@ -537,12 +614,27 @@ doesn't flash another colour while it opens.
     stops. A swap button, and a **Leave now** chip: tap it for **Leave at** or **Arrive by** and a time.
   - Rides from the bundled timetable (`Timetable`, `Planner`: RAPTOR, up to 3 buses): "7:38 → 8:20 · 42 min", bus
     chips "866 › 70", "Walk 4 min · Central Station at 7:42". Times are the timetable's, not live.
-    - Walks to the first stop and from the last follow **real footpaths** (`WalkGraph`, BACKLOG 1). Those are
-      OpenStreetMap's walkable ways within about 1 km of each end, from the Overpass API, kept in the cache for 30
-      days (`Footpaths`; a public mirror when the main server refuses, and a refusal or timed-out reply is never
-      cached), and walked by the shortest path (up to 1.3 km). Until they arrive, or offline, walks are
-      straight lines × 1.25. Walking is 4.5 km/h. Between buses: straight × 1.25, up to about 300 m. Only **one walk
-      at a time** (never a walk to another stop and then on).
+    - **Every walk follows real footpaths** (`WalkGraph`, BACKLOG 1 and 27): to the first stop, from the last, and
+      between buses, timed along them and drawn along them on the map, like Google's. The footpaths are
+      OpenStreetMap's walkable ways around a place, from the Overpass API: every way but motorways, cars-only or buses-only
+      roads and corridors inside buildings. A trunk road counts when its footpaths are on the road itself (not barred to walkers, not a
+      motor road, footpaths not drawn apart). Pedestrian areas (plazas, concourses) are crossed corner to corner, and a gate or
+      other barrier that's locked or closed to walkers isn't walked through. The box reaches
+      every allowed walk: 1.3 km at each end (`MAX_WALK_M`), 400 m between buses (`CHANGE_WALK_M`), plus 150 m for
+      the cache's rounding. Walking is 4.5 km/h.
+    - Stepping on: a place joins the nearest street network within 250 m (a park, a campus; a fragment of path
+      that leads nowhere is skipped), counted in the walk and drawn. A stop is at its nearest path point within 80 m,
+      or a reached one at most 20 m further. A stop the footpaths can't reach (across a motorway, on a lane of its
+      own, too far) **can't be walked to**; it's dropped, never given the straight line instead.
+    - Where the footpaths come from, in order: the cache (30 days), Overpass and two public mirrors, the cache
+      however old (a failed refresh never loses it), then FOSSGIS's foot router (`FootRouter`, OSRM on OpenStreetMap:
+      the metres to the nearby stops in one request, and the way of a chosen walk). Only if all of those fail is a
+      walk the straight line × 1.25: then it says "about 4 min" and its dotted line is lighter. The footpaths for
+      home, work and every saved route's change stops are fetched when they're set and at each start until they
+      are, so the commute never plans on estimates. Walks between buses start as estimates; the footpaths at the
+      change stops of the rides shown are then fetched and the rides planned again, so a change the real walk
+      can't make isn't offered.
+    - Only **one walk at a time** (never a walk to another stop and then on).
     - A change takes at least 2 minutes.
     - Each search keeps every way to arrive within 20 minutes of the fastest (another bus, another last stop). The
       list then drops a ride when another leaves about as late (within 3 minutes) and costs less, where a change
@@ -550,8 +642,9 @@ doesn't flash another colour while it opens.
     - Arrive by: the rides that get there in time, leaving latest, none more than 45 minutes before the last.
       Going to work or home, the Arrive by you set is remembered for next time (Settings, on the phone); Leave now
       or Leave at forgets it. The owner never wants to type times.
-  - Tap a ride for its **map** (the buses in route blue through every stop, walks dotted, where you get on and off,
-    the end as the red pin) and its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
+  - Tap a ride for its **map**: the buses in route blue along their roads (`Leg.Bus.road`), and walks dotted along the
+    footpaths (`Leg.Walk.path`: the way `WalkGraph` found, not a straight line), where you get on and off, and
+    the end as the red pin. Then its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
     then **Use this** or **Start now**. Using it makes a route whose stops are where you get off each bus, named "To <place>"
     ("To work" updates that route rather than adding another).
   - Pasting or sharing Google Maps directions fills From and To.
@@ -560,9 +653,10 @@ doesn't flash another colour while it opens.
     be skipped, the ride steps too. Now's empty state opens it too, and Settings → Home and work changes them.
   - **Privacy:** home and work are kept in the phone's settings only, never in a log, the repo or a share. The
     address text you type goes only to the phone's own geocoder (`Geocoder`, which is Google's on his phone), limited
-    to Auckland. The timetable is offline. For footpaths, only a square about 2 km across around each end goes
-    to OpenStreetMap's Overpass API (like the map tiles the map already loads), with a generic client name: never
-    an address or a name.
+    to Auckland. The timetable is offline. For footpaths, only a square around a place (about 3 km across at
+    each end, 1 km at a change stop) goes to OpenStreetMap's Overpass API (like the map tiles the map already
+    loads), and, when no footpaths can be had, only the walk's points go to FOSSGIS's foot router. Both with a
+    generic client name: never an address or a name.
   - One row per route: "2 buses · 12 rides", or its problem as a red line ("Hill Ave needs a stop").
   - + makes "Route N" with Stop 1 and opens the map at once (PLAN Run 11, B1): save it and the route is ready. Back
     out and it's gone. No names to type.

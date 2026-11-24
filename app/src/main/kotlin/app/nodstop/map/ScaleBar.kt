@@ -16,27 +16,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.nodstop.ui.v2.NColors
 
-/** A map scale bar like Google's (owner's feedback: "hard to gauge"): a round distance and its length on screen. */
+/**
+ * A map scale bar (owner, 2026-11-24: "fixed length, change units"): always [WIDTH_DP] long; its label says how far
+ * that is at this zoom, in metres under 1 km and km above.
+ */
 object Scale {
-    private val steps = listOf(10, 20, 50, 100, 200, 300, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000)
+    const val WIDTH_DP = 72.0
 
-    /** The longest round distance that fits in [maxDp], and its width in dp, at [metresPerDp]. */
-    fun pick(metresPerDp: Double, maxDp: Double = 96.0): Pair<Int, Double> {
-        val fit = steps.lastOrNull { it / metresPerDp <= maxDp } ?: steps.first()
-        return fit to fit / metresPerDp
+    /** How far the bar is, rounded: to 10 m under 500 m, 50 m under 1 km, 100 m under 10 km, then 1 km. */
+    fun metres(metresPerDp: Double): Double {
+        val m = metresPerDp * WIDTH_DP
+        val step = when {
+            m < 500 -> 10.0
+            m < 1_000 -> 50.0
+            m < 10_000 -> 100.0
+            else -> 1_000.0
+        }
+        return maxOf(step, Math.round(m / step) * step)
     }
 
-    fun label(m: Int): String = if (m < 1_000) "$m m" else "${m / 1_000} km"
+    fun label(metresPerDp: Double): String = ZoneScale.label(metres(metresPerDp))
 }
 
 @Composable
 fun ScaleBar(metresPerDp: Double, colors: NColors, modifier: Modifier = Modifier) {
     if (!(metresPerDp > 0)) return
-    val (m, w) = Scale.pick(metresPerDp)
     val ink = if (colors.dark) Color.White else Color(0xFF3C4043)
     Column(modifier) {
-        Text(Scale.label(m), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = ink))
-        Canvas(Modifier.width(w.dp).height(6.dp)) {
+        Text(Scale.label(metresPerDp), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = ink))
+        Canvas(Modifier.width(Scale.WIDTH_DP.dp).height(6.dp)) {
             val y = size.height
             drawLine(ink, Offset(0f, y), Offset(size.width, y), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Square)
             drawLine(ink, Offset(0f, 0f), Offset(0f, y), strokeWidth = 2.dp.toPx())

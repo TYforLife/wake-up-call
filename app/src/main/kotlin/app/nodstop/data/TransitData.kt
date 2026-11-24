@@ -44,7 +44,9 @@ object TransitData {
             try {
                 val a = ctx.applicationContext.assets
                 fun read(n: String) = a.open("gtfs/$n").bufferedReader().use { it.readText() }
-                Timetable.parse(read("patterns.tsv"), read("profiles.tsv"), read("trips.tsv"), read("services.tsv")).takeIf { it.patterns.isNotEmpty() }
+                // The road shapes are optional: without them the map draws the bus stop to stop.
+                val shapes = try { read("shapes.tsv") } catch (_: IOException) { null }
+                Timetable.parse(read("patterns.tsv"), read("profiles.tsv"), read("trips.tsv"), read("services.tsv"), shapes).takeIf { it.patterns.isNotEmpty() }
             } catch (_: IOException) {
                 null
             } catch (_: NumberFormatException) {

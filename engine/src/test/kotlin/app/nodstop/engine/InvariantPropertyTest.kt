@@ -10,7 +10,7 @@ import kotlin.random.Random
 
 /**
  * DESIGN §2 invariant, over 2,000 seeded random trips (random polylines, piecewise speed profiles up to
- * V_MAX, noise, bad and stale fixes, random dropouts and kill points):
+ * V_MAX, noise, bad and stale fixes, random dropouts and kill points, a last known position up to 3 min old):
  *
  *   at every step, the scheduled alarm <= trueArrival - LEAD + TOLERANCE,
  *   so it holds even if all updates stop at that instant.
@@ -54,7 +54,9 @@ class InvariantPropertyTest {
      */
     @Test
     fun `without V_FLOOR or the failsafe the same generator finds violations`() {
-        val worstNoFloor = withEngineConfig(Config(vFloorKmh = 0.1, winPeakS = 0.0, tripTauS = 0.0)) { (1..300).minOf { runCase(it).worstMarginS } }
+        // All 2,000 trips: since a due ring is held (it can't be pushed later by a bus that then stops), the cases only
+        // the floor covers (crawling in, stopping just short, pulling away) are rarer.
+        val worstNoFloor = withEngineConfig(Config(vFloorKmh = 0.1, winPeakS = 0.0, tripTauS = 0.0)) { (1..2_000).minOf { runCase(it).worstMarginS } }
         assertTrue(worstNoFloor < 0, "expected a violation without V_FLOOR, worst margin $worstNoFloor")
         val worstNoFailsafe = withEngineConfig(Config(vMaxKmh = 1.0)) { (1..300).minOf { runCase(it).worstMarginS } }
         assertTrue(worstNoFailsafe < 0, "expected a violation without the failsafe, worst margin $worstNoFailsafe")
@@ -92,6 +94,8 @@ class InvariantPropertyTest {
             staleProb = 0.02,
             dropouts = dropouts,
             killAtS = killAt,
+            // Up to 3 min old, from its own generator so the trips stay the same.
+            lastKnownAgeS = Random(seed * 31 + 7).nextDouble(0.0, 180.0),
         )
         val fixTimes = plan.fixTimes(Random(planSeed), roughEndS * 3)
         val observedUntil = killAt ?: Double.MAX_VALUE
