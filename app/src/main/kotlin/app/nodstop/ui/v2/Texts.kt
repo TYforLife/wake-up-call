@@ -377,3 +377,28 @@ object SleepText {
         }
     }
 }
+
+object ShareArrivalText {
+    /**
+     * Share my arrival (BACKLOG F16): one line of text, never a position or a link, and only when you tap Share.
+     * "On the 866, at Symonds St about 8:22 · Nodstop", the time being the sheet's own ("stop ~8:22"). [bus]: the
+     * route Plan a trip knows for this leg, if any; a train or ferry says so. Without a time: "On the 866 to Symonds St".
+     */
+    fun of(t: TripService.TripUi, bus: String?, clock: (Long) -> String, nowMs: Long): String {
+        val stop = t.legName ?: "my stop"
+        val v = t.vehicle()
+        val on = when {
+            bus != null && v == "bus" -> "the $bus"
+            bus != null -> "the $bus $v"
+            else -> "the $v"
+        }
+        val waiting = t.status.phase == Phase.WAITING
+        val at = t.status.etaS?.takeIf { !waiting }?.let { clock(nowMs + (it * 1000).toLong()) }
+        val line = when {
+            waiting -> "Waiting for $on to $stop"
+            at != null -> "On $on, at $stop about $at"
+            else -> "On $on to $stop"
+        }
+        return "$line · Nodstop"
+    }
+}

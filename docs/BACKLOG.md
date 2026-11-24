@@ -100,12 +100,6 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
 
 ## Medium-high
 
-### F16. [ ] Share my arrival
-"nice. medium-high prio." From the trip sheet's ⋯ (and the widget, F10): the share sheet with one line, "On the
-866, at Symonds St about 8:22 · Nodstop".
-- **Done when:** text only, never a position or a link; nothing is sent automatically; the line comes from a pure,
-  tested function, and the time is the ETA the sheet shows.
-
 ### F22 + F23. [ ] Missed a connection or a stop: get me back on track
 "Seems like a nice feature for sleepers like me." Bundled.
 - **Missed a connection:** you're still at the change stop after your planned bus left (the timetable, or live when
@@ -222,6 +216,10 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F16. Share my arrival (2026-11-24).** "nice. medium-high prio." Trip sheet ⋯ → Share my arrival: the share
+  sheet with one line, "On the 866, at Symonds St about 8:22 · Nodstop" (the sheet's own time). Text only, never a
+  position or a link, only on a tap (`ShareArrivalText`, `ShareArrivalTextTest`, `NotifyIsolationTest`). Not on the
+  widget yet.
 - [x] **F33. While You Slept: the message summary only (2026-11-24).** "message summary. We'll find ways to use AI…
   later."
   - The alarm screen and "You're awake" show the plain digest; Settings shows no model. The model, its import, the

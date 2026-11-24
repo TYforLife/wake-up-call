@@ -169,6 +169,8 @@ fun NowRiding(
     journey: List<JourneyRowUi>? = null,
     full: Boolean = false,
     onFullChange: (Boolean) -> Unit = {},
+    /** ⋯ → Share my arrival (BACKLOG F16). */
+    onShare: () -> Unit = {},
 ) {
     Column(modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -179,6 +181,7 @@ fun NowRiding(
             Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp)) {
                 IconCircle(NIcons.More, "More", { menu = true }, floating = true)
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Share my arrival") }, onClick = { menu = false; onShare() })
                     DropdownMenuItem(text = { Text("Stop trip", color = LocalN.current.danger) }, onClick = { menu = false; onStopTrip() })
                 }
             }
