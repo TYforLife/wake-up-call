@@ -22,7 +22,11 @@ class RealTimetableTest {
         assumeTrue(File(dir, "patterns.tsv").exists(), "no AT index in this build")
         val t0 = System.nanoTime()
         val ix = TransitIndex.parse(f("stops.tsv"), f("routes.tsv"))
-        val tt = Timetable.parse(f("patterns.tsv"), f("profiles.tsv"), f("trips.tsv"), f("services.tsv"))
+        val tt = Timetable.parse(f("patterns.tsv"), f("profiles.tsv"), f("trips.tsv"), f("services.tsv"), f("shapes.tsv"))
+        // The buses' roads (owner, 2026-11-24: "just a straight line between stations").
+        val shaped = tt.shapes.count { it != null }
+        println("shapes: $shaped of ${tt.patterns.size} patterns, ${tt.shapes.sumOf { it?.points?.size ?: 0 }} points, ${File(dir, "shapes.tsv").length() / 1024} KB")
+        assertTrue(shaped >= tt.patterns.size * 0.9, "most patterns have their road: $shaped of ${tt.patterns.size}")
         println("real index: ${ix.stops.size} stops, ${tt.patterns.size} timetable patterns, loaded in ${(System.nanoTime() - t0) / 1_000_000} ms")
         val day = LocalDate.now().with(TemporalAdjusters.next(DayOfWeek.WEDNESDAY))
         val britomart = LatLng(-36.8443, 174.7678)
@@ -42,6 +46,12 @@ class RealTimetableTest {
             val ms = (System.nanoTime() - s) / 1_000_000
             println("$name on $day: ${js.size} rides in $ms ms")
             if (name.startsWith("Westlake")) assertTrue(js.any { j -> j.buses.any { it.route == "866" } }, "$name: the 866 (Smales Farm to the hospital)")
+            // Every bus leg follows its road: more points than stops, and the road ends where you get on and off.
+            for (b in js.flatMap { it.buses }) {
+                assertTrue(b.road.size > b.path.size, "$name: ${b.route} has no road (${b.road.size} points for ${b.path.size} stops)")
+                assertTrue(app.nodstop.engine.Geo.distanceM(b.road.first(), ix.stops[b.board].pos) < 150.0, "$name: ${b.route}'s road starts at its stop")
+                assertTrue(app.nodstop.engine.Geo.distanceM(b.road.last(), ix.stops[b.alight].pos) < 150.0, "$name: ${b.route}'s road ends at its stop")
+            }
             js.forEach { j ->
                 println("  ${j.leaveS / 3600}:${"%02d".format(j.leaveS % 3600 / 60)} -> ${j.arriveS / 3600}:${"%02d".format(j.arriveS % 3600 / 60)} " +
                     "(${j.minutes} min) ${j.buses.joinToString(" > ") { it.route }}")

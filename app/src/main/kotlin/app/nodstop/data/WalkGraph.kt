@@ -52,6 +52,8 @@ class WalkGraph private constructor(
     fun from(from: LatLng, maxM: Double = Planner.MAX_WALK_M): Planner.Walks? {
         val (start, snap) = nearest(from) ?: return null
         val dist = DoubleArray(size) { Double.MAX_VALUE }
+        // Where each point was reached from, so the way itself can be drawn (owner: "the walk path seems nonexistent").
+        val prev = IntArray(size) { -1 }
         dist[start] = snap
         val queue = PriorityQueue<Pair<Double, Int>>(compareBy { it.first })
         queue += snap to start
@@ -61,11 +63,21 @@ class WalkGraph private constructor(
             for (k in adj[u].indices) {
                 val v = adj[u][k]
                 val nd = d + len[u][k]
-                if (nd < dist[v]) { dist[v] = nd; queue += nd to v }
+                if (nd < dist[v]) { dist[v] = nd; prev[v] = u; queue += nd to v }
             }
         }
-        return Planner.Walks { p ->
-            nearest(p)?.let { (i, s) -> (dist[i] + s).takeIf { dist[i] <= maxM } }
+        return object : Planner.Walks {
+            override fun to(p: LatLng): Double? = nearest(p)?.let { (i, s) -> (dist[i] + s).takeIf { dist[i] <= maxM } }
+
+            /** From where you are to [p], point by point along the paths (the graph's points, start to end). */
+            override fun path(p: LatLng): List<LatLng>? {
+                val (end, _) = nearest(p) ?: return null
+                if (dist[end] > maxM) return null
+                val out = ArrayList<LatLng>()
+                var i = end
+                while (i >= 0) { out += pos(i); i = prev[i] }
+                return out.asReversed()
+            }
         }
     }
 
