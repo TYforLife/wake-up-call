@@ -3,6 +3,7 @@ package app.nodstop.data
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import app.nodstop.engine.Sleep
 import app.nodstop.engine.Trace
 import app.nodstop.engine.TraceEvent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +48,26 @@ class TraceLogger(private val context: Context) {
     }
 
     fun endTrip() { current = null }
+
+    /**
+     * Every trip's sleep on the bus (BACKLOG F30), counts only. A log is read once and its count kept with its
+     * length, so a log that grew (a trip still running, or resumed) is read again.
+     */
+    fun sleepRides(): List<Sleep.Ride> {
+        val cache = context.getSharedPreferences("sleep", Context.MODE_PRIVATE)
+        val files = dir.listFiles { f -> f.name.startsWith("trip-") && f.name.endsWith(".jsonl") }.orEmpty()
+        val edit = cache.edit()
+        val rides = files.mapNotNull { f ->
+            val len = f.length()
+            val kept = cache.getString(f.name, null)?.split(',')?.mapNotNull { it.toLongOrNull() }
+            if (kept != null && kept.size == 3 && kept[0] == len) return@mapNotNull Sleep.Ride(kept[1], kept[2])
+            val ride = try { f.useLines { Sleep.ride(it) } } catch (_: java.io.IOException) { null } ?: return@mapNotNull null
+            edit.putString(f.name, "$len,${ride.startMs},${ride.sleptMs}")
+            ride
+        }
+        edit.apply()
+        return rides
+    }
 
     fun lastTripFile(): File? = dir.listFiles { f -> f.name.endsWith(".jsonl") }?.maxByOrNull { it.name }
 

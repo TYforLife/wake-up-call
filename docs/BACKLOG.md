@@ -67,16 +67,6 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
 - **Needs Tae:** the final name and application ID (DESIGN §9: the ID can't change after the first upload), and a
   Play developer account.
 
-### F30. [ ] Sleep stats
-"amazing. High prio (exclude phone on time)." How much he slept on the bus.
-- **Done when:**
-  - [ ] "You slept 14 h on the bus this month" (and this week, and per ride), counting only time on a trip with the
-        **screen off**: time using the phone never counts.
-  - [ ] Read from the trip logs on the phone; counts only, no positions; nothing leaves the phone.
-  - [ ] A place to see it (Now's "Last trip" area or Settings) and a screenshot test. Pure and tested on synthetic
-        traces with screen on and off.
-- See P5 for sharing it.
-
 ### F29. [ ] Trains and ferries
 "Yes. Add soon." AT's trains and ferries, not just buses.
 - **Done when:**
@@ -234,6 +224,11 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F30. Sleep stats (2026-11-24).** "amazing. High prio (exclude phone on time)."
+  - Now: "You slept 14 h on the bus this month" / "3 h 20 min this week · last ride 25 min". Only time on a trip
+    with the screen off counts. Counts from the trip logs on the phone, nothing sent. P5 (sharing it) is still open.
+  - The trip log now has the screen's state (`scr`), so it counts from the first trip after this update.
+    DESIGN §4 "Sleep on the bus", `SleepTest`, `SleepTextTest`, screenshot `now-sleep`.
 - [x] **F10. Home screen widget (2026-11-24).** "that'd be amazing. high prio."
   - No trip: the route Now would pick and its next two buses, "To work · 866 7:43, 7:51", with **Start** (opens the
     app to start it, as the tile does). Riding: "Smales Farm · 6 min · alarm 7:45" with **I'm off this bus**, the

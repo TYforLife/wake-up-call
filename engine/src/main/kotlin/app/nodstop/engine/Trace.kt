@@ -122,7 +122,7 @@ object Trace {
             when (e.k) {
                 "out", "note" -> continue
                 // Counts and words only, never positions: kept in a location-hidden export.
-                "rate", "wys", "ringd", "gps", "zone" -> { out += encode(e); continue }
+                "rate", "wys", "ringd", "gps", "zone", Sleep.KIND -> { out += encode(e); continue }
             }
             val moved = e.copy(
                 lat = e.lat?.plus(dLat),

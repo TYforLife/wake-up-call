@@ -54,6 +54,15 @@ class ScreensV2ScreenshotTest {
 
     @Test fun now() = shot("now") { withTabs(false) { NowIdle(NowIdleUi("Good morning", routes, "work"), NowActions()) } }
 
+    @Test fun now_sleep() = shot("now-sleep") {
+        withTabs(false) {
+            NowIdle(
+                NowIdleUi("Good evening", routes, "home", sleep = SleepUi("You slept 14 h on the bus this month", "3 h 20 min this week · last ride 25 min")),
+                NowActions(),
+            )
+        }
+    }
+
     @Test fun now_not_ready() = shot("now-not-ready") { withTabs(false) { NowIdle(NowIdleUi("Good morning", routes, "work", notReady = 1), NowActions()) } }
 
     @Test fun now_last_trip() = shot("now-last-trip") {
