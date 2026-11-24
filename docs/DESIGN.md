@@ -222,10 +222,15 @@ Each alarm-on stop has a wake zone, drawn on the map as a circle: where it will 
     250 m at 30 km/h, 375 m at 45 km/h. The circle sheet says so.
   - Before, a circle only ever added an earlier ring, so the stop's 45 s timing (about 500–600 m out at 40–50 km/h)
     rang before every circle of the sizes offered (150–400 m).
-  - From outside the circle, the estimate and the failsafe also aim at **its edge**, with no extra lead:
-    `ft + (d − r) / v_est` and `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`.
-    - Recomputed at every fix (1–2 s), the estimate fires at most a fix early while GPS is fine.
-    - A GPS gap is covered: a gap from 60 s before the edge still rings before it.
+  - It rings from a **fix inside the circle**, never from an estimate of when the bus will get there.
+    - Owner, 2026-11-24, with a screenshot: it rang about 4 km out, far outside a 2 km circle. A past ride with bad
+      timing had made the estimate's speed impossible.
+    - Only the dead-man's switch aims at the edge, at V_MAX: `ft + max(DEADMAN_MIN, (straight − r) / V_MAX)`. While
+      fixes come it's pushed on; a GPS gap from 60 s before the edge still rings before it.
+  - **v_est is never above V_MAX** (all stops). §2's precondition already assumes the bus never exceeds V_MAX, so the
+    invariant holds (`InvariantPropertyTest`). Tested with a past ride whose times are a tenth of the real ones:
+    - with a circle, it rings at the edge and not before (100 random trips);
+    - without one, within 2 minutes of the stop, not 8.
   - Waiting at a stop inside the zone doesn't ring until you're on the bus.
 - **Property-tested.** The 30 s minimum's invariant holds (`InvariantPropertyTest` at a 30 s lead).
   - With a circle, the first ring is never later than the same trip with no circle at a 30 s lead (300 random
@@ -538,9 +543,22 @@ doesn't flash another colour while it opens.
     - It shows only this trip's stops: your stop as Google's red pin with its circle shaded blue, the others as
       small white discs, the learned route in route blue, and you as the blue dot with a heading beam.
     - The stops still to come have their circles too, fainter (`MapModel.tripZones`). Stops behind you have none.
-    - A scale bar, top left, like Google's (`Scale`: the longest round distance under 96 dp).
+    - A scale bar, top left (owner, 2026-11-24: "fixed length, change units"). It's always 72 dp long, and its label says
+      how far that is: "140 m", "1.4 km" (`Scale`).
+    - Every circle of the trip can be changed, not only the one it's watching, but not by accident (owner,
+      2026-11-24: "don't make the circles too easy to edit"):
+      - first tap the stop itself: within a finger's width of its pin or dot (`CircleDrag.pickStop`);
+      - its circle turns bold and dashed, and its sizes open;
+      - only then can that circle's edge be dragged.
+
+      Touching anywhere else moves the map. The size is saved to that stop of that route and applies to the trip at
+      once. Done in the sizes ends editing.
     - Every leg's way (owner, 2026-11-24): the one you're on in route blue, the others grey (`MapModel.legPaths`):
-      - the bus's stops from the timetable, when Plan a trip knows the bus (`Departures.path`);
+      - the bus's **road**, when Plan a trip knows the bus (`Departures.path`). That's the feed's `shapes.txt`:
+        `tools/gtfs_index.py` keeps each pattern's most common shape, simplified to 8 m, as an encoded polyline with
+        the point at each stop (`shapes.tsv`, `Timetable.road`). Without a shape it goes stop to stop;
+      - for a route that doesn't know its bus (set by hand, or made before routes kept it), the road of the bus that
+        most likely runs from near the stop before (or where the trip started) to this stop (`Departures.likelyPath`);
       - else the newest learned ride to that stop;
       - else a straight line from the stop before.
 
@@ -597,12 +615,27 @@ doesn't flash another colour while it opens.
     stops. A swap button, and a **Leave now** chip: tap it for **Leave at** or **Arrive by** and a time.
   - Rides from the bundled timetable (`Timetable`, `Planner`: RAPTOR, up to 3 buses): "7:38 → 8:20 · 42 min", bus
     chips "866 › 70", "Walk 4 min · Central Station at 7:42". Times are the timetable's, not live.
-    - Walks to the first stop and from the last follow **real footpaths** (`WalkGraph`, BACKLOG 1). Those are
-      OpenStreetMap's walkable ways within about 1 km of each end, from the Overpass API, kept in the cache for 30
-      days (`Footpaths`; a public mirror when the main server refuses, and a refusal or timed-out reply is never
-      cached), and walked by the shortest path (up to 1.3 km). Until they arrive, or offline, walks are
-      straight lines × 1.25. Walking is 4.5 km/h. Between buses: straight × 1.25, up to about 300 m. Only **one walk
-      at a time** (never a walk to another stop and then on).
+    - **Every walk follows real footpaths** (`WalkGraph`, BACKLOG 1 and 27): to the first stop, from the last, and
+      between buses, timed along them and drawn along them on the map, like Google's. The footpaths are
+      OpenStreetMap's walkable ways around a place, from the Overpass API: every way but motorways, cars-only or buses-only
+      roads and corridors inside buildings. A trunk road counts when its footpaths are on the road itself (not barred to walkers, not a
+      motor road, footpaths not drawn apart). Pedestrian areas (plazas, concourses) are crossed corner to corner, and a gate or
+      other barrier that's locked or closed to walkers isn't walked through. The box reaches
+      every allowed walk: 1.3 km at each end (`MAX_WALK_M`), 400 m between buses (`CHANGE_WALK_M`), plus 150 m for
+      the cache's rounding. Walking is 4.5 km/h.
+    - Stepping on: a place joins the nearest street network within 250 m (a park, a campus; a fragment of path
+      that leads nowhere is skipped), counted in the walk and drawn. A stop is at its nearest path point within 80 m,
+      or a reached one at most 20 m further. A stop the footpaths can't reach (across a motorway, on a lane of its
+      own, too far) **can't be walked to**; it's dropped, never given the straight line instead.
+    - Where the footpaths come from, in order: the cache (30 days), Overpass and two public mirrors, the cache
+      however old (a failed refresh never loses it), then FOSSGIS's foot router (`FootRouter`, OSRM on OpenStreetMap:
+      the metres to the nearby stops in one request, and the way of a chosen walk). Only if all of those fail is a
+      walk the straight line × 1.25: then it says "about 4 min" and its dotted line is lighter. The footpaths for
+      home, work and every saved route's change stops are fetched when they're set and at each start until they
+      are, so the commute never plans on estimates. Walks between buses start as estimates; the footpaths at the
+      change stops of the rides shown are then fetched and the rides planned again, so a change the real walk
+      can't make isn't offered.
+    - Only **one walk at a time** (never a walk to another stop and then on).
     - A change takes at least 2 minutes.
     - Each search keeps every way to arrive within 20 minutes of the fastest (another bus, another last stop). The
       list then drops a ride when another leaves about as late (within 3 minutes) and costs less, where a change
@@ -610,8 +643,9 @@ doesn't flash another colour while it opens.
     - Arrive by: the rides that get there in time, leaving latest, none more than 45 minutes before the last.
       Going to work or home, the Arrive by you set is remembered for next time (Settings, on the phone); Leave now
       or Leave at forgets it. The owner never wants to type times.
-  - Tap a ride for its **map** (the buses in route blue through every stop, walks dotted, where you get on and off,
-    the end as the red pin) and its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
+  - Tap a ride for its **map**: the buses in route blue along their roads (`Leg.Bus.road`), and walks dotted along the
+    footpaths (`Leg.Walk.path`: the way `WalkGraph` found, not a straight line), where you get on and off, and
+    the end as the red pin. Then its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
     then **Use this** or **Start now**. Using it makes a route whose stops are where you get off each bus, named "To <place>"
     ("To work" updates that route rather than adding another).
   - Pasting or sharing Google Maps directions fills From and To.
@@ -620,9 +654,10 @@ doesn't flash another colour while it opens.
     be skipped, the ride steps too. Now's empty state opens it too, and Settings → Home and work changes them.
   - **Privacy:** home and work are kept in the phone's settings only, never in a log, the repo or a share. The
     address text you type goes only to the phone's own geocoder (`Geocoder`, which is Google's on his phone), limited
-    to Auckland. The timetable is offline. For footpaths, only a square about 2 km across around each end goes
-    to OpenStreetMap's Overpass API (like the map tiles the map already loads), with a generic client name: never
-    an address or a name.
+    to Auckland. The timetable is offline. For footpaths, only a square around a place (about 3 km across at
+    each end, 1 km at a change stop) goes to OpenStreetMap's Overpass API (like the map tiles the map already
+    loads), and, when no footpaths can be had, only the walk's points go to FOSSGIS's foot router. Both with a
+    generic client name: never an address or a name.
   - One row per route: "2 buses · 12 rides", or its problem as a red line ("Hill Ave needs a stop").
   - + makes "Route N" with Stop 1 and opens the map at once (PLAN Run 11, B1): save it and the route is ready. Back
     out and it's gone. No names to type.

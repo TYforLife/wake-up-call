@@ -29,6 +29,8 @@ object PlanText {
     fun duration(minutes: Int): String = if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min".replace(" 0 min", "")
 
     private fun walk(s: Int) = "${maxOf(1, (s + 59) / 60)} min"
+    /** "4 min", or "about 4 min" when the footpaths weren't known (BACKLOG 27). */
+    private fun walk(w: Planner.Leg.Walk) = (if (w.estimated) "about " else "") + walk(w.seconds)
 
     fun ride(j: Planner.Journey, name: (Int) -> String): RideUi {
         val first = j.buses.first()
@@ -37,7 +39,7 @@ object PlanText {
             duration(j.minutes),
             j.buses.map { it.route },
             listOfNotNull(
-                j.firstWalkS.takeIf { it >= 60 }?.let { "Walk ${walk(it)}" },
+                j.firstWalk?.takeIf { it.seconds >= 60 }?.let { "Walk ${walk(it)}" },
                 "${name(first.board)} at ${clock(first.departS)}",
             ).joinToString(" · "),
         )
@@ -54,7 +56,7 @@ object PlanText {
                     leg.to == null -> to
                     else -> name(leg.to)
                 }
-                out += StepUi(clock(t), "Walk ${walk(leg.seconds)}", "To $where · ${leg.meters.toInt()} m", StepUi.Kind.WALK)
+                out += StepUi(clock(t), "Walk ${walk(leg)}", "To $where · ${if (leg.estimated) "about " else ""}${leg.meters.toInt()} m", StepUi.Kind.WALK)
                 t += leg.seconds
             }
             is Planner.Leg.Bus -> {

@@ -1,6 +1,7 @@
 package app.nodstop.ui.v2
 
 import app.nodstop.data.Departures
+import app.nodstop.data.Planner
 import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
 import app.nodstop.data.TransitData
@@ -213,8 +214,14 @@ private fun NowRidingTab(t: TripService.TripUi) {
                 val d = drafts?.getOrNull(i)
                 val board = d?.boardCoords?.let { CoordParser.parse(it) }
                 val i2 = ix; val t2 = tt
-                if (d?.bus == null || board == null || i2 == null || t2 == null) null
-                else Departures.path(i2, t2, d.bus, board, t.legStops[i])
+                when {
+                    i2 == null || t2 == null -> null
+                    d?.bus != null && board != null -> Departures.path(i2, t2, d.bus, board, t.legStops[i])
+                    // A route that doesn't know its bus: the bus from near the stop before (or where you started).
+                    else -> (if (i == 0) start else t.legStops[i - 1])?.let { from ->
+                        Departures.likelyPath(i2, t2, from, t.legStops[i], if (i == 0) Planner.ACCESS_M else Planner.CHANGE_M + 150.0)
+                    }
+                }
             },
             learned = { i -> learned[Route.stopKey(t.legStops[i])]?.tracks?.firstOrNull()?.points?.map { it.pos } },
         )
@@ -236,8 +243,9 @@ private fun NowRidingTab(t: TripService.TripUi) {
     // More map, less panel (PLAN B3): touching the map folds the sheet; it remembers while the trip runs.
     var expanded by rememberSaveable { mutableStateOf(true) }
     // Your stop's circle, tapped on the map (PLAN B4): its sizes replace the sheet until Done.
-    var circleOpen by remember { mutableStateOf(false) }
-    val circlePin = layers.pins.firstOrNull { it.current && it.alarm }
+    // Any of the trip's circles (owner, 2026-11-24): the leg whose circle was tapped.
+    var circleLeg by remember { mutableStateOf<Int?>(null) }
+    val circlePin = circleLeg?.let { leg -> MapModel.tripZones(layers).firstOrNull { it.legIndex == leg } }
     NowRiding(
         sheet = TripSheetText.of(t, ::hm, nextBus = rememberNextBus(t, routes)),
         onAction = { TripService.instance?.skipLeg() },
@@ -248,18 +256,19 @@ private fun NowRidingTab(t: TripService.TripUi) {
         map = { m ->
             RideMap(
                 layers, t.status.position, colors, recentre, m, onUserGesture = { expanded = false; full = false },
-                onCircleTap = { circleOpen = true },
+                onCircleTap = { p -> circleLeg = p.legIndex },
+                selectedLeg = circleLeg,
                 onCircleResize = { p, r -> saveCircle(p, r) },
             )
         },
         compact = CompactSheetText.of(t, ::hm),
         expanded = expanded,
         onExpandedChange = { expanded = it },
-        overlay = circlePin?.takeIf { circleOpen }?.let { p ->
+        overlay = circlePin?.let { p ->
             {
                 CircleSheet(
                     CircleSheetUi(p.label, if (p.zoneIsYours) p.zoneM else null, p.zoneM),
-                    onChange = { saveCircle(p, it) }, onDone = { circleOpen = false },
+                    onChange = { saveCircle(p, it) }, onDone = { circleLeg = null },
                 )
             }
         },

@@ -22,6 +22,22 @@ object CircleDrag {
     fun inside(center: LatLng, radiusM: Double, tap: LatLng, slackM: Double = 0.0): Boolean =
         Geo.distanceM(center, tap) <= radiusM + slackM
 
+    /**
+     * Which stop a tap selects for editing its circle (owner, 2026-11-24: "make the user click on the station to enable
+     * edit"): the stop nearest the tap within [tolPx]. [distsPx]: each stop's distance from the tap on screen.
+     */
+    fun pickStop(distsPx: List<Double>, tolPx: Double): Int? =
+        distsPx.indices.filter { distsPx[it] <= tolPx }.minByOrNull { distsPx[it] }
+
+    /**
+     * Which circle's edge a touch grabs (owner, 2026-11-24: change any stop's circle): of the circles whose edge it
+     * lands on ([onEdge]), the one whose edge is closest. [circles]: each one's (touch distance from its centre,
+     * radius), in px. Null: none.
+     */
+    fun pickEdge(circles: List<Pair<Double, Double>>, tolPx: Double): Int? =
+        circles.indices.filter { onEdge(circles[it].first, circles[it].second, tolPx) }
+            .minByOrNull { kotlin.math.abs(circles[it].first - circles[it].second) }
+
     /** A touch [distPx] from the circle's centre grabs its edge ([radiusPx] away) if within [tolPx] of it. */
     fun onEdge(distPx: Double, radiusPx: Double, tolPx: Double): Boolean = kotlin.math.abs(distPx - radiusPx) <= tolPx
 }

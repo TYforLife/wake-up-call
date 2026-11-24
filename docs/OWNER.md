@@ -106,6 +106,11 @@ new, or repeats something, add it here in the same PR.
 - **His circle decides where it rings** (2026-11-24, "seen it fail multiple times… woke me outside the ring"): on entering
   it, per stop and per route, updated mid-trip; the stop's own timing only as the 30 s minimum. Don't go back to
   "a circle only adds an earlier ring".
+- He likes the route map (buses on their roads, current blue, the rest grey). He wants every stop's circle editable on
+  the trip map, but not by accident: tap the stop first (bold circle), then drag. A fixed-length scale bar whose label
+  changes.
+- **"Fucking don't wake me up early."** Woken about 4 km out, outside his circle (screenshot, 2026-11-24). Never ring on
+  an estimate outside his circle; v_est never above V_MAX. Treat early rings as seriously as missed ones.
 - He didn't like the made-up Pūkeko sound. He then gave his own recordings, and Pūkeko is back made from those
   (PR #56).
 - **pstack** (Lauren Tan's skills, `cursor/plugins`): he asked for it to be used in this project. It is enabled
@@ -113,6 +118,11 @@ new, or repeats something, add it here in the same PR.
 - **Pūkeko alarm, real this time.** The made-in-code one was "awful" and went (#53). He then sent his own
   recordings (a 20 s morning and three ~1.5 s screams) and asked for the morning looping with screams "happening
   stochastically" like a real pūkeko morning. Sounds he supplies beat synthesised ones; use them as given.
+
+## 2026-11-23 (walks)
+- **Walks must look and measure like Google's.** The map drew the walk as a straight line while its minutes followed
+  the footpaths: "make it match. Find a way. No nos." The straight line × 1.25 is the "last last last resort", not a
+  quiet default. BACKLOG F39 (was item 27). "No nos" means: don't come back with why it can't be done; find the way.
 
 ## 2026-11-23 (product review)
 - He asked for a product director's view and a backlog for later sessions. He rejected the first one (a ranked

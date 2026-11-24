@@ -57,6 +57,7 @@ object MapModel {
             pts?.let { LegPath(it, i == current) }
         }
 
+
     fun legPathsJson(l: Layers): String = collection(l.legPaths.map { feature(line(it.points), mapOf("current" to JsonPrimitive(it.current))) })
 
     /**
@@ -116,11 +117,15 @@ object MapModel {
         }
     }
 
-    fun zonesJson(l: Layers): String = collection(l.pins.filter { it.alarm }.map { p ->
+    /** [selectedLeg]: the circle being edited (tapped on its stop), drawn bold so it's clear which one moves. */
+    fun zonesJson(l: Layers, selectedLeg: Int? = null): String = collection(l.pins.filter { it.alarm }.map { p ->
         feature(buildJsonObject {
             put("type", "Polygon")
             put("coordinates", JsonArray(listOf(JsonArray(circle(p.pos, p.zoneM).map { buildJsonArray { add(JsonPrimitive(it.lng)); add(JsonPrimitive(it.lat)) } }))))
-        }, mapOf("yours" to JsonPrimitive(p.zoneIsYours), "current" to JsonPrimitive(p.current)))
+        }, mapOf(
+            "yours" to JsonPrimitive(p.zoneIsYours), "current" to JsonPrimitive(p.current),
+            "selected" to JsonPrimitive(p.legIndex == selectedLeg),
+        ))
     })
 
     /**

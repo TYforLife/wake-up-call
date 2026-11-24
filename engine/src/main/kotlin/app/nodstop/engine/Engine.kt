@@ -462,7 +462,10 @@ class Engine(val cfg: Config = Config()) {
         }
         val tripVMs = if (tripVUpdated) ft else s.tripVMs
         // Off a learned route it joins the max (can only ring earlier); on one, past rides know the slow end better.
-        val vEst = maxOf(floor, short ?: 0.0, learnedV ?: maxOf(peak ?: 0.0, tripV ?: 0.0))
+        // Never faster than a bus can go (owner, 2026-11-24: woken ~4 km out). A past ride with bad timing made the
+        // speed impossible and the time left nothing. Capping at V_MAX keeps §2's invariant: its precondition is
+        // that the bus never exceeds V_MAX, which the failsafe already assumes.
+        val vEst = minOf(cfg.vMax, maxOf(floor, short ?: 0.0, learnedV ?: maxOf(peak ?: 0.0, tripV ?: 0.0)))
         val etaS = dEff / vEst
         val recentV = avgSpeed(samples, ft, cfg.etaSpeedWinS, cfg.minSpanS)
         val displayEta = Eta.display(match?.typicalToEndS, pace, dEff, tripV ?: recentV, s.phase == Phase.WAITING && !s.boarded)
@@ -574,16 +577,14 @@ class Engine(val cfg: Config = Config()) {
         val currentReason = if (urgent) s.beforeUrgentReason else s.alarmReason
         val firstFix = s.lastFixMs == null
         if (short == null && current != null && current < alarm && !firstFix) { alarm = current; reason = currentReason ?: reason }
-        // Your own wake zone (DESIGN §2.6): it rings when the bus enters it. The estimate and the dead-man's switch
-        // aim at its edge (no extra lead: the circle is your margin). Recomputed at every fix (1-2 s), the estimate
-        // fires at most a fix early while GPS is fine; if fixes stop, they ring before the bus reaches the edge.
+        // Your own wake zone (DESIGN §2.6): it rings when a fix shows the bus in it (below), never from an estimate of
+        // when it will be (owner, 2026-11-24: "don't wake me up early"; an estimate rang ~4 km out). Only the dead-man's
+        // switch aims at its edge, at V_MAX: while fixes come it's pushed on; if they stop, it rings before the edge.
         val zone = leg.wakeRadiusM
         // From outside it only: waiting at a stop that's already inside your circle must not ring before the bus.
         if (zone != null && straight > zone) {
-            val edgeWake = ft + ((max(0.0, dEff - zone) / vEst) * 1000).roundToLong()
             val edgeFailsafe = failsafeAt(ft, max(0.0, straight - zone), 0.0)
-            val edge = min(edgeWake, edgeFailsafe)
-            if (edge < alarm) { alarm = edge; reason = if (edgeWake <= edgeFailsafe) AlarmReason.WAKE else AlarmReason.FAILSAFE }
+            if (edgeFailsafe < alarm) { alarm = edgeFailsafe; reason = AlarmReason.FAILSAFE }
         }
         // Inside it on the bus, ring now. "On the bus" = boarding detected, or bus speed right now (a trip started
         // on a crawling bus may never have detected boarding).

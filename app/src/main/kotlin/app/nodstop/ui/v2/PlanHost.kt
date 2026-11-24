@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.nodstop.App
 import app.nodstop.data.AddressSearch
+import app.nodstop.data.FootRouter
 import app.nodstop.data.Footpaths
 import app.nodstop.data.LegDraft
 import app.nodstop.data.MapsLink
@@ -153,19 +154,42 @@ fun PlanHost(
 
     val fromPos = from.pos ?: here
     val toPos = to?.let { it.pos ?: here }
-    // Walks along real footpaths at each end (BACKLOG 1), when OpenStreetMap answers; straight lines until then.
+    // Every walk along real footpaths (BACKLOG 1 and 27): at each end, and between buses for the rides shown. Until
+    // they arrive the rides are planned on estimates, then planned again.
+    fun stopsNear(i: TransitIndex, p: LatLng, r: Double) = i.near(p, r).sortedBy { it.second }.map { i.stops[it.first].pos }
     var walkFrom by remember { mutableStateOf<Planner.Walks?>(null) }
     var walkTo by remember { mutableStateOf<Planner.Walks?>(null) }
-    LaunchedEffect(fromPos) { walkFrom = null; walkFrom = fromPos?.let { Footpaths.walks(ctx, it) } }
-    LaunchedEffect(toPos) { walkTo = null; walkTo = toPos?.let { Footpaths.walks(ctx, it) } }
-    LaunchedEffect(fromPos, toPos, time, tt, ix, walkFrom, walkTo) {
+    // Stops you change buses at, with their walks (null: no footpaths could be had there).
+    var changeWalks by remember { mutableStateOf<Map<Int, Planner.Walks?>>(emptyMap()) }
+    LaunchedEffect(fromPos, ix) {
+        walkFrom = null
+        val i = ix ?: return@LaunchedEffect
+        walkFrom = fromPos?.let { Footpaths.walks(ctx, it, Planner.MAX_WALK_M, stopsNear(i, it, Planner.ACCESS_M)) }
+    }
+    LaunchedEffect(toPos, ix) {
+        walkTo = null
+        val i = ix ?: return@LaunchedEffect
+        walkTo = toPos?.let { Footpaths.walks(ctx, it, Planner.MAX_WALK_M, stopsNear(i, it, Planner.ACCESS_M)) }
+    }
+    LaunchedEffect(fromPos, toPos, time, tt, ix, walkFrom, walkTo, changeWalks) {
         val i = ix ?: return@LaunchedEffect
         val t = tt ?: return@LaunchedEffect
         if (fromPos == null || toPos == null) { rides = null; return@LaunchedEffect }
         val at = time.atS ?: LocalTime.now().toSecondOfDay()
+        val changes = changeWalks
         rides = withContext(Dispatchers.Default) {
-            if (time.arrive) Planner.arriveBy(i, t, fromPos, toPos, LocalDate.now(), at, walkFrom = walkFrom, walkTo = walkTo)
-            else Planner.plan(i, t, fromPos, toPos, LocalDate.now(), at, walkFrom = walkFrom, walkTo = walkTo)
+            if (time.arrive) Planner.arriveBy(i, t, fromPos, toPos, LocalDate.now(), at, walkFrom = walkFrom, walkTo = walkTo, changeWalks = changes::get)
+            else Planner.plan(i, t, fromPos, toPos, LocalDate.now(), at, walkFrom = walkFrom, walkTo = walkTo, changeWalks = changes::get)
+        }
+    }
+    // A change walk still estimated: fetch the footpaths there, and the rides are planned again with the real walk.
+    LaunchedEffect(rides) {
+        val i = ix ?: return@LaunchedEffect
+        val missing = rides.orEmpty().flatMap { Planner.estimatedChanges(it) }.distinct().filter { it !in changeWalks }
+        if (missing.isEmpty()) return@LaunchedEffect
+        changeWalks = changeWalks + missing.associateWith { s ->
+            val p = i.stops[s].pos
+            Footpaths.walks(ctx, p, Planner.CHANGE_WALK_M, stopsNear(i, p, Planner.CHANGE_M))
         }
     }
     // A new From, To or time clears the list until it's planned again (a footpath refinement just replaces it).
@@ -202,7 +226,10 @@ fun PlanHost(
             RideActions(back = { selected = null }, use = { use(sel, false) }, start = { use(sel, true) }),
             Modifier.statusBarsPadding().navigationBarsPadding(),
             map = if (fromPos != null && toPos != null) { m ->
-                val shape = remember(sel) { JourneyShape.of(sel, fromPos, toPos, { i.stops[it].pos }, { i.stops[it].name }) }
+                // A walk whose length came from the foot router: its way, from the router too.
+                var drawn by remember(sel) { mutableStateOf(sel) }
+                LaunchedEffect(sel) { drawn = withContext(Dispatchers.IO) { Planner.withWays(sel) { w -> footRoute(i, w, fromPos, toPos) } } }
+                val shape = remember(drawn) { JourneyShape.of(drawn, fromPos, toPos, { i.stops[it].pos }, { i.stops[it].name }) }
                 JourneyMap(shape, LocalN.current, m)
             } else null,
         )
@@ -254,6 +281,10 @@ fun PlanHost(
         onDismiss = { picking = false },
     )
 }
+
+/** The way of [w] by the foot router, from its start to its end. */
+private fun footRoute(i: TransitIndex, w: Planner.Leg.Walk, from: LatLng, to: LatLng): List<LatLng>? =
+    FootRouter.route(w.from?.let { i.stops[it].pos } ?: from, w.to?.let { i.stops[it].pos } ?: to)?.points
 
 /**
  * Home and work, first run (PLAN Run 13, T5): "Where's home?", "Where's work?", then the rides to work (leaving now)

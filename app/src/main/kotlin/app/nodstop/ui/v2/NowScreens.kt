@@ -256,8 +256,8 @@ fun CircleSheet(ui: CircleSheetUi, onChange: (Double?) -> Unit, onDone: () -> Un
             Text("Other size", style = NType.secondary, color = c.muted, modifier = Modifier.clickable { slider = true }.padding(vertical = 8.dp))
         }
         Hint(
-            "It rings when the bus enters your circle, and never later than 30 s before the stop. Or touch the circle's " +
-                "edge on the map and drag it.",
+            "It rings when the bus enters your circle, and never later than 30 s before the stop. Or drag the bold " +
+                "circle's edge on the map.",
             Modifier.padding(bottom = 8.dp),
         )
         PrimaryButton("Done", onDone)
