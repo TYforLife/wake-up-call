@@ -37,7 +37,7 @@ object SetupText {
         if (by[Readiness.ALARM_CHANNEL]?.ok == false) add(Readiness.ALARM_CHANNEL, "Alarm notifications", "Turned off for the alarm: turn it back on")
         val battery = by[Readiness.BATTERY]
         if (battery != null && (samsung || !battery.ok)) {
-            add(Readiness.BATTERY, "Keep running", if (samsung) "Battery Unrestricted, and in Never sleeping apps" else "So GPS isn't paused on the way")
+            add(Readiness.BATTERY, "Keep running", if (samsung) "Battery Unrestricted, and in Never sleeping apps" else "Battery → Unrestricted, so GPS isn't paused")
         }
         if (by[Readiness.VOLUME]?.ok == false) add(Readiness.VOLUME, "Alarm volume", "For the speaker, if it rings out loud")
         return out

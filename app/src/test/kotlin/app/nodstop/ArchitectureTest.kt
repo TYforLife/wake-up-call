@@ -114,6 +114,19 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `no permission Play would refuse (docs-play-declarations)`() {
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        val refused = listOf("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", "ACCESS_BACKGROUND_LOCATION").filter { "android.permission.$it\"" in manifest }
+        assertTrue(
+            refused.isEmpty(),
+            "$refused in the manifest. Play restricts these to core functions Nodstop doesn't have: setAlarmClock rings " +
+                "through Doze, and trips start in the foreground. Open App info → Battery instead (docs/play/declarations.md).",
+        )
+        val askers = kt(app).filter { f -> code(f).any { (_, l) -> "ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" in l } }.map(::rel)
+        assertTrue(askers.isEmpty(), "$askers ask for the battery exemption directly; open App info instead (docs/play/declarations.md).")
+    }
+
+    @Test
     fun `no comment justifies a workaround`() {
         val phrases = listOf(
             "workaround", "work around", "hack", "for now", "quick fix", "temporary fix", "band-aid", "bandaid",

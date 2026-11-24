@@ -129,8 +129,10 @@ object Readiness {
             ),
             Check(
                 "Battery: not optimised", pm.isIgnoringBatteryOptimizations(ctx.packageName),
-                "Stops Android from pausing GPS updates during a trip.",
-                Fix.Open(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg(ctx))),
+                "Stops Android from pausing GPS updates during a trip. In App info, tap Battery, then Unrestricted.",
+                // Play allows the direct exemption request only where Doze breaks the core function; setAlarmClock rings
+                // through Doze, so the app opens its own App info page instead (docs/play/declarations.md).
+                Fix.Open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg(ctx))),
             ),
             Check(
                 "Live trip progress (optional)",
