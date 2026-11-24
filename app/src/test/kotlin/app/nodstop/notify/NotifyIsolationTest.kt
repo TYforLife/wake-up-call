@@ -46,7 +46,8 @@ class NotifyIsolationTest {
         // ShareLine: one briefing line; TraceLogger: the trip log; DataExport: your backup file. All on a tap.
         // ShareIn: RECEIVES a place shared from Google Maps (PLAN Run 12); it must never send (checked below).
         // SpikeLog: Debug → Learn spike's recording, location hidden, on a tap (docs/LEARN.md L0); no message types (above).
-        val allowed = setOf("ShareLine.kt", "TraceLogger.kt", "DataExport.kt", "ShareIn.kt", "SpikeLog.kt")
+        // ShareArrival: one line about your trip, on a tap (BACKLOG F16); no message types (checked below).
+        val allowed = setOf("ShareLine.kt", "TraceLogger.kt", "DataExport.kt", "ShareIn.kt", "SpikeLog.kt", "ShareArrival.kt")
         val all = root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
         val users = all.filter { f -> code(f).any { (_, l) -> l.contains("ACTION_SEND") } }.map { it.name }.toSet()
         assertTrue("ShareLine.kt" in users, "share UI not found")
@@ -54,5 +55,8 @@ class NotifyIsolationTest {
         val shareIn = all.first { it.name == "ShareIn.kt" }
         val sends = code(shareIn).filter { (_, l) -> listOf("Intent(Intent.ACTION_SEND", "createChooser", "startActivity", "sendBroadcast").any { it in l } }
         assertTrue(sends.isEmpty(), "ShareIn.kt must only receive: $sends")
+        val arrival = all.first { it.name == "ShareArrival.kt" }
+        val messages = code(arrival).filter { (_, l) -> listOf("MessageStore", "CapturedMessage", "PanelLine", "app.nodstop.brief").any { it in l } }
+        assertTrue(messages.isEmpty(), "ShareArrival.kt shares your trip, never a message: $messages")
     }
 }
