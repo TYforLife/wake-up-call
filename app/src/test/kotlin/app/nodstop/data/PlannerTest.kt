@@ -241,4 +241,12 @@ class PlannerTest {
         assertEquals(to, last.points.last())
         assertEquals(bend, last.points[last.points.size - 2], "the way from the destination's search, turned round")
     }
+
+    @Test
+    fun `a route that doesn't know its bus - the trip map still finds the bus's road from the stops`() {
+        // From near Test Farm Stop D to Test Queen St: the 866, along its road (it bends west), not a straight line.
+        val road = Departures.likelyPath(ix, tt, LatLng(-36.7802, 174.7501), at("Test Queen St"), 400.0)!!
+        assertTrue(road.size > 2 && road.any { it.lng < 174.745 }, "the 866's road: $road")
+        assertEquals(null, Departures.likelyPath(ix, tt, LatLng(-36.70, 174.60), at("Test Queen St"), 400.0), "no bus from there")
+    }
 }

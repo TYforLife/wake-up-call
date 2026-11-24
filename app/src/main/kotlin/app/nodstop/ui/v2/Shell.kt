@@ -1,6 +1,7 @@
 package app.nodstop.ui.v2
 
 import app.nodstop.data.Departures
+import app.nodstop.data.Planner
 import app.nodstop.engine.CoordParser
 import app.nodstop.engine.LatLng
 import app.nodstop.data.TransitData
@@ -213,8 +214,14 @@ private fun NowRidingTab(t: TripService.TripUi) {
                 val d = drafts?.getOrNull(i)
                 val board = d?.boardCoords?.let { CoordParser.parse(it) }
                 val i2 = ix; val t2 = tt
-                if (d?.bus == null || board == null || i2 == null || t2 == null) null
-                else Departures.path(i2, t2, d.bus, board, t.legStops[i])
+                when {
+                    i2 == null || t2 == null -> null
+                    d?.bus != null && board != null -> Departures.path(i2, t2, d.bus, board, t.legStops[i])
+                    // A route that doesn't know its bus: the bus from near the stop before (or where you started).
+                    else -> (if (i == 0) start else t.legStops[i - 1])?.let { from ->
+                        Departures.likelyPath(i2, t2, from, t.legStops[i], if (i == 0) Planner.ACCESS_M else Planner.CHANGE_M + 150.0)
+                    }
+                }
             },
             learned = { i -> learned[Route.stopKey(t.legStops[i])]?.tracks?.firstOrNull()?.points?.map { it.pos } },
         )
