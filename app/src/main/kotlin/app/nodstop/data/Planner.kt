@@ -35,12 +35,17 @@ object Planner {
     const val WALK_COST = 0.5
 
     sealed interface Leg {
-        /** On foot: from a stop (null: from where you start) to a stop (null: to where you're going). */
-        data class Walk(val from: Int?, val to: Int?, val meters: Double, val seconds: Int) : Leg
+        /**
+         * On foot: from a stop (null: from where you start) to a stop (null: to where you're going). [path]: the way
+         * along footpaths when they're known (`WalkGraph`), for the map; else empty (a straight line).
+         */
+        data class Walk(val from: Int?, val to: Int?, val meters: Double, val seconds: Int, val path: List<LatLng> = emptyList()) : Leg
         /** [path]: every stop the bus calls at, from [board] to [alight] (for the map). */
         data class Bus(
             val route: String, val headsign: String, val board: Int, val alight: Int, val departS: Int, val arriveS: Int, val stops: Int,
             val path: List<Int> = emptyList(),
+            /** The bus's road from [board] to [alight] (the feed's shape), for the map; empty: stop to stop. */
+            val road: List<LatLng> = emptyList(),
         ) : Leg
     }
 
@@ -68,7 +73,23 @@ object Planner {
      * Walking metres from a place to a point along footpaths (`WalkGraph`), or null where they aren't known: then the
      * straight line × [DETOUR].
      */
-    fun interface Walks { fun to(p: LatLng): Double? }
+    fun interface Walks {
+        fun to(p: LatLng): Double?
+
+        /** The way from the place to [p] along footpaths, for the map; null where it isn't known. */
+        fun path(p: LatLng): List<LatLng>? = null
+    }
+
+    /** The first and last walks along their footpaths, for the map (the times already came from them). */
+    private fun withPaths(ix: TransitIndex, j: Journey, from: LatLng, to: LatLng, walkFrom: Walks?, walkTo: Walks?): Journey =
+        j.copy(legs = j.legs.map { l ->
+            when {
+                l !is Leg.Walk -> l
+                l.from == null && l.to != null -> walkFrom?.path(ix.stops[l.to].pos)?.let { l.copy(path = listOf(from) + it + ix.stops[l.to].pos) } ?: l
+                l.to == null && l.from != null -> walkTo?.path(ix.stops[l.from].pos)?.let { l.copy(path = listOf(ix.stops[l.from].pos) + it.asReversed() + to) } ?: l
+                else -> l
+            }
+        })
 
     /** The walks to each stop near [p] within [ACCESS_M] (straight line): along footpaths when [w] knows them. */
     private fun walksNear(ix: TransitIndex, p: LatLng, w: Walks?): List<Pair<Int, Double>> =
@@ -97,7 +118,7 @@ object Planner {
             // The next departure after the first one found here.
             t = js.minOf { it.leaveS } + 60
         }
-        return best(found.values).take(count)
+        return best(found.values).take(count).map { withPaths(ix, it, from, to, walkFrom, walkTo) }
     }
 
     /**
@@ -129,7 +150,7 @@ object Planner {
         val rides = best(found.values)
         // Not a ride an hour before one that still gets there in time.
         val latest = rides.maxOfOrNull { it.leaveS } ?: return rides
-        return rides.filter { it.leaveS >= latest - 45 * 60 }.takeLast(count)
+        return rides.filter { it.leaveS >= latest - 45 * 60 }.takeLast(count).map { withPaths(ix, it, from, to, walkFrom, walkTo) }
     }
 
     /** Leaving this much earlier still counts as "no earlier" when comparing rides (no 1-minute bus hops to leave later). */
@@ -296,6 +317,7 @@ object Planner {
                         p.route, p.headsign, p.stops[st.boardPos], cur,
                         day.time(st.pattern, st.run, st.boardPos), day.time(st.pattern, st.run, st.alightPos), st.alightPos - st.boardPos,
                         (st.boardPos..st.alightPos).map { p.stops[it] },
+                        tt.road(st.pattern, st.boardPos, st.alightPos).orEmpty(),
                     )
                     cur = p.stops[st.boardPos]
                     round -= 1

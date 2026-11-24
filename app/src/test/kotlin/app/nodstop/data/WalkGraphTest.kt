@@ -35,6 +35,10 @@ class WalkGraphTest {
         val toEast = w.to(at(305.0, 300.0))!!
         val straight = Geo.distanceM(at(0.0, 5.0), at(305.0, 300.0))
         assertTrue(toEast in 595.0..625.0, "round the corner: $toEast m (straight: ${straight.toInt()} m)")
+        // The way itself, for the map: up the first street to the corner, then along: not across.
+        val way = w.path(at(305.0, 300.0))!!
+        assertTrue(way.any { Geo.distanceM(it, corner) < 5.0 }, "through the corner")
+        assertTrue(Geo.distanceM(way.last(), east) < 30.0)
         // Halfway up the first street (between two OSM points): close to 150 m, not to the nearest end.
         assertEquals(150.0, w.to(at(150.0, 3.0))!!, 30.0)
     }

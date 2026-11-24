@@ -47,9 +47,14 @@ object Departures {
         return null
     }
 
-    /** Every stop the bus calls at from [board] to [alight], for the trip map; null if the timetable doesn't know it. */
+    /**
+     * The bus's way from [board] to [alight] for the trip map: its road shape when the feed has one, else stop to stop;
+     * null if the timetable doesn't know that ride.
+     */
     fun path(ix: TransitIndex, tt: Timetable, route: String, board: LatLng, alight: LatLng): List<LatLng>? =
-        leg(ix, tt, route, board, alight)?.let { (p, a, b) -> (a..b).map { ix.stops[p.stops[it]].pos } }
+        leg(ix, tt, route, board, alight)?.let { (p, a, b) ->
+            tt.road(tt.patterns.indexOf(p), a, b) ?: (a..b).map { ix.stops[p.stops[it]].pos }
+        }
 
     /**
      * The first timetabled ride of [route] from [board] at or after [fromS], and when it reaches [alight] (seconds after

@@ -523,7 +523,9 @@ doesn't flash another colour while it opens.
     - The stops still to come have their circles too, fainter (`MapModel.tripZones`). Stops behind you have none.
     - A scale bar, top left, like Google's (`Scale`: the longest round distance under 96 dp).
     - Every leg's way (owner, 2026-11-24): the one you're on in route blue, the others grey (`MapModel.legPaths`):
-      - the bus's stops from the timetable, when Plan a trip knows the bus (`Departures.path`);
+      - the bus's **road**, when Plan a trip knows the bus (`Departures.path`). That's the feed's `shapes.txt`:
+        `tools/gtfs_index.py` keeps each pattern's most common shape, simplified to 8 m, as an encoded polyline with
+        the point at each stop (`shapes.tsv`, `Timetable.road`). Without a shape it goes stop to stop;
       - else the newest learned ride to that stop;
       - else a straight line from the stop before.
 
@@ -593,8 +595,9 @@ doesn't flash another colour while it opens.
     - Arrive by: the rides that get there in time, leaving latest, none more than 45 minutes before the last.
       Going to work or home, the Arrive by you set is remembered for next time (Settings, on the phone); Leave now
       or Leave at forgets it. The owner never wants to type times.
-  - Tap a ride for its **map** (the buses in route blue through every stop, walks dotted, where you get on and off,
-    the end as the red pin) and its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
+  - Tap a ride for its **map**: the buses in route blue along their roads (`Leg.Bus.road`), and walks dotted along the
+    footpaths (`Leg.Walk.path`: the way `WalkGraph` found, not a straight line), where you get on and off, and
+    the end as the red pin. Then its timeline (leave, walk, bus with stops and times, change with the wait, arrive),
     then **Use this** or **Start now**. Using it makes a route whose stops are where you get off each bus, named "To <place>"
     ("To work" updates that route rather than adding another).
   - Pasting or sharing Google Maps directions fills From and To.

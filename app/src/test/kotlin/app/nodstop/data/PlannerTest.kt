@@ -10,7 +10,7 @@ import java.time.LocalDate
 class PlannerTest {
     private fun res(name: String) = javaClass.classLoader!!.getResource("gtfs/$name")!!.readText()
     private val ix = TransitIndex.parse(res("stops.tsv"), res("routes.tsv"))
-    private val tt = Timetable.parse(res("patterns.tsv"), res("profiles.tsv"), res("trips.tsv"), res("services.tsv"))
+    private val tt = Timetable.parse(res("patterns.tsv"), res("profiles.tsv"), res("trips.tsv"), res("services.tsv"), res("shapes.tsv"))
     private fun at(name: String) = ix.stops.first { it.name == name }.pos
     private fun name(i: Int) = ix.stops[i].name
     private fun hm(h: Int, m: Int) = h * 3600 + m * 60
@@ -151,5 +151,43 @@ class PlannerTest {
         assertEquals(600.0, rem(half, hm(7, 40))!!, 1.0, "the 7:30 run")
         assertEquals(null, rem(LatLng(-36.70, 174.60), hm(7, 10)), "not on the 866's line")
         assertEquals(null, rem(half, hm(12, 0)), "no run anywhere near now")
+    }
+
+    @Test
+    fun `the bus's road - decoded from the feed's shape, not stop to stop`() {
+        // Google's own example polyline.
+        assertEquals(
+            listOf(LatLng(38.5, -120.2), LatLng(40.7, -120.95), LatLng(43.252, -126.453)),
+            Timetable.decode("_p~iF~ps|U_ulLnnqC_mqNvxq`@"),
+        )
+        // The fixture 866 bends west between Test Farm Stop D and Test Queen St.
+        val road = Departures.path(ix, tt, "866", at("Test Farm Stop D"), at("Test Queen St"))!!
+        assertTrue(road.size > 2, "more than the two stops: $road")
+        assertTrue(road.any { it.lng < 174.745 }, "it follows the road west, not the straight line")
+        assertEquals(at("Test Farm Stop D").lat, road.first().lat, 1e-4)
+        assertEquals(at("Test Queen St").lat, road.last().lat, 1e-4)
+        // The planner's bus leg carries the same road, for the ride's map.
+        val bus = plan("Test Farm Stop D", "Test Queen St", wednesday, hm(6, 50)).first().buses.first()
+        assertEquals(road, bus.road)
+        // A pattern without a shape: stop to stop, as before.
+        assertTrue(Departures.path(ix, tt, "70", at("Test Harbour Station A"), at("Test Hill Ave"))!!.size == 2)
+    }
+
+    @Test
+    fun `the first and last walks carry their footpaths, from where you start and to where you're going`() {
+        val from = LatLng(-36.7790, 174.7490)
+        val to = LatLng(-36.8495, 174.7630)
+        val bend = LatLng(-36.7795, 174.7500)
+        val paths = object : Planner.Walks {
+            override fun to(p: LatLng) = 150.0
+            override fun path(p: LatLng) = listOf(bend, p)
+        }
+        val j = Planner.plan(ix, tt, from, to, wednesday, hm(6, 50), walkFrom = paths, walkTo = paths).first()
+        val first = j.legs.first() as Planner.Leg.Walk
+        val last = j.legs.last() as Planner.Leg.Walk
+        assertEquals(from, first.path.first())
+        assertEquals(bend, first.path[1])
+        assertEquals(to, last.path.last())
+        assertEquals(bend, last.path[last.path.size - 2], "the way from the destination's search, turned round")
     }
 }
