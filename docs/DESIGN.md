@@ -72,7 +72,8 @@ On every good GPS fix (time `ft`) for the leg you might sleep on, the engine sch
 
 While fixes keep arriving (every 1–3 s), `failsafeAt` keeps being pushed forward and never fires.
 Before the first fix of a trip, the phone's **last known position** (up to 3 min old) arms the
-failsafe from its own time, so a trip that never gets a fix is still covered. With no position at
+failsafe from its own time, so a trip that never gets a fix is still covered. The first fix replaces it
+with its own (an old position's failsafe is already due at Start; the property test covers ages up to 3 min). With no position at
 all, a **No GPS** alarm rings 3 min in: you're unprotected, stay awake.
 
 **While it rings, the alarm stays scheduled.** Each ring re-arms the one system alarm `RERING` (60 s)
@@ -81,6 +82,22 @@ trip cancels it. So if anything kills the ring before the ack (the process is ki
 service is stopped), the system rings again within a minute. After a cold start (no trip service),
 `RingService` keeps that re-ring itself; if the trip turns out to be over when "I'm awake" is held,
 the cold path cancels it.
+
+**The system alarm** (`SystemAlarm`, owner's 4th missed first-stop ring, 2026-11-23). Android fires an app's alarm
+no sooner than 5 s after it is set (`AlarmManagerService` `MIN_FUTURITY`), and each set deletes the pending one. So
+"ring now" rings 5 s later, and an alarm set again on every fix while it is due never rings: that was the missed
+first stop (a short hop with good GPS: due, then pushed 5 s out every 2 s until you'd long got off). So:
+- **A due ring stays where it is** until it rings, or you act (I'm awake, I'm off this bus, Stop). Due rings are the
+  stop's own timing, your circle, "you passed your stop" and urgent messages. Only alarms that ring because fixes
+  stopped (GPS lost, No GPS, the next leg's safety alarm) can still be pushed later by a fix: that fix is the news they
+  were waiting for (`Engine.hold`).
+- **An alarm due within 5 s stays** when the new one is due within them too: set again, it would ring 5 s from now,
+  later than either (rule 4: err early). A circle rings from the first fix inside it, so up to a fix and 5 s after the
+  bus enters it.
+- **The shell sets exactly what the engine asks**, except that it never replaces a pending alarm with a sooner time
+  Android would fire later (`SystemAlarm.update`): inside its last 5 s, a sooner time set again would ring later.
+- The engine tests ring the alarm this way too (`Harness`), so every scenario and property test checks it. With the
+  old behaviour and the faithful harness, 25 of them failed, the owner's morning among them (`SystemAlarmTest`).
 
 ### 2.1 Phases of a leg (no timers)
 
@@ -139,7 +156,7 @@ the cold path cancels it.
 | Roughly pasted stop | A pin past the real stop costs ~d/v seconds (e.g. 150 m at 40 km/h ≈ 14 s), and rides that never pass within 60 m of it aren't learned. Use "Use my location" at the stop. |
 
 There is a single ring path: `AlarmManager` → `AlarmReceiver` → `RingService` → `AlarmActivity`.
-"Ring now" means scheduling the alarm at `now`. The at-stop nudge is a single short vibration and a
+"Ring now" means scheduling the alarm at `now` (it rings 5 s later, see "The system alarm"). The at-stop nudge is a single short vibration and a
 notification, not the alarm.
 
 ### 2.3 Route learning
@@ -377,7 +394,7 @@ code (the owner's phone), which keeps MapLibre to about +14 MB.
 | Component | Job |
 |---|---|
 | `TripService` | Foreground service, type `location`. Started from the UI (foreground), so no background-location permission is needed. Gets the last known position, then fused location at HIGH_ACCURACY every 2 s; fix age measured on the monotonic clock. Feeds the engine, applies `alarmAtMs`, buzzes once at the stop, stores learned rides, and runs the live trip notification (§5 Notifications). A `Tick` every 5 s. Writes the trace. Saves the active trip (legs, leg, alarm reason, time left) on every change and every 15 s. |
-| `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. |
+| `AlarmScheduler` | Wraps `AlarmManager.setAlarmClock(AlarmClockInfo(t, showIntent), receiverPI)` with one fixed request code, so rescheduling replaces it. Cancels on null. `TripService` calls it only through `SystemAlarm.update` (§2, "The system alarm"). |
 | `AlarmReceiver` | Rings with no conditions. First it posts the ring notification itself: full screen, insistent, on the alarm channel, which vibrates by itself. Then it starts `RingService`, which takes over the same notification ID. If the service can't start, the alarm is still on screen and buzzing, and the receiver re-arms the alarm a minute ahead (PLAN Run 10, A1). Sends `Rang` to the engine if the process is alive. |
 | `RestartReceiver` | After an app update (`MY_PACKAGE_REPLACED`) or a phone restart (`BOOT_COMPLETED`) during a trip (PLAN Run 10, A1): sets the saved alarm again at once (`Restart.plan`), or now if it passed while the phone was off. It then resumes tracking the same stop (`ACTION_RESUME`, not "awake for it"). It also posts "Your trip is still on, tap to keep tracking" in case Android refuses to start location tracking from the background. A stale or finished trip is dropped. |
 | `RingService` | Foreground service (type `systemExempted` on Android 14+, allowed for apps holding `USE_EXACT_ALARM`; `mediaPlayback` before that or if refused). Posts the full-screen-intent notification on the alarm channel. The channel has no sound, but it vibrates by itself, and the notification is insistent (PLAN Run 10). The service plays the audio and its own vibration, plays the ring ladder, holds a partial wake lock. If the screen is off it also takes a 30 s screen-on wake lock, so the alarm screen is already up when you look; each ring is recorded (`RingDiag`: screen on/off, full-screen allowed, shown after how long, earbuds or vibration, the sound mode and Do Not Disturb at the start, whether it could buzz, when the speaker joined, how it was stopped, plus the alarm channel's state, "Display over other apps", quiet trip at the ring and a cold start) in the trip log (`ringd`; a ring that cold-started the app writes into the saved trip's log) and as the last-ring report that Settings → Report a missed alarm shares. |

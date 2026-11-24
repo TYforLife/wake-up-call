@@ -48,12 +48,12 @@ import app.nodstop.engine.Phase
 import app.nodstop.engine.Geo
 import app.nodstop.engine.TraceEvent
 import app.nodstop.engine.Status
+import app.nodstop.engine.SystemAlarm
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -82,7 +82,8 @@ class TripService : Service() {
     private var state = EngineState()
     private var trip: ActiveTrip? = null
     private var source: LocationSource? = null
-    private var lastScheduled: Long? = null
+    /** The system alarm as last set: what was asked for, and when Android fires it. */
+    private var pending: SystemAlarm.Pending? = null
     private var lastPersistMs = 0L
     private var lastNotifyMs = 0L
     private var lastReason: AlarmReason? = null
@@ -109,7 +110,7 @@ class TripService : Service() {
             input(Input.Tick(now))
             // Also every tick: the setting or its access may change mid-trip, and a screen broadcast can be missed.
             if (trip != null) DndController.update(this@TripService, tripRunning = true)
-            briefing?.onTick(now, lastScheduled)
+            briefing?.onTick(now, pending?.atMs)
             handler.postDelayed(this, TICK_MS)
         }
     }
@@ -119,7 +120,7 @@ class TripService : Service() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        lastScheduled = app.scheduler.scheduledAtMs
+        pending = app.scheduler.scheduledAtMs?.let { SystemAlarm.Pending(it, it) }
         // A wake circle changed on the map applies to this trip at once (PLAN U3).
         routesJob = routesScope.launch { app.routes.routes.collect { onRoutesChanged(it) } }
         // The timetable, for the bus's ETA on screen (`busEta`); a build without it keeps the engine's.
@@ -258,14 +259,10 @@ class TripService : Service() {
         app.traces.write(out.events)
         val now = out.events.first().t
 
-        // The ONE alarm: reschedule only when it changed by more than 1 s.
-        val at = out.alarmAtMs
-        val last = lastScheduled
-        if (at == null) {
-            if (last != null) { app.scheduler.cancel(); lastScheduled = null }
-        } else if (last == null || abs(at - last) > 1_000) {
-            app.scheduler.set(at); lastScheduled = at
-        }
+        // The ONE alarm, set the way the engine tests ring it (SystemAlarm, DESIGN §2 "The system alarm").
+        val next = SystemAlarm.update(pending, out.alarmAtMs, now)
+        if (next != pending) { if (next == null) app.scheduler.cancel() else app.scheduler.set(next.atMs) }
+        pending = next
 
         val legName = t.legs.getOrNull(t.legOffset + out.status.legIndex)?.name
         // Entering your circle: was boarding detected, and when is the alarm? (Explains a circle that didn't ring.)
@@ -372,6 +369,7 @@ class TripService : Service() {
 
     fun onRang() {
         val now = System.currentTimeMillis()
+        pending = null // it fired: nothing is pending until the engine sets the next one
         input(Input.Rang(now))
         app.traces.write(listOf(TraceEvent(now, "gps", msg = notes.gpsLine())))
         logRingStats(now)

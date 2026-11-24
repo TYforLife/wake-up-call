@@ -136,7 +136,7 @@ data class Status(
 )
 
 data class Output(
-    /** The ONE system alarm; null = cancel. The shell reschedules only if it changed by more than 1 s. */
+    /** The ONE system alarm; null = cancel. The shell sets it only through [SystemAlarm.update]. */
     val alarmAtMs: Long?,
     /** Edge-triggered while RINGING: maximum escalation and "You passed your stop". */
     val overshoot: Boolean,
