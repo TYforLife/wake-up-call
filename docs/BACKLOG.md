@@ -192,7 +192,8 @@ its own kind welcome joke (Product direction). Don't start until Tae says the MV
 - [ ] **F12. Samsung Modes and Routines** start the trip, if Samsung allows it.
 - [ ] **F18. Offline map** (low-medium).
 - [ ] **F21. Transfer guide** as text in the trip notification ("Walk to Stop C, 2 min · NX2 in 6 min"), not a
-  notification of its own. Maybe.
+  notification of its own. Maybe. Done so far: while you wait for a bus Plan a trip knows, the notification's
+  second line is its next ones, "NX2 due 7:43, then 7:51". Not yet: the walk to the stop.
 - [ ] **F31. Weather at your stop** on "You're awake", if a free source fits: Open-Meteo or MET Norway need no key.
   Only the stop's rough area (rounded to about 1 km) may be sent, like map tiles (DESIGN §5 privacy).
 

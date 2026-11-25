@@ -22,6 +22,7 @@ import app.nodstop.alarm.RingService
 import app.nodstop.alarm.vibrateAsAlarm
 import app.nodstop.isolated
 import app.nodstop.widget.TripWidget
+import app.nodstop.ui.v2.PlanText
 import app.nodstop.brief.BriefingCoordinator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
@@ -324,7 +325,9 @@ class TripService : Service() {
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now
-            getSystemService(NotificationManager::class.java).notify(Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine(), updated.currentLeg?.wakeRadiusM))
+            getSystemService(NotificationManager::class.java).notify(
+                Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine(), updated.currentLeg?.wakeRadiusM, nextBus(updated, out.status)),
+            )
             TripWidget.onTrip(this, ui)
         }
 
@@ -348,6 +351,21 @@ class TripService : Service() {
         val board = draft.boardCoords?.let { CoordParser.parse(it) } ?: return null
         val alight = CoordParser.parse(draft.coords) ?: return null
         return Departures.remainingS(ix, tt, bus, board, alight, here, java.time.LocalDate.now(), java.time.LocalTime.now().toSecondOfDay())
+    }
+
+    /**
+     * While you wait for a bus Plan a trip knows, its next timetabled departures from where you get on ("NX2 due 7:43,
+     * then 7:51", BACKLOG F21), for the notification. Display only. A bus a minute late is still the one you wait for.
+     */
+    private fun nextBus(t: ActiveTrip, s: Status): String? {
+        if (s.phase != Phase.WAITING) return null
+        val ix = index ?: return null
+        val tt = timetable ?: return null
+        val draft = t.routeId?.let { app.routes.get(it) }?.legs?.getOrNull(t.legOffset + s.legIndex) ?: return null
+        val bus = draft.bus ?: return null
+        val board = draft.boardCoords?.let { CoordParser.parse(it) } ?: return null
+        val nowS = java.time.LocalTime.now().toSecondOfDay()
+        return PlanText.nextBus(bus, Departures.next(ix, tt, board, bus, java.time.LocalDate.now(), nowS - 60))
     }
 
     /** One light buzz and a notification: the bus is at your stop. Not the alarm: no sound. */
