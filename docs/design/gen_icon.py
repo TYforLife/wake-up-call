@@ -1,12 +1,12 @@
 """
-Nodstop's icon: a map pin, asleep. Your stop, and you dozing until it.
+Sleepers' icon: a Z drawn as a ride. A dot where you got on, a Z for the sleep, and a ring at your stop (the circle
+that wakes you, as on the map).
 
-One geometry, every size: the launcher icon (adaptive: white background, black pin), the themed icon (Android 13+
-monochrome) and the small white icon for notifications and the Quick Settings tile all come from the shape built
-here, so they can't drift apart. The eye and lashes are cut out of the pin (exact outlines), because a notification
-icon is a single-colour silhouette.
+One geometry, every size: the launcher icon (adaptive: black background, white mark), the themed icon (Android 13+
+monochrome), the splash icon, and the small white icon for notifications, shortcuts and the Quick Settings tile all
+come from the shape built here, so they can't drift apart. The mark is strokes and one dot, so a vector drawable
+draws it exactly at every size.
 
-    pip install shapely
     python3 docs/design/gen_icon.py          # writes app/src/main/res/drawable/ic_*.xml and docs/design/icon/*.svg
 
 Canvas: the adaptive icon's 108 x 108 with the safe zone a circle of radius 33 at the centre.
@@ -14,71 +14,101 @@ Canvas: the adaptive icon's 108 x 108 with the safe zone a circle of radius 33 a
 import math
 import os
 
-from shapely.geometry import LineString, Point, Polygon
-from shapely.geometry.polygon import orient
-from shapely.ops import unary_union
-
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RES = os.path.join(ROOT, "app/src/main/res/drawable")
 OUT = os.path.join(ROOT, "docs/design/icon")
 
-# Launchers show the middle 72 of the 108 canvas: at full size the pin crowds that circle, so the launcher
-# glyph is drawn at 80 % about the centre (it fills about two thirds of the visible icon).
-LAUNCHER_SCALE = 0.8
-
 INK = "#FF111111"  # tokens.v2.json light fg
 PAPER = "#FFFFFFFF"  # light bg
 
-# ---- the shape (108 canvas) ----
-HEAD_C, HEAD_R, TIP = (54.0, 46.0), 25.0, (54.0, 87.0)
-EYE = ((43.0, 45.0), (54.0, 56.0), (65.0, 45.0))  # quadratic: the closed lid, curving down
-EYE_W, LASH_W = 4.6, 3.6
-LASHES = [((45.6, 50.6), (42.2, 55.4)), ((54.0, 53.6), (54.0, 59.6)), ((62.4, 50.6), (65.8, 55.4))]
+# ---- the mark (drawn on the 108 canvas, then placed) ----
+START = (36.0, 37.0)  # the dot: where you got on
+START_R = 6.5
+# The Z: from the dot along the top, down the diagonal, then along the bottom to the stop.
+Z = [(43.0, 37.0), (64.0, 37.0), (42.0, 70.0), (54.0, 70.0)]
+Z_W = 8.0
+CORNER = 5.0  # the Z's two bends are rounded, like a road
+STOP = (66.0, 70.0)  # the ring: your stop
+STOP_R, STOP_W = 8.5, 6.0
+
+# Launchers show the middle 72 of the 108 canvas through a mask (a circle or Samsung's squircle). At 82 % the mark's
+# farthest points sit about 29 from the centre, inside the safe circle of 33 with room to breathe.
+LAUNCHER_SCALE = 0.82
+# The mark's own box, so it can be centred on any canvas.
+BOX = (START[0] - START_R, START[1] - START_R, STOP[0] + STOP_R + STOP_W / 2, STOP[1] + STOP_R + STOP_W / 2)
 
 
-def quad(p0, p1, p2, n=40):
-    return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
-             (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]) for t in (i / n for i in range(n + 1))]
+class Place:
+    """Maps a point of the 108 drawing to a canvas: scale [k] about the mark's centre, onto ([cx], [cy])."""
+
+    def __init__(self, k, cx, cy):
+        self.k, self.cx, self.cy = k, cx, cy
+        self.mx, self.my = (BOX[0] + BOX[2]) / 2, (BOX[1] + BOX[3]) / 2
+
+    def p(self, x, y):
+        return (self.cx + (x - self.mx) * self.k, self.cy + (y - self.my) * self.k)
+
+    def n(self, v):
+        return v * self.k
 
 
-def pin():
-    head = Point(HEAD_C).buffer(HEAD_R, quad_segs=32)
-    # The two tangents from the tip to the head make the point.
-    dx, dy = HEAD_C[0] - TIP[0], HEAD_C[1] - TIP[1]
-    d = math.hypot(dx, dy)
-    a = math.atan2(dy, dx)
-    off = math.asin(HEAD_R / d)
-    t = math.sqrt(d * d - HEAD_R * HEAD_R)
-    left = (TIP[0] + t * math.cos(a - off), TIP[1] + t * math.sin(a - off))
-    right = (TIP[0] + t * math.cos(a + off), TIP[1] + t * math.sin(a + off))
-    body = unary_union([head, Polygon([TIP, left, HEAD_C, right])])
-    return body.buffer(-1.6, quad_segs=16).buffer(1.6, quad_segs=16)  # a softened tip
+def f(v):
+    return f"{v:.2f}".rstrip("0").rstrip(".")
 
 
-def eye():
-    lid = LineString(quad(*EYE)).buffer(EYE_W / 2, quad_segs=12)
-    lashes = [LineString(l).buffer(LASH_W / 2, quad_segs=12) for l in LASHES]
-    return unary_union([lid, *lashes])
+def z_path(pl):
+    """The Z with its two bends rounded by [CORNER] (quadratic curves at the corners)."""
+    a, b, c, d = Z
+    dx, dy = c[0] - b[0], c[1] - b[1]
+    length = math.hypot(dx, dy)
+    ux, uy = dx / length, dy / length
+    pts = [
+        ("M", [a]),
+        ("L", [(b[0] - CORNER, b[1])]),
+        ("Q", [b, (b[0] + ux * CORNER, b[1] + uy * CORNER)]),
+        ("L", [(c[0] - ux * CORNER, c[1] - uy * CORNER)]),
+        ("Q", [c, (c[0] + CORNER, c[1])]),
+        ("L", [d]),
+    ]
+    out = []
+    for cmd, ps in pts:
+        out.append(cmd + " ".join(",".join(f(v) for v in pl.p(*q)) for q in ps))
+    return " ".join(out)
 
 
-def glyph():
-    return orient(pin().difference(eye()), sign=1.0)
+def circle_path(pl, centre, r):
+    x, y = pl.p(*centre)
+    r = pl.n(r)
+    return f"M{f(x - r)},{f(y)} a{f(r)},{f(r)} 0 1,0 {f(2 * r)},0 a{f(r)},{f(r)} 0 1,0 {f(-2 * r)},0 Z"
+
+
+def parts(pl):
+    """(kind, path, stroke width): 'fill' for the dot, 'stroke' for the Z and the ring."""
+    return [
+        ("fill", circle_path(pl, START, START_R), 0.0),
+        ("stroke", z_path(pl), pl.n(Z_W)),
+        ("stroke", circle_path(pl, STOP, STOP_R), pl.n(STOP_W)),
+    ]
 
 
 # ---- output ----
 
-def path_data(geom, scale=1.0, dx=0.0, dy=0.0):
-    def ring(coords):
-        pts = [(x * scale + dx, y * scale + dy) for x, y in coords[:-1]]
-        return "M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in pts) + " Z"
-    polys = getattr(geom, "geoms", [geom])
-    return " ".join(ring(list(p.exterior.coords)) + "".join(" " + ring(list(i.coords)) for i in p.interiors) for p in polys)
-
-
-def vector(size_dp, viewport, paths):
-    body = "".join(
-        f'\n    <path android:fillColor="{c}" android:fillType="evenOdd"\n        android:pathData="{d}" />' for c, d in paths
-    )
+def vector(size_dp, viewport, colour, pl, backdrop=None):
+    body = ""
+    if backdrop:
+        c, r = backdrop
+        h = viewport / 2
+        disc = f"M{f(h - r)},{f(h)} a{f(r)},{f(r)} 0 1,0 {f(2 * r)},0 a{f(r)},{f(r)} 0 1,0 {f(-2 * r)},0 Z"
+        body += f'\n    <path android:fillColor="{c}"\n        android:pathData="{disc}" />'
+    for kind, d, w in parts(pl):
+        if kind == "fill":
+            body += f'\n    <path android:fillColor="{colour}"\n        android:pathData="{d}" />'
+        else:
+            body += (
+                f'\n    <path android:strokeColor="{colour}" android:strokeWidth="{f(w)}"\n'
+                '        android:strokeLineCap="round" android:strokeLineJoin="round"\n'
+                f'        android:pathData="{d}" />'
+            )
     return (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         "<!-- Generated by docs/design/gen_icon.py: edit that, not this. -->\n"
@@ -88,30 +118,43 @@ def vector(size_dp, viewport, paths):
     )
 
 
-def svg(viewport, bg, fg, d):
-    rect = f'<rect width="{viewport}" height="{viewport}" fill="{bg}"/>' if bg else ""
-    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {viewport} {viewport}">{rect}<path fill="{fg}" fill-rule="evenodd" d="{d}"/></svg>\n'
+def svg(viewport, bg, fg, pl, round_bg=False):
+    if bg and round_bg:
+        back = f'<circle cx="{viewport / 2}" cy="{viewport / 2}" r="{viewport / 2}" fill="{bg}"/>'
+    elif bg:
+        back = f'<rect width="{viewport}" height="{viewport}" fill="{bg}"/>'
+    else:
+        back = ""
+    shapes = "".join(
+        f'<path d="{d}" fill="{fg}"/>' if kind == "fill" else
+        f'<path d="{d}" fill="none" stroke="{fg}" stroke-width="{f(w)}" stroke-linecap="round" stroke-linejoin="round"/>'
+        for kind, d, w in parts(pl)
+    )
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {viewport} {viewport}">{back}{shapes}</svg>\n'
 
 
 def main():
-    g = glyph()
-    big = path_data(g, LAUNCHER_SCALE, 54 * (1 - LAUNCHER_SCALE), 54 * (1 - LAUNCHER_SCALE))
-    # The small icon: the same glyph filling a 24 dp box (status bar, tile), 1.5 dp clear at top and bottom.
-    minx, miny, maxx, maxy = g.bounds
-    s = 21.0 / (maxy - miny)
-    small = path_data(g, s, 12 - (minx + maxx) / 2 * s, 12 - (miny + maxy) / 2 * s)
-
+    launcher = Place(LAUNCHER_SCALE, 54, 54)
+    # The small icon: the same mark filling a 24 dp box (status bar, tile), 1 dp clear at top and bottom.
+    small = Place(22.0 / (BOX[3] - BOX[1]), 12, 12)
+    # The splash icon: Android 12+ masks it to a circle of two thirds of its 108 canvas (radius 36), so the black disc
+    # is drawn at that radius with the mark at launcher size inside. On the black night splash only the mark shows.
     files = {
-        os.path.join(RES, "ic_launcher_foreground.xml"): vector(108, 108, [(INK, big)]),
-        os.path.join(RES, "ic_launcher_monochrome.xml"): vector(108, 108, [(PAPER, big)]),
-        os.path.join(RES, "ic_tile.xml"): vector(24, 24, [(PAPER, small)]),
+        os.path.join(RES, "ic_launcher_background.xml"):
+            '<?xml version="1.0" encoding="utf-8"?>\n<!-- Generated by docs/design/gen_icon.py: edit that, not this. -->\n'
+            '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
+            f'    <solid android:color="{INK}" />\n</shape>\n',
+        os.path.join(RES, "ic_launcher_foreground.xml"): vector(108, 108, PAPER, launcher),
+        os.path.join(RES, "ic_launcher_monochrome.xml"): vector(108, 108, PAPER, launcher),
+        os.path.join(RES, "ic_splash.xml"): vector(108, 108, PAPER, launcher, backdrop=(INK, 36)),
+        os.path.join(RES, "ic_tile.xml"): vector(24, 24, PAPER, small),
     }
     os.makedirs(OUT, exist_ok=True)
-    files[os.path.join(OUT, "icon.svg")] = svg(108, "#FFFFFF", "#111111", big)  # the full adaptive canvas
+    files[os.path.join(OUT, "icon.svg")] = svg(108, "#111111", "#FFFFFF", launcher)  # the full adaptive canvas
     files[os.path.join(OUT, "small.svg")] = svg(24, None, "#111111", small)
     for p, text in files.items():
-        with open(p, "w") as f:
-            f.write(text)
+        with open(p, "w") as fh:
+            fh.write(text)
         print("wrote", os.path.relpath(p, ROOT))
 
 

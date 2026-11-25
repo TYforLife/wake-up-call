@@ -4,8 +4,10 @@
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/window</item>
-        <!-- Android 12+ launch screen: the icon on the app's own background (white, or black at night). -->
+        <!-- Android 12+ launch screen: the mark on its black disc on the app's own background (white), or the white
+             mark alone on black at night (docs/design/gen_icon.py). -->
         <item name="android:windowSplashScreenBackground">@color/window</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
