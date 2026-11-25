@@ -82,8 +82,9 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
   - [x] Words say train or ferry, not bus, wherever the ride knows its mode ("I'm off this train", "Then ferry 2 to
         Devonport"); bus when it doesn't (`ModeWordsTest`).
   - [x] Stations and wharves in search: a train or ferry icon and "Train station" / "Ferry wharf" (`modeAt`).
-  - Next: the icons on the map, and a stop set by hand at a station counted as a train (today a hand-set stop is a
-    bus leg; only Plan a trip marks trains).
+  - [x] A stop set by hand at a station (the stop editor, within 40 m of one) is a train leg, a wharf a ferry leg
+        (`TransitIndex.modeNear`).
+  - Next: the train and ferry icons on the map.
 
 ### F3. [ ] Buzz on the watch: Coros first, Galaxy Watch too
 "and for Coros as well. I use coros. somewhat high prio." The ring buzzes the wrist.

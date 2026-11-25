@@ -27,6 +27,12 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>, private v
     /** A train station or a ferry wharf: a stop only trains (or only ferries) call at; any stop a bus calls at is a bus stop. */
     fun modeAt(stop: Int): Mode = stopModes[stop]?.singleOrNull() ?: Mode.BUS
 
+    /**
+     * A stop set by hand (BACKLOG F29): a train when the nearest stop within [STOP_M] is a train station (a ferry for
+     * a wharf), so its failsafe assumes a train's speed; a bus otherwise.
+     */
+    fun modeNear(p: LatLng): Mode = near(p, STOP_M).minByOrNull { it.second }?.let { modeAt(it.first) } ?: Mode.BUS
+
     /** A stop found by a search: its index, and how far it is from you if known. */
     data class Hit(val index: Int, val stop: Stop, val distanceM: Double?)
 
@@ -173,6 +179,9 @@ class TransitIndex(val stops: List<Stop>, val patterns: List<Pattern>, private v
     }
 
     companion object {
+        /** A stop set by hand is "at" a stop of the feed within this. */
+        const val STOP_M = 40.0
+
         /** Grid cell for finding stops near a point, in degrees (about 330 m north to south). */
         private const val CELL = 0.003
         /** What changing to another bus costs, in stops ridden. */

@@ -249,7 +249,10 @@ fun StopHost(routeId: String, leg: Int, fresh: Boolean, back: () -> Unit) {
                 val now = app.routes.get(routeId) ?: return@save back()
                 val legs = now.legs.toMutableList()
                 if (leg in legs.indices) {
-                    legs[leg] = legs[leg].copy(name = name.trim(), coords = StopText.saved(draft0.coords, centre), alarmEnabled = alarm, wakeRadiusM = custom)
+                    val d = legs[leg]
+                    // A stop set by hand at a station is a train leg (BACKLOG F29); Plan a trip's legs know their own.
+                    val mode = if (d.bus == null) index?.modeNear(centre) ?: d.mode else d.mode
+                    legs[leg] = d.copy(name = name.trim(), coords = StopText.saved(draft0.coords, centre), alarmEnabled = alarm, wakeRadiusM = custom, mode = mode)
                     app.routes.upsert(now.copy(legs = legs))
                 }
                 back()

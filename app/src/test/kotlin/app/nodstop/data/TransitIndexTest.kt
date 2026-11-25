@@ -41,6 +41,15 @@ class TransitIndexTest {
     }
 
     @Test
+    fun `a stop set by hand at a station is a train, next to a bus stop a bus (F29)`() {
+        val withModes = TransitIndex.parse(res("stops.tsv"), res("routes.tsv"), res("modes.tsv"))
+        val station = withModes.stops[0].pos
+        assertEquals(app.nodstop.engine.Mode.TRAIN, withModes.modeNear(LatLng(station.lat + 0.0001, station.lng)), "~11 m away")
+        assertEquals(app.nodstop.engine.Mode.BUS, withModes.modeNear(withModes.stops[3].pos), "a bus stop")
+        assertEquals(app.nodstop.engine.Mode.BUS, withModes.modeNear(LatLng(-36.0, 175.0)), "nowhere near a stop")
+    }
+
+    @Test
     fun `search by number - exact first, then starting with it`() {
         assertEquals(listOf("1002"), ix.search("1002").map { it.stop.code })
         assertEquals(listOf("2001", "2002"), ix.search("200").map { it.stop.code })
