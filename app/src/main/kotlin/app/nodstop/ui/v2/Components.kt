@@ -34,6 +34,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import app.nodstop.R
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -41,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -428,6 +431,22 @@ fun LiveDot(modifier: Modifier = Modifier, size: Dp = 12.dp) {
 }
 
 /** A row of actions laid out at the end of a title bar. */
+/**
+ * The mark and the name, where the app introduces itself (the first run). The mark is the notification icon's
+ * drawable (docs/design/gen_icon.py) on an ink disc, as on the launcher; the disc follows the theme, so at night it's
+ * white with a black mark.
+ */
+@Composable
+fun BrandRow(modifier: Modifier = Modifier) {
+    val c = LocalN.current
+    Row(modifier.heightIn(min = Tokens.TAP.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(c.fg), contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.ic_tile), contentDescription = null, tint = c.bg, modifier = Modifier.size(23.dp))
+        }
+        Text(Brand.NAME, style = NType.rowBig.copy(fontWeight = FontWeight.Bold), color = c.fg, modifier = Modifier.padding(start = 10.dp))
+    }
+}
+
 @Composable
 fun TitleBar(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Row(modifier.fillMaxWidth().heightIn(min = Tokens.TAP.dp), verticalAlignment = Alignment.CenterVertically, content = content)

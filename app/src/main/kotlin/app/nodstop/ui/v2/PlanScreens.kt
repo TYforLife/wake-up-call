@@ -269,7 +269,11 @@ private fun Step(s: StepUi, last: Boolean) {
 
 // ---- Where's home? Where's work? (PLAN Run 13, T5) ----
 
-data class PlacePickUi(val title: String, val lead: String, val query: String, val suggestions: List<PlaceUi>, val hereLabel: String, val note: String? = null)
+/** [brand]: the first screen of the first run, which introduces the app (its mark and name) in place of Back. */
+data class PlacePickUi(
+    val title: String, val lead: String, val query: String, val suggestions: List<PlaceUi>, val hereLabel: String,
+    val note: String? = null, val brand: Boolean = false,
+)
 
 class PlacePickActions(
     val back: () -> Unit = {},
@@ -284,7 +288,7 @@ fun PlacePickScreen(ui: PlacePickUi, a: PlacePickActions, modifier: Modifier = M
     val c = LocalN.current
     Column(modifier.fillMaxSize().padding(horizontal = 24.dp).padding(top = 12.dp, bottom = 24.dp)) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            TitleBar { IconCircle(NIcons.Back, "Back", a.back) }
+            if (ui.brand) BrandRow() else TitleBar { IconCircle(NIcons.Back, "Back", a.back) }
             ScreenTitle(ui.title)
             Lead(ui.lead)
             Box(
