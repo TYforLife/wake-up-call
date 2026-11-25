@@ -13,5 +13,6 @@
   },
   "enabledPlugins": {
     "pstack@cursor-plugins": true
-  }
+  },
+  "autoCompactWindow": 300000
 }
