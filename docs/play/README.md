@@ -25,7 +25,7 @@ Do them in this order. Each one is a few minutes except step 1, where Google can
 1. **Make a Play developer account.** On the phone, open <https://play.google.com/console/signup>, choose
    **Yourself** (a personal account), pay the one-off US$25, and verify your identity: a photo of your ID, your phone
    number, and possibly the **Play Console app** (from Play) to confirm your device. Wait for the "verified" email.
-2. **Confirm the name and the ID.** Today they are **Nodstop** and **`app.nodstop`**. The ID can never change after
+2. **Confirm the ID.** The name is **Sleepers** (you chose it, 2026-11-25); the ID is still **`app.nodstop`**. The ID can never change after
    step 6. Tell a session "name and ID confirmed", or give new ones (see the end of this page).
 3. **Let GitHub make the upload key** (no laptop, and nobody ever sees the key):
    1. GitHub → your photo → **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
@@ -93,6 +93,11 @@ Request upload key reset**, with the new certificate.
 ## Name and ID (DESIGN §9)
 
 The application ID is permanent once step 6 is done, and the name shows on Play. Before step 6, check that nobody on
-Play already uses "Nodstop", and that you're happy with `app.nodstop`: it reads like the domain nodstop.app, which you
-don't need to own. Changing either is a one-line change in `app/build.gradle.kts` (`applicationId`) and
+Play already uses "Sleepers", and that you're happy with `app.nodstop` (or say `app.sleepers`): the ID reads like a
+domain you don't need to own. People only see it in the Play link. Changing either is a one-line change in `app/build.gradle.kts` (`applicationId`) and
 `app/src/main/res/values/strings.xml` (`app_name`). CI reads the ID from the build file.
+
+## Store pictures
+
+`icon-512.png` (the app icon, 512 x 512) and `feature-graphic.png` (1024 x 500) are made from the app's icon by
+`node docs/design/store.js`. Upload them under **Grow users → Store presence → Main store listing → Graphics**.
