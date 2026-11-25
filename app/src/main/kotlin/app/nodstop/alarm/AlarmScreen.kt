@@ -7,7 +7,7 @@ import android.os.PowerManager
 
 /**
  * Whether a ring opens the full alarm screen (owner, 2026-11-24): only when you're not using the phone (screen off
- * or locked), or when Nodstop is already in front. While you're using another app you're awake, so it doesn't
+ * or locked), or when Sleepers is already in front. While you're using another app you're awake, so it doesn't
  * take over your screen: the alarm notification shows as a banner with "I'm awake", and the ring buzzes (and
  * sounds in your earbuds) as always.
  */

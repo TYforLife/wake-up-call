@@ -11,7 +11,7 @@ object MapPalette {
         PATH, RAIL, BOUNDARY, LABEL, LABEL_PLACE, LABEL_WATER, LABEL_HALO,
     }
 
-    /** One colour scheme: the base map, then Nodstop's own marks drawn in Google's style. */
+    /** One colour scheme: the base map, then Sleepers' own marks drawn in Google's style. */
     data class Colors(
         val base: Map<Role, Long>,
         /** Your stop: Google's red pin, and its dark centre. */

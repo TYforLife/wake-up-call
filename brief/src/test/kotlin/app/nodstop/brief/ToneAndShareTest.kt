@@ -65,7 +65,7 @@ class ToneAndShareTest {
         val lines = PanelLines.combine(Digests.build(SampleChats.messages, 3), emptyMap())
         val flat = lines.first { it.title == "Flat group" }
         val text = ShareText.of(flat.copy(text = "Saturday 7pm   is decided.\n Jess brings cake."))
-        assertEquals("Saturday 7pm is decided. Jess brings cake.\n— recapped while I napped · Nodstop", text)
+        assertEquals("Saturday 7pm is decided. Jess brings cake.\n— recapped while I napped · Sleepers", text)
         for (other in lines.filter { it !== flat }) assertFalse(text.contains(other.text))
     }
 

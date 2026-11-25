@@ -5,7 +5,7 @@ package app.nodstop.brief
  * the briefing goes with it, and nothing is ever sent automatically.
  */
 object ShareText {
-    const val TAGLINE = "recapped while I napped · Nodstop"
+    const val TAGLINE = "recapped while I napped · Sleepers"
 
     fun of(line: PanelLine): String = "${line.text.replace(Regex("\\s+"), " ").trim()}\n— $TAGLINE"
 }

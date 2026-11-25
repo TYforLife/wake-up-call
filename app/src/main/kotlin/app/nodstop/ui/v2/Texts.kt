@@ -5,6 +5,11 @@ import app.nodstop.engine.Phase
 import app.nodstop.trip.TripService
 import kotlin.math.roundToInt
 
+/** The app's name, as people see it (owner, 2026-11-25). The launcher label (`app_name`) matches it (`ArchitectureTest`). */
+object Brand {
+    const val NAME = "Sleepers"
+}
+
 /**
  * The words on the v2 screens (PLAN Run 8), from plain data. Pure: no Android, no clock (times come in, and
  * [hm] formats a time of day the caller supplies), so every state is unit-tested.
@@ -358,7 +363,7 @@ object WidgetText {
      * or empty; [nowS] the time now in the same seconds. A route that can't start says why and opens the app.
      */
     fun idle(route: RouteOption?, bus: String?, departuresS: List<Int>, nowS: Int): WidgetUi {
-        if (route == null) return WidgetUi("Nodstop", "Set up home and work", WidgetUi.Action("Set up", WidgetUi.Kind.OPEN))
+        if (route == null) return WidgetUi(Brand.NAME, "Set up home and work", WidgetUi.Action("Set up", WidgetUi.Kind.OPEN))
         route.problem?.let { return WidgetUi(route.title, it, WidgetUi.Action("Fix", WidgetUi.Kind.OPEN)) }
         val title = bus?.let { PlanText.nextBuses(it, departuresS, nowS) }?.let { "${route.title} · $it" } ?: route.title
         return WidgetUi(title, route.subtitle, WidgetUi.Action("Start", WidgetUi.Kind.START, route.id))
@@ -415,7 +420,7 @@ object SleepText {
 object ShareArrivalText {
     /**
      * Share my arrival (BACKLOG F16): one line of text, never a position or a link, and only when you tap Share.
-     * "On the 866, at Symonds St about 8:22 · Nodstop", the time being the sheet's own ("stop ~8:22"). [bus]: the
+     * "On the 866, at Symonds St about 8:22 · Sleepers", the time being the sheet's own ("stop ~8:22"). [bus]: the
      * route Plan a trip knows for this leg, if any; a train or ferry says so. Without a time: "On the 866 to Symonds St".
      */
     fun of(t: TripService.TripUi, bus: String?, clock: (Long) -> String, nowMs: Long): String {
@@ -433,6 +438,6 @@ object ShareArrivalText {
             at != null -> "On $on, at $stop about $at"
             else -> "On $on to $stop"
         }
-        return "$line · Nodstop"
+        return "$line · ${Brand.NAME}"
     }
 }

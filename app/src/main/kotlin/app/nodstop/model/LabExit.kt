@@ -20,7 +20,7 @@ object LabExit {
         val used = if (pssKb > 0) " It was using about ${pssKb / 1024} MB." else ""
         return when {
             reason == LOW_MEMORY || reason == EXCESSIVE_RESOURCE_USAGE || (reason == SIGNALED && status == 9) -> Verdict(
-                "Android closed Nodstop to free memory.$used",
+                "Android closed Sleepers to free memory.$used",
                 "This model doesn't fit in this phone's free memory. Close other apps and try again, or import a " +
                     "smaller model (Gemma 3 1B). Until a run finishes here, trips show the plain digest, never the model.",
                 memory = true,
@@ -31,9 +31,9 @@ object LabExit {
                 else "This model doesn't run on this phone's processor. Try a smaller model (Gemma 3 1B).",
                 memory = false,
             )
-            reason == CRASH -> Verdict("Nodstop crashed${description?.let { ": $it" } ?: ""}.", "Send the trip log from Debug so it can be fixed.", false)
-            reason == ANR -> Verdict("Nodstop stopped responding while the model loaded.", "Try again with nothing else open.", false)
-            else -> Verdict("Nodstop was closed while the model loaded (reason $reason).", "Try again; if it happens again, try a smaller model.", false)
+            reason == CRASH -> Verdict("Sleepers crashed${description?.let { ": $it" } ?: ""}.", "Send the trip log from Debug so it can be fixed.", false)
+            reason == ANR -> Verdict("Sleepers stopped responding while the model loaded.", "Try again with nothing else open.", false)
+            else -> Verdict("Sleepers was closed while the model loaded (reason $reason).", "Try again; if it happens again, try a smaller model.", false)
         }
     }
 }

@@ -19,7 +19,7 @@ internal object Http {
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 30_000
-            setRequestProperty("User-Agent", "Nodstop")
+            setRequestProperty("User-Agent", "Sleepers")
             if (body != null) {
                 requestMethod = "POST"
                 doOutput = true
@@ -33,7 +33,7 @@ internal object Http {
             c.disconnect()
         }
     } catch (e: IOException) {
-        Log.w("Nodstop", "no answer from ${url.substringAfter("://").substringBefore('/')}", e)
+        Log.w("Sleepers", "no answer from ${url.substringAfter("://").substringBefore('/')}", e)
         null
     }
 }
