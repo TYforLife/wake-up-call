@@ -150,6 +150,19 @@ object PlanText {
     fun nextBuses(bus: String, departuresS: List<Int>, nowS: Int): String? =
         departuresS.filter { it >= nowS }.take(2).takeIf { it.isNotEmpty() }?.let { n -> "$bus ${n.joinToString(", ") { clock(it) }}" }
 
+    /**
+     * While you wait for [route] (BACKLOG F21, F22), from its [departuresS] since you started waiting
+     * ([waitingSinceS]) and the time now ([nowS]), seconds after midnight: "Missed the 8:04? Next NX2 8:12" when one
+     * was due while you were already there and left over 3 min ago (a question: it may just be late); else its next
+     * ones, a minute late still counting ("NX2 due 7:43, then 7:51"). Null when none are due.
+     */
+    fun waitLine(route: String, departuresS: List<Int>, waitingSinceS: Int, nowS: Int): String? {
+        val upcoming = departuresS.filter { it >= nowS - 60 }
+        val missed = departuresS.lastOrNull { it >= waitingSinceS + 60 && it <= nowS - 180 }
+        if (missed != null && upcoming.isNotEmpty()) return "Missed the ${clock(missed)}? Next $route ${clock(upcoming.first())}"
+        return nextBus(route, upcoming)
+    }
+
     /** The trip sheet while you wait (BACKLOG): "871 due 7:43, then 7:51"; null when none are due. */
     fun nextBus(route: String, departures: List<Int>): String? = when (departures.size) {
         0 -> null

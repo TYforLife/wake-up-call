@@ -112,8 +112,10 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
   at 8:04", tap for the map.
 - Built so far: after "You passed your stop", "You're awake" says "Get off at the next stop · You passed Symonds
   St" and offers **Get back to Symonds St**, which opens Plan a trip from where you are (one way to plan). Plan a
-  trip also says "Walk instead · 9 min · 750 m" when it's a walk away, along the footpaths. Next: the missed
-  connection.
+  trip also says "Walk instead · 9 min · 750 m" when it's a walk away, along the footpaths. Missed a connection,
+  first step: waiting for a bus Plan a trip knows, once one was due while you were there and left over 3 min ago,
+  the sheet and notification say "Missed the 8:04? Next NX2 8:12" (`PlanText.waitLine`). Next: "or the 82 at 8:05"
+  from the planner, and "you're on a different bus".
 - **Done when:**
   - [ ] Detection is pure and tested: on time; the bus left without you; you're on a different bus; no timetable.
   - [ ] Re-planning uses the existing planner (`Planner`), one way to plan.
