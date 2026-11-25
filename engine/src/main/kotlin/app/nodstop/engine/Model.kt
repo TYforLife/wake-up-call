@@ -41,6 +41,11 @@ data class Leg(
     val wakeRadiusM: Double? = null,
     /** What you ride to this stop (BACKLOG F29): its top speed bounds the failsafe (DESIGN §2). */
     val mode: Mode = Mode.BUS,
+    /**
+     * The bus's own way to this stop, from where you get on (its road or stops, from the timetable; BACKLOG F9), for
+     * placing a trip started mid-ride. Empty when not known. Never used for the alarm's timing.
+     */
+    val line: List<LatLng> = emptyList(),
 ) {
     /** The stop the engine aims for: always your pin. */
     val stop: LatLng get() = dest

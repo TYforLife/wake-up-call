@@ -22,6 +22,30 @@ class StartAnywhereTest {
         assertEquals(0, LegPicker.pick(legs, Plane.toLatLng(9_000.0, 9_000.0)), "nowhere near: the first leg (rings early, never late)")
     }
 
+    /** Leg 2's bus goes the long way round: east, then south, then back west to B (BACKLOG F9). */
+    private val busLine = listOf(Plane.toLatLng(0.0, 0.0), Plane.toLatLng(4_000.0, -500.0), Plane.toLatLng(4_000.0, -7_500.0), Plane.toLatLng(0.0, -8_000.0))
+
+    @Test fun `on a bus's own line - that leg, even far from the straight line between the stops (F9)`() {
+        val withLine = listOf(legs[0], legs[1].copy(line = busLine), legs[2])
+        // 4 km east of the A-B line: the straight-line rule can't see it; the bus line can.
+        assertEquals(1, LegPicker.pick(withLine, Plane.toLatLng(4_050.0, -4_000.0)), "on leg 2's bus, halfway")
+        assertEquals(0, LegPicker.pick(legs, Plane.toLatLng(4_050.0, -4_000.0)), "without the line: the first leg, as before")
+        assertEquals(1, LegPicker.pick(withLine, Plane.toLatLng(2_000.0, -7_800.0)), "on leg 2's bus, nearly at B")
+    }
+
+    @Test fun `on a bus's line that still passes an earlier stop - that earlier leg, never skipping it (F9)`() {
+        // Leg 3's bus goes past A again before C: on it before A, A is still ahead.
+        val loop = listOf(Plane.toLatLng(0.0, 3_000.0), Plane.toLatLng(0.0, 100.0), Plane.toLatLng(1_500.0, -9_000.0))
+        val withLine = listOf(legs[0], legs[1], legs[2].copy(line = loop))
+        assertEquals(0, LegPicker.pick(withLine, Plane.toLatLng(30.0, 2_000.0)), "A is still ahead on that bus")
+    }
+
+    @Test fun `off every bus line - the old rules decide (F9)`() {
+        val withLine = listOf(legs[0], legs[1].copy(line = busLine), legs[2])
+        assertEquals(2, LegPicker.pick(withLine, Plane.toLatLng(800.0, -8_600.0)), "between B and C: leg 3")
+        assertEquals(1, LegPicker.pick(withLine, Plane.toLatLng(100.0, -100.0)), "at A: transferring to leg 2")
+    }
+
     @Test fun `leg picker prefers a learned route`() {
         val track = Track((0..20).map { i -> Plane.toLatLng(3_000.0, -i * 400.0).let { TrackPoint(it.lat, it.lng, 8_000.0 - i * 400.0, 600.0 - i * 30.0) } })
         val learnedLegs = listOf(legs[0], legs[1].copy(learned = Learned(b, listOf(track), 1)), legs[2])

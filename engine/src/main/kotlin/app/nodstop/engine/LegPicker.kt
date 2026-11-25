@@ -9,6 +9,9 @@ import kotlin.math.sqrt
  * 1. a learned route you're on (not at its very end): that leg, unless that way still passes an earlier leg's stop
  *    (a ride learned from before that stop): then the earliest such leg;
  * 2. at a stop (within 300 m): the leg after it, since you're at a transfer;
+ * 2b. on a leg's bus line (BACKLOG F9: Plan a trip knows the bus's way from where you get on to the stop), within
+ *    150 m and past its start: the earliest such leg, unless the rest of that line still passes an earlier leg's
+ *    stop: then the earliest such leg;
  * 3. between two consecutive stops (beside the line from one to the next, not before the first): the
  *    leg ending at the second;
  * 4. otherwise the first leg.
@@ -28,6 +31,13 @@ object LegPicker {
         for (i in legs.indices) {
             if (Geo.distanceM(pos, legs[i].stop) <= cfg.pickAtStopM) return minOf(i + 1, legs.size - 1)
         }
+        // 2b. On a bus's own line: you're on that bus. The earliest such leg, so no stop still ahead is skipped.
+        for (i in legs.indices) {
+            val at = onLine(legs[i].line, pos, cfg.pickOnBusLineM) ?: continue
+            val rest = legs[i].line.drop(at)
+            val ahead = (0 until i).firstOrNull { j -> rest.any { Geo.distanceM(it, legs[j].stop) <= cfg.pickAtStopM } }
+            return ahead ?: i
+        }
         // 3. Beside the line between two consecutive stops.
         var best = 0
         var bestDist = Double.MAX_VALUE
@@ -36,6 +46,21 @@ object LegPicker {
             if (t > 0.05 && t <= 1.0 && d <= max(cfg.pickNearLineM, 0.25 * Geo.distanceM(legs[k - 1].stop, legs[k].stop)) && d < bestDist) {
                 best = k; bestDist = d
             }
+        }
+        return best
+    }
+
+    /**
+     * Where [pos] is on [line] (within [nearM] of a segment, past its first point): the index of the segment's far
+     * end, or null when off the line or before its start.
+     */
+    private fun onLine(line: List<LatLng>, pos: LatLng, nearM: Double): Int? {
+        var best: Int? = null
+        var bestD = Double.MAX_VALUE
+        for (k in 1 until line.size) {
+            val (t, d) = project(pos, line[k - 1], line[k])
+            val past = k > 1 || t > 0.0
+            if (past && t <= 1.0 && d <= nearM && d < bestD) { best = k; bestD = d }
         }
         return best
     }

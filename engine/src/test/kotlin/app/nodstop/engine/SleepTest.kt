@@ -2,6 +2,7 @@ package app.nodstop.engine
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** BACKLOG F30: sleep is time on a trip with the screen off, and time using the phone never counts. */
@@ -76,5 +77,15 @@ class SleepTest {
     fun `screen lines survive a location-hidden export`() {
         val lines = listOf(start(0), scr(0, false), line(30 * min, "stop"))
         assertEquals(30 * min, Sleep.ride(Trace.anonymize(lines, 0.01, 0.01).asSequence())?.sleptMs)
+    }
+
+    @Test
+    fun `a location-hidden export moves a leg's bus line too (F9)`() {
+        val real = LatLng(-36.8, 174.7)
+        val leg = Leg("Harbour St", real, line = listOf(real, LatLng(-36.81, 174.71)))
+        val out = Trace.anonymize(listOf(Trace.encode(TraceEvent(0, "start", legs = listOf(leg)))), 0.01, 0.02)
+        val moved = out.map(Trace::decode).first { it.k == "start" }.legs!!.single().line
+        assertEquals(listOf(LatLng(-36.79, 174.72), LatLng(-36.8, 174.73)).map { it.lat }, moved.map { Math.round(it.lat * 100) / 100.0 })
+        assertTrue(moved.none { it == real }, "no real position left")
     }
 }

@@ -146,8 +146,9 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
 - **Done when:**
   - [ ] **Mid-ride:** on a route that knows its buses, a start on a moving bus uses that bus's stop sequence to
         place you ("On the 866, 4 stops to Symonds St"), on top of the GPS pick. Shown so far: the sheet reads "On
-        the 866 · 4 stops to / Symonds St" from where you are on the bus's line (`Departures.stopsLeft`); the leg pick
-        doesn't use it yet. Engine tests: start between each
+        the 866 · 4 stops to / Symonds St" from where you are on the bus's line (`Departures.stopsLeft`). The leg
+        pick at Start uses the bus's own line too (`LegPicker` 2b, `StartAnywhereTest`), never skipping a stop still
+        ahead on it. Engine tests: start between each
         pair of stops; on the wrong bus. Never skips a stop still ahead (`SkipPropertyTest`).
   - [ ] **By itself (opt-in):** once Nodstop knows you're on a bus on a known route at a usual time, it starts the
         trip and buzzes once: "To work is on". It uses activity recognition, not always-on GPS, so it waits on

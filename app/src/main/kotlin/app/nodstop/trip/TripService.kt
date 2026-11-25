@@ -172,7 +172,7 @@ class TripService : Service() {
         when (intent?.action) {
             ACTION_START_ROUTE -> {
                 val route = intent.getStringExtra(EXTRA_ROUTE_ID)?.let { app.routes.get(it) }
-                val legs = route?.toLegs { app.learned.get(it) }
+                val legs = route?.toLegs { app.learned.get(it) }?.let { withBusLines(route, it) }
                 if (route == null || legs == null) { if (trip == null) shutdown(); return START_NOT_STICKY }
                 // "Start from leg…" picks the leg; plain Start lets the engine pick it from where you are.
                 val from = intent.getIntExtra(EXTRA_FROM_LEG, -1).takeIf { it in legs.indices }
@@ -220,6 +220,22 @@ class TripService : Service() {
             else -> if (trip == null) shutdown()
         }
         return START_NOT_STICKY
+    }
+
+    /**
+     * Each leg Plan a trip knows the bus of gets that bus's way from where you get on (BACKLOG F9), so a trip started
+     * mid-ride knows which bus you're on. Only when the timetable is already loaded: Start never waits for it, and a
+     * leg without a line is placed as before.
+     */
+    private fun withBusLines(route: Route, legs: List<Leg>): List<Leg> {
+        val (ix, tt) = TransitData.loaded() ?: return legs
+        return legs.mapIndexed { i, leg ->
+            val d = route.legs.getOrNull(i)
+            val bus = d?.bus
+            val board = d?.boardCoords?.let { CoordParser.parse(it) }
+            if (bus == null || board == null) leg
+            else Departures.path(ix, tt, bus, board, leg.stop)?.let { leg.copy(line = it) } ?: leg
+        }
     }
 
     /** The phone's last known position (up to 3 min old) arms the failsafe before the first fresh fix. */
