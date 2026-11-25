@@ -178,7 +178,6 @@ its own kind welcome joke (Product direction). Don't start until Tae says the MV
   key). Notifications only; never changes an alarm.
 - [ ] **F17. Battery saver.** Slower GPS far from your stop, back to 1–2 s near it. A slower rate may only make the
   failsafe fire earlier; the property tests run with it. Battery per trip measured on the A17.
-- [ ] **F27. Departures board** for any stop, like AT's: the next buses, timetable times (live with F13).
 - [ ] **F26. More saved places** (gym, a friend's), "if clean": only if it reuses Home and work's code as one list
   of places, not a second mechanism.
 - [ ] **F4. Stop the alarm from the earbuds.** "would like to have. actually pretty nice." A press or squeeze on
@@ -220,6 +219,9 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F27. Departures board (2026-11-24).** Routes → Departures: search any stop by name or number, then every
+  route and direction leaving it in the next hour, "866 · Britomart / 3 min · 7:51 · 8:02", from the timetable,
+  refreshed each minute (live times with F13). `Departures.board`, `BoardText`.
 - [x] **F8. Suggest the right ride from use (2026-11-24).** Now preselects the route you start most at this time
   (as before) and each route's line leads with its bus's next two: "866 7:43, 7:51 · Smales Farm, then Symonds St",
   redrawn each minute, from the same once-a-day departures the widget uses (`TransitData.todayDepartures`).

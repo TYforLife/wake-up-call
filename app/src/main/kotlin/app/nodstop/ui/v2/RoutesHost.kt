@@ -50,7 +50,7 @@ fun RoutesTab(go: (Screen) -> Unit) {
     val learned by app.learned.all.collectAsState()
     RoutesList(
         routes.map { r -> RouteText.row(r) { learned[Route.stopKey(it)] } },
-        RoutesActions(open = { go(Screen.Route(it)) }, add = { newRoute(go) }, find = { go(Screen.Plan()) }, homeWork = { go(Screen.HomeWork) }),
+        RoutesActions(open = { go(Screen.Route(it)) }, add = { newRoute(go) }, find = { go(Screen.Plan()) }, homeWork = { go(Screen.HomeWork) }, board = { go(Screen.Board) }),
         Modifier.statusBarsPadding(),
     )
 }

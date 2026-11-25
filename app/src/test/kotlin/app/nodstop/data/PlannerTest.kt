@@ -206,6 +206,19 @@ class PlannerTest {
     }
 
     @Test
+    fun `a stop's departures board - each route and direction, soonest first, within the hour (F27)`() {
+        val farm = ix.stops.indexOfFirst { it.name == "Test Farm Stop D" }
+        val board = Departures.board(ix, tt, farm, wednesday, hm(6, 50))
+        val bus = board.first { it.route == "866" }
+        assertEquals(listOf(hm(7, 0), hm(7, 30)), bus.times.take(2))
+        assertEquals(board.sortedBy { it.times.first() }, board, "soonest first")
+        assertTrue(board.all { r -> r.times.all { it in hm(6, 50)..hm(7, 50) } }, "within the hour")
+        assertTrue(Departures.board(ix, tt, farm, wednesday, hm(23, 0)).isEmpty(), "nothing late at night")
+        val harbour = ix.stops.indexOfFirst { it.name == "Test Harbour Station A" }
+        assertTrue(Departures.board(ix, tt, harbour, wednesday, hm(6, 50)).none { it.route == "866" }, "the 866 ends there: nobody boards")
+    }
+
+    @Test
     fun `stops left on the bus - from where you are on its line (F9)`() {
         val farm = at("Test Farm Stop D"); val queen = at("Test Queen St"); val harbour = at("Test Harbour Station A")
         fun left(here: LatLng) = Departures.stopsLeft(ix, tt, "866", farm, harbour, here)

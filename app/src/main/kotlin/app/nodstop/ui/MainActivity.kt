@@ -62,6 +62,8 @@ sealed interface Screen {
     data object Contacts : Screen
     /** Settings → Alarm sound (BACKLOG 3). */
     data object Sounds : Screen
+    /** Routes → Departures: any stop's next buses (BACKLOG F27). */
+    data object Board : Screen
     /** Settings → Where Nodstop works. */
     data object Coverage : Screen
     data object Debug : Screen
@@ -197,6 +199,7 @@ private fun AppRoot(
         Screen.Contacts -> NodstopV2Theme { SubScreen { ContactsHost(resumeTick, back) } }
         Screen.Sounds -> NodstopV2Theme { SubScreen { SoundsHost(back) } }
         Screen.Coverage -> NodstopV2Theme { SubScreen { CoverageHost(back) } }
+        Screen.Board -> NodstopV2Theme { SubScreen { app.nodstop.ui.v2.BoardHost(back) } }
         else -> NodstopV2Theme {
             androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {
                 when (s) {

@@ -30,6 +30,31 @@ object Departures {
         return out.distinct().sorted().take(count)
     }
 
+    /** One line of a stop's departures board (BACKLOG F27): a route and where it's going, and its next times. */
+    data class BoardRow(val route: String, val headsign: String, val times: List<Int>)
+
+    /**
+     * The departures board for stop [stop] (an index into [ix]): every route and direction that leaves from it in the
+     * [windowS] after [fromS] (seconds after midnight of [date]), soonest first, up to [perRow] times each. Not from a
+     * pattern's last stop: nobody boards there. Timetable times (live ones come with BACKLOG F13).
+     */
+    fun board(ix: TransitIndex, tt: Timetable, stop: Int, date: LocalDate, fromS: Int, windowS: Int = 3_600, perRow: Int = 3): List<BoardRow> {
+        val today = tt.services.map { it.runsOn(date) }
+        val yesterday = tt.services.map { it.runsOn(date.minusDays(1)) }
+        val rows = HashMap<Pair<String, String>, MutableList<Int>>()
+        for (p in tt.patterns) {
+            for (pos in 0 until p.stops.size - 1) {
+                if (p.stops[pos] != stop) continue
+                for (trip in p.trips) for (sh in listOfNotNull(0.takeIf { today[trip.service] }, (-86_400).takeIf { yesterday[trip.service] })) {
+                    val at = tt.at(trip, pos) + sh
+                    if (at in fromS..(fromS + windowS)) rows.getOrPut(p.route to p.headsign) { ArrayList() } += at
+                }
+            }
+        }
+        return rows.map { (k, v) -> BoardRow(k.first, k.second, v.distinct().sorted().take(perRow)) }
+            .sortedWith(compareBy({ it.times.first() }, { it.route }))
+    }
+
     private fun stopsAt(ix: TransitIndex, p: LatLng) = ix.near(p, 30.0).map { it.first }.toSet()
 
     /** The first pattern of [route] that calls at [board] and later at [alight], with those positions in it. */
