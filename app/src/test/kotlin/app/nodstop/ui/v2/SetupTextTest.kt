@@ -58,4 +58,13 @@ class SetupTextTest {
         assertEquals("12 s", SetupText.seconds(12.4))
         assertEquals("6,888 stops", SetupText.stops(6_888))
     }
+
+    @Test
+    fun `first run - home and work first, then the permissions (F34)`() {
+        assertEquals(FirstRun.Step.HOME_WORK, FirstRun.atLaunch(anyRouteReady = false, setupSeen = false, needsAttention = true))
+        assertEquals(FirstRun.Step.SETUP, FirstRun.afterHomeWork(setupSeen = false, needsAttention = true))
+        assertEquals(FirstRun.Step.NONE, FirstRun.afterHomeWork(setupSeen = false, needsAttention = false), "nothing to set up")
+        assertEquals(FirstRun.Step.SETUP, FirstRun.atLaunch(anyRouteReady = true, setupSeen = false, needsAttention = true), "routes but no permissions")
+        assertEquals(FirstRun.Step.NONE, FirstRun.atLaunch(anyRouteReady = true, setupSeen = true, needsAttention = true), "seen once: Now's red row")
+    }
 }

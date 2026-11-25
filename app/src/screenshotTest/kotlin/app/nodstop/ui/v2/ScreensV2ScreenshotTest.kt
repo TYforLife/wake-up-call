@@ -278,5 +278,33 @@ class ScreensV2ScreenshotTest {
             PlacePickActions(),
         )
     }
-}
 
+    /** First run, step 2 (BACKLOG F34): work, the same screen as home. */
+    @Test fun work() = shot("work") {
+        PlacePickScreen(
+            PlacePickUi(
+                "Where's work?", "Then the same for work.", "Exam",
+                listOf(PlaceUi("Example Tower", "Example St, Auckland Central", null, PlaceUi.Kind.ADDRESS)),
+                "I'm at work now",
+            ),
+            PlacePickActions(),
+        )
+    }
+
+    /** First run, step 3 (BACKLOG F34): one tap on the ride you take uses it. */
+    @Test fun first_ride() = shot("first-ride") {
+        PlanTripScreen(
+            PlanUi(
+                "To work", "Home", "Work", time = "Arrive by 8:30",
+                rides = listOf(
+                    RideUi("7:38 → 8:20", "42 min", listOf("866", "70"), "Walk 4 min · Central Station at 7:42"),
+                    RideUi("7:52 → 8:31", "39 min", listOf("82"), "Walk 6 min · Park Rd at 7:58"),
+                ),
+                note = "Tap the ride you usually take.",
+                canSwap = false,
+                canSkip = true,
+            ),
+            PlanActions(),
+        )
+    }
+}
