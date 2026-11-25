@@ -174,9 +174,9 @@ object Notifications {
     }
 
     /** The glanceable trip notification (mockup `lock`): "<stop> in 6 min", the alarm time, an accent bar. */
-    fun trip(ctx: Context, ui: TripService.TripUi, quiet: String? = null, radiusM: Double? = null, nextBus: String? = null): Notification {
+    fun trip(ctx: Context, ui: TripService.TripUi, quiet: String? = null, radiusM: Double? = null): Notification {
         val s = ui.status
-        val note = TripNoteText.of(ui, ::hm, quiet, nextBus = nextBus)
+        val note = TripNoteText.of(ui, ::hm, quiet)
         val d = s.distanceM
         val progress = note.progress
         val b = Notification.Builder(ctx, CH_TRIP)

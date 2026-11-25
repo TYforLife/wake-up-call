@@ -486,6 +486,10 @@ The words come from pure, tested functions in `ui/v2/Texts.kt`, so the notificat
   GPS lost: "Harbour St · GPS lost" / "Alarm at 7:44 at the latest". A quiet trip adds "Quiet trip: 6 held". On
   Android 16 it's a Live Update: promoted to the lock screen and status bar chip with the distance
   (`POST_PROMOTED_NOTIFICATIONS`; Settings shows an Allow row only while it's off).
+- **Waiting for a bus Plan a trip knows** (first stop or a change): the second line is its next departures from
+  where you get on, "NX2 due 7:43, then 7:51", or "Missed the 8:04? Next NX2 8:12" once one was due while you were
+  there and left over 3 min ago (a question: it may be late). `TripService` works it out once a minute
+  (`PlanText.waitLine`); the sheet shows the same line (BACKLOG F21, F22). Display only.
 - **At your stop**: the one-buzz nudge, "You're at Harbour St", "Get off now".
 - **Wake-up alarm**: full-screen intent, colourised (accent; red when you passed your stop), insistent, on a
   channel that vibrates by itself, with an **I'm awake** action. Posted by `AlarmReceiver` first. Its two lines are the ring screen's (`RingText`): "Wake up" / "Harbour St is close".

@@ -80,6 +80,11 @@ class TripService : Service() {
         val legRadii: List<Double?> = emptyList(),
         /** What each leg is ridden on (BACKLOG F29), for the words: "I'm off this train". */
         val legModes: List<Mode> = emptyList(),
+        /**
+         * While you wait for a bus Plan a trip knows: "NX2 due 7:43, then 7:51", or "Missed the 8:04? Next NX2 8:12"
+         * (BACKLOG F21, F22). One line for the sheet and the notification alike; null otherwise.
+         */
+        val waitLine: String? = null,
     ) {
         val legName: String? get() = legNames.getOrNull(legIndex)
 
@@ -321,12 +326,13 @@ class TripService : Service() {
         val ui = TripUi(
             updated.routeName, updated.legs.map { it.name }, updated.legs.map { it.stop }, updated.legIndex, shown, updated.simulated,
             updated.startedMs, updated.legs.map { it.wakeRadiusM }, updated.legs.map { it.mode },
+            waitLine(updated, out.status, now),
         )
         _status.value = ui
         if (changed || now - lastNotifyMs >= 2_000) {
             lastNotifyMs = now
             getSystemService(NotificationManager::class.java).notify(
-                Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine(), updated.currentLeg?.wakeRadiusM, nextBus(updated, out.status)),
+                Notifications.ID_TRIP, Notifications.trip(this, ui, quietLine(), updated.currentLeg?.wakeRadiusM),
             )
             TripWidget.onTrip(this, ui)
         }
@@ -353,19 +359,32 @@ class TripService : Service() {
         return Departures.remainingS(ix, tt, bus, board, alight, here, java.time.LocalDate.now(), java.time.LocalTime.now().toSecondOfDay())
     }
 
+    /** When you started waiting for this leg's bus, and the wait line worked out for that leg and minute. */
+    private var waitingSince: Pair<Int, Long>? = null
+    private var waitCache: Pair<String, String?>? = null
+
     /**
-     * While you wait for a bus Plan a trip knows, its next timetabled departures from where you get on ("NX2 due 7:43,
-     * then 7:51", BACKLOG F21), for the notification. Display only. A bus a minute late is still the one you wait for.
+     * While you wait for a bus Plan a trip knows: its timetabled departures from where you get on since you started
+     * waiting, as `PlanText.waitLine` words (BACKLOG F21, F22). Worked out once a minute. Display only.
      */
-    private fun nextBus(t: ActiveTrip, s: Status): String? {
-        if (s.phase != Phase.WAITING) return null
-        val ix = index ?: return null
-        val tt = timetable ?: return null
-        val draft = t.routeId?.let { app.routes.get(it) }?.legs?.getOrNull(t.legOffset + s.legIndex) ?: return null
-        val bus = draft.bus ?: return null
-        val board = draft.boardCoords?.let { CoordParser.parse(it) } ?: return null
-        val nowS = java.time.LocalTime.now().toSecondOfDay()
-        return PlanText.nextBus(bus, Departures.next(ix, tt, board, bus, java.time.LocalDate.now(), nowS - 60))
+    private fun waitLine(t: ActiveTrip, s: Status, nowMs: Long): String? {
+        if (s.phase != Phase.WAITING) { waitingSince = null; return null }
+        val leg = t.legOffset + s.legIndex
+        val since = waitingSince?.takeIf { it.first == leg }?.second ?: nowMs.also { waitingSince = leg to it }
+        val clock = java.time.LocalTime.now().toSecondOfDay()
+        val key = "$leg|${clock / 60}"
+        waitCache?.takeIf { it.first == key }?.let { return it.second }
+        val line = run {
+            val ix = index ?: return@run null
+            val tt = timetable ?: return@run null
+            val draft = t.routeId?.let { app.routes.get(it) }?.legs?.getOrNull(leg) ?: return@run null
+            val bus = draft.bus ?: return@run null
+            val board = draft.boardCoords?.let { CoordParser.parse(it) } ?: return@run null
+            val sinceS = clock - ((nowMs - since) / 1000).toInt()
+            PlanText.waitLine(bus, Departures.next(ix, tt, board, bus, java.time.LocalDate.now(), sinceS - 60, count = 12), sinceS, clock)
+        }
+        waitCache = key to line
+        return line
     }
 
     /** One light buzz and a notification: the bus is at your stop. Not the alarm: no sound. */

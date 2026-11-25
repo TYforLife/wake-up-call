@@ -50,7 +50,7 @@ object TripSheetText {
      * the sheet reads "On the 866 · 4 stops to" / "Symonds St".
      */
     fun of(
-        t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis(), nextBus: String? = null,
+        t: TripService.TripUi, clock: (Long) -> String, nowMs: Long = System.currentTimeMillis(), nextBus: String? = t.waitLine,
         bus: String? = null, stopsLeft: Int? = null,
     ): TripSheetUi {
         val s = t.status
@@ -230,7 +230,7 @@ object TripNoteText {
      */
     fun of(
         t: TripService.TripUi, clock: (Long) -> String, quiet: String? = null, nowMs: Long = System.currentTimeMillis(),
-        nextBus: String? = null,
+        nextBus: String? = t.waitLine,
     ): TripNoteUi {
         val s = t.status
         val aimAt = TripSheetText.aimMs(t, nowMs)?.let(clock)

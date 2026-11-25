@@ -104,4 +104,15 @@ class PlanTextTest {
         assertEquals("866 7:43, 7:51 · Smales Farm, then Symonds St", RouteText.withNextBuses("Smales Farm, then Symonds St", "866 7:43, 7:51"))
         assertEquals("Smales Farm, then Symonds St", RouteText.withNextBuses("Smales Farm, then Symonds St", null))
     }
+
+    @Test
+    fun `waiting for a bus - its next ones, or "missed?" once one left while you waited (F22)`() {
+        fun s(h: Int, m: Int) = h * 3600 + m * 60
+        val deps = listOf(s(7, 56), s(8, 4), s(8, 12), s(8, 20))
+        assertEquals("NX2 due 8:04, then 8:12", PlanText.waitLine("NX2", deps, s(8, 0), s(8, 2)), "on time: the next ones")
+        assertEquals("NX2 due 8:04, then 8:12", PlanText.waitLine("NX2", deps, s(8, 0), s(8, 5)), "a minute late is still it")
+        assertEquals("Missed the 8:04? Next NX2 8:12", PlanText.waitLine("NX2", deps, s(8, 0), s(8, 7) + 30))
+        assertEquals("NX2 due 8:12, then 8:20", PlanText.waitLine("NX2", deps, s(8, 5), s(8, 9)), "it left before you got there: not missed")
+        assertEquals(null, PlanText.waitLine("NX2", listOf(s(7, 56)), s(7, 50), s(8, 30)), "none left today")
+    }
 }
