@@ -152,8 +152,12 @@ new, or repeats something, add it here in the same PR.
   upload. Ask once in the report, and don't pick them for him.
 
 ## Things he has decided; don't change them unless he asks
-- **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon
-  alone, and don't propose icon work.
+- **Name: Sleepers**, with a capital S (2026-11-25). The name people see comes from `Brand.NAME`; `ArchitectureTest`
+  keeps the old name off every screen. The application ID stays `app.nodstop` until he says otherwise.
+- **App icon:** he didn't like the map pin, asleep, and held icon work until he asked. He asked on 2026-11-25, with the
+  name: "redesign the logo and some other pieces… I like how the application feels overall… first impression is the
+  go or die." He wanted to see the design process and pick a path from it. The pick at the time: a Z drawn as a ride
+  (dot, Z, ring at your stop), white on black. If he picks another path from the process page, that one wins.
 - v2 visual language: black and white, the system font, and one orange accent meaning "trip is live". The map is
   the exception: it should look like Google Maps.
 - One ring path, the dead-man's switch, and "ring earlier, never later" (`CLAUDE.md`). He has never asked to relax
@@ -178,6 +182,11 @@ new, or repeats something, add it here in the same PR.
 - "I can't find my stop." Every place you set a stop should accept a Google Maps link, a search and a tap on the
   map.
 - Text-heavy screens: he skims. Keep one line per idea, with no jargon such as "failsafe", "leg" or "DND" on screen.
+
+## 2026-11-25 (name and first impressions)
+- He named the app **Sleepers** and asked for a logo redesign plus "some other stuffs throughout the application",
+  keeping how it feels (v2 black and white). "Take time." "Show through your design iteration processes, I might
+  select a path." For design work, show the options and the reasons, then the pick; let him choose.
 
 ## How to report back to him
 - A few short lines: what changed, what to test on the phone, and the APK link. No walls of text.

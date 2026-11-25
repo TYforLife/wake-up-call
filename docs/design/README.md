@@ -40,8 +40,14 @@ Files:
 
 ## Icon
 
-A map pin, asleep: your stop, and you dozing until it. Black on white, like the screens, with no accent (orange means
-a trip is live). `gen_icon.py` builds the shape once, with the eye cut out, and writes the launcher icon (adaptive:
-white background, black pin at 80 % so it has room inside the launcher's circle), the themed icon (Android 13+) and
-the small white icon for notifications and the Quick Settings tile. `icon/preview.png` shows them at real size.
-To change the icon, edit the script (`pip install shapely`, then `python3 docs/design/gen_icon.py`), not the XML.
+A Z drawn as a ride, by the owner's name for the app, **Sleepers** (2026-11-25): a dot where you got on, a Z for the
+sleep, and a ring at your stop, the circle that wakes you on the map. White on black, like the alarm, with no accent
+(orange means a trip is live). It replaced the map pin, asleep, which the owner didn't like.
+
+`gen_icon.py` builds the shape once and writes the launcher icon (adaptive: black background, the white mark at 82 % so
+it has room inside the launcher's circle or squircle), the themed icon (Android 13+), the splash icon (the mark on a
+black disc) and the small white icon for notifications, shortcuts and the Quick Settings tile. The first run's
+`BrandRow` draws that small icon on a disc too. `store.js` makes the Play icon and feature graphic (`docs/play/`).
+To change the icon, edit the script (`python3 docs/design/gen_icon.py`, no packages needed), not the XML.
+
+How it was chosen (eight directions, then three, then one): https://claude.ai/artifact/BoPghus1xUAmiW5vtiMKDo (private to the owner until shared)
