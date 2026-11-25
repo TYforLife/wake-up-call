@@ -6,7 +6,7 @@ object AlarmChannel {
     const val IMPORTANCE_HIGH = 4
 
     /**
-     * Healthy: it exists, is high importance (heads-up and full screen), vibrates, and, when Nodstop has Do Not
+     * Healthy: it exists, is high importance (heads-up and full screen), vibrates, and, when Sleepers has Do Not
      * Disturb access, gets through Do Not Disturb. Anything less: replace it.
      */
     fun healthy(exists: Boolean, importance: Int, canBypassDnd: Boolean, dndAccess: Boolean, vibrates: Boolean): Boolean =

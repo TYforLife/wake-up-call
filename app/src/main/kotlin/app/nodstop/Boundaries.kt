@@ -26,7 +26,7 @@ inline fun <T> isolated(what: String, fallback: T, block: () -> T): T =
         throw e
     } catch (e: Throwable) {
         // Throwable, not Exception: a vendor build missing a method (LinkageError) must not stop a ring either.
-        Log.e("Nodstop", "$what failed", e)
+        Log.e("Sleepers", "$what failed", e)
         fallback
     }
 
@@ -36,6 +36,6 @@ fun Context.openIfPossible(intent: Intent): Boolean =
         startActivity(intent)
         true
     } catch (e: ActivityNotFoundException) {
-        Log.w("Nodstop", "nothing opens ${intent.action}", e)
+        Log.w("Sleepers", "nothing opens ${intent.action}", e)
         false
     }

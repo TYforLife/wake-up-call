@@ -72,7 +72,7 @@ fun DebugScreen(go: (Screen) -> Unit) {
                 }
             }
             val b = text?.let { DataExport.decode(it) }
-            if (b == null) importMessage = "That isn't a Nodstop backup." else pendingImport = b
+            if (b == null) importMessage = "That isn't a Sleepers backup." else pendingImport = b
         }
     }
     pendingImport?.let { b ->

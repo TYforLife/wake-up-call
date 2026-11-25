@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- The debug APK sits next to the Play build on the phone (DESIGN §6): a different name tells them apart. -->
-    <string name="app_name">Nodstop dev</string>
+    <string name="app_name">Sleepers dev</string>
 </resources>

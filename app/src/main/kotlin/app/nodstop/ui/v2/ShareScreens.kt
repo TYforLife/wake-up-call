@@ -28,7 +28,7 @@ object ShareText {
 
     fun of(result: MapsLink.Result?, routes: List<Route>): ShareUi = when (result) {
         null, is MapsLink.Result.Short -> ShareUi("Opening the link…", "One moment.", emptyList(), busy = true)
-        MapsLink.Result.None -> ShareUi("That isn't a Google Maps place", "In Google Maps, open the stop, then Share it to Nodstop.", emptyList())
+        MapsLink.Result.None -> ShareUi("That isn't a Google Maps place", "In Google Maps, open the stop, then Share it to Sleepers.", emptyList())
         is MapsLink.Result.One -> {
             val name = result.place.name ?: "this stop"
             ShareUi(

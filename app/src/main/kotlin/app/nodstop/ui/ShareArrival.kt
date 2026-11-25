@@ -5,7 +5,7 @@ import android.content.Intent
 import app.nodstop.openIfPossible
 
 /**
- * Share my arrival (BACKLOG F16): one line of text ("On the 866, at Symonds St about 8:22 · Nodstop", from
+ * Share my arrival (BACKLOG F16): one line of text ("On the 866, at Symonds St about 8:22 · Sleepers", from
  * `ShareArrivalText`), only when you tap it, to wherever you pick in the system share sheet. Never a position or a
  * link, and nothing about your messages.
  */

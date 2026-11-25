@@ -22,7 +22,7 @@ import org.maplibre.android.maps.Style
 
 /**
  * The map's look, shared by the riding map and Set a stop (PLAN Run 11, B2): OpenFreeMap's `liberty` (streets,
- * parks, water, place and transit labels) in Google Maps' colours from [MapPalette], plus bus stops, and Nodstop's
+ * parks, water, place and transit labels) in Google Maps' colours from [MapPalette], plus bus stops, and Sleepers'
  * marks drawn the way Google draws them: a red pin, a blue route, the blue dot with a heading beam.
  */
 internal object MapStyle {

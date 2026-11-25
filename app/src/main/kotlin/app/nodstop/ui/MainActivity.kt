@@ -66,7 +66,7 @@ sealed interface Screen {
     data object Sounds : Screen
     /** Routes → Departures: any stop's next buses (BACKLOG F27). */
     data object Board : Screen
-    /** Settings → Where Nodstop works. */
+    /** Settings → Where Sleepers works. */
     data object Coverage : Screen
     data object Debug : Screen
     data object BriefingLab : Screen
