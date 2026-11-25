@@ -186,7 +186,6 @@ its own kind welcome joke (Product direction). Don't start until Tae says the MV
 
 ## Low
 
-- [ ] **F1. Ride report**: how many seconds before each stop it rang.
 - [ ] **F2. Ready check at Start** (later): earbuds battery, volume, Mute access.
 - [ ] **F11. Voice** ("Hey Google, wake me at…"), not at the bus stop.
 - [ ] **F12. Samsung Modes and Routines** start the trip, if Samsung allows it.
@@ -219,6 +218,8 @@ Ideas in the spirit of the Pūkeko alarm: what makes Nodstop feel made in Auckla
   jacket?"), the way each region gets its welcome joke. Never on a ring that went wrong.
 
 ## Done
+- [x] **F1. Ride report (2026-11-24).** Now's "Last trip" says how long before each stop it rang: "Rang 42 s
+  before Smales Farm" (or "after reaching"), from the trip log's ring and the bus reaching the stop (`TripVerdict`).
 - [x] **F27. Departures board (2026-11-24).** Routes → Departures: search any stop by name or number, then every
   route and direction leaving it in the next hour, "866 · Britomart / 3 min · 7:51 · 8:02", from the timetable,
   refreshed each minute (live times with F13). `Departures.board`, `BoardText`.
