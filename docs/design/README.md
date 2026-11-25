@@ -52,5 +52,5 @@ Settings tile (one silhouette, the closed eye cut out), and the splash icon (the
 (`docs/play/`). To change the icon, edit the script (`pip install shapely`, then `python3 docs/design/gen_icon.py`),
 not the XML.
 
-How it was chosen: https://claude.ai/artifact/PENDING2 (private to the owner until shared). A first pass, a Z drawn as
+How it was chosen: https://claude.ai/artifact/JfxXAydzbSScCkRmdE4JLn (private to the owner until shared). A first pass, a Z drawn as
 a ride, is parked on the branch `design/sleepers-brand`, with its own process page.
