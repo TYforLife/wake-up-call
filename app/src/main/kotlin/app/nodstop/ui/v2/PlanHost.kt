@@ -304,6 +304,8 @@ fun HomeWorkHost(go: (Screen) -> Unit, back: () -> Unit) {
     LaunchedEffect(Unit) { ix = TransitData.get(ctx) }
     val (here, _) = rememberHere()
     var query by remember(step) { mutableStateOf("") }
+    // Nothing saved yet: this is the app's first screen, so it says what the app is (owner, 2026-11-25).
+    val firstRun = remember { saved().first == null }
     // Then the permissions, in the same first run (BACKLOG F34).
     val done = {
         val needs = Readiness.needsAttention(Readiness.checks(ctx)).isNotEmpty()
@@ -319,8 +321,13 @@ fun HomeWorkHost(go: (Screen) -> Unit, back: () -> Unit) {
             PlacePickScreen(
                 PlacePickUi(
                     if (home) "Where's home?" else "Where's work?",
-                    if (home) "Type your address. Nodstop finds your buses and every stop to wake you at." else "Then the same for work.",
+                    when {
+                        home && firstRun -> SetupText.WELCOME
+                        home -> "Type your address. ${Brand.NAME} finds your buses and every stop to wake you at."
+                        else -> "Then the same for work."
+                    },
                     query, suggestions, if (home) "I'm home now" else "I'm at work now",
+                    brand = home && firstRun,
                 ),
                 PlacePickActions(
                     back = { if (step == 0) back() else step -= 1 },
