@@ -6,6 +6,22 @@ import app.nodstop.ui.Readiness
 data class SetupRowUi(val id: String, val title: String, val subtitle: String, val ok: Boolean)
 
 /** The words on Setup (mockup `setup`) and Settings (mockup `settings`). Pure. */
+/** Where a first run goes (BACKLOG F34): home and work by address first, then the permissions, in one go. */
+object FirstRun {
+    enum class Step { HOME_WORK, SETUP, NONE }
+
+    /** At launch: no route can start yet → home and work; else permissions still off and never shown → Setup. */
+    fun atLaunch(anyRouteReady: Boolean, setupSeen: Boolean, needsAttention: Boolean): Step = when {
+        !anyRouteReady -> Step.HOME_WORK
+        !setupSeen && needsAttention -> Step.SETUP
+        else -> Step.NONE
+    }
+
+    /** After home and work: the permissions the alarm needs, if any are off and Setup was never shown. */
+    fun afterHomeWork(setupSeen: Boolean, needsAttention: Boolean): Step =
+        if (!setupSeen && needsAttention) Step.SETUP else Step.NONE
+}
+
 object SetupText {
     /** Alarm sound → Buzz my watch (BACKLOG F3): what the watch's own app needs, in one line. */
     const val WATCH_STEPS = "Keeps buzzing until you're awake. Turn on Nodstop in the COROS app: Profile → Settings → Notifications."

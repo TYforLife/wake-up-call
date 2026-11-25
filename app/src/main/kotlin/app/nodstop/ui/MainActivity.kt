@@ -30,6 +30,8 @@ import app.nodstop.alarm.AlarmActivity
 import app.nodstop.alarm.RingService
 import app.nodstop.trip.TripService
 import app.nodstop.ui.v2.AlarmRingHost
+import app.nodstop.ui.v2.FirstRun
+import app.nodstop.ui.v2.RouteText
 import app.nodstop.ui.v2.NodstopV2Theme
 import app.nodstop.ui.v2.RouteHost
 import app.nodstop.ui.v2.StopHost
@@ -139,9 +141,16 @@ private fun AppRoot(
         }
     }
 
-    // First run (PLAN Run 9, M6): Setup once, if anything the alarm needs is off. Later, Now's red row leads there.
+    // First run (BACKLOG F34): home and work by address first, then Setup once if anything the alarm needs is off.
+    // Later, Now's red row leads there.
     LaunchedEffect(Unit) {
-        if (!App.instance.settings.setupSeen && Readiness.needsAttention(Readiness.checks(ctx)).isNotEmpty()) go(Screen.Setup)
+        val ready = App.instance.routes.routes.value.any { RouteText.problem(it) == null }
+        val step = FirstRun.atLaunch(ready, App.instance.settings.setupSeen, Readiness.needsAttention(Readiness.checks(ctx)).isNotEmpty())
+        when (step) {
+            FirstRun.Step.HOME_WORK -> go(Screen.HomeWork)
+            FirstRun.Step.SETUP -> go(Screen.Setup)
+            FirstRun.Step.NONE -> Unit
+        }
     }
 
     // The commute's footpaths before you plan it (BACKLOG 27): home, work, and the stops where you change buses.

@@ -26,6 +26,7 @@ import app.nodstop.data.Settings
 import app.nodstop.data.ShortLinks
 import app.nodstop.data.Timetable
 import app.nodstop.data.TransitData
+import app.nodstop.ui.Readiness
 import app.nodstop.data.TransitIndex
 import app.nodstop.engine.LatLng
 import app.nodstop.map.JourneyMap
@@ -303,7 +304,11 @@ fun HomeWorkHost(go: (Screen) -> Unit, back: () -> Unit) {
     LaunchedEffect(Unit) { ix = TransitData.get(ctx) }
     val (here, _) = rememberHere()
     var query by remember(step) { mutableStateOf("") }
-    val done = { go(Screen.Home) }
+    // Then the permissions, in the same first run (BACKLOG F34).
+    val done = {
+        val needs = Readiness.needsAttention(Readiness.checks(ctx)).isNotEmpty()
+        go(if (FirstRun.afterHomeWork(settings.setupSeen, needs) == FirstRun.Step.SETUP) Screen.Setup else Screen.Home)
+    }
     fun next() { step += 1 }
     when (step) {
         0, 1 -> {
