@@ -52,4 +52,11 @@ class ModeWordsTest {
         assertEquals("I'm off this bus", TripSheetText.of(trip(Phase.RIDING, modes = emptyList()), clock).action)
         assertEquals("bus", trip(Phase.RIDING, modes = emptyList()).vehicle())
     }
+
+    @Test
+    fun `waiting at a change, the notification says when the next bus is due (F21)`() {
+        val t = trip(Phase.WAITING, leg = 1, modes = emptyList())
+        assertEquals("NX2 due 7:43, then 7:51", TripNoteText.of(t, clock, nextBus = "NX2 due 7:43, then 7:51").text)
+        assertEquals("Alarm set until you're on it", TripNoteText.of(t, clock).text, "not known: as before")
+    }
 }

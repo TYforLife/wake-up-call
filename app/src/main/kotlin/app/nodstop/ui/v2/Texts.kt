@@ -225,9 +225,13 @@ object TripNoteText {
      * - riding: "Harbour St in 6 min" / "Alarm about 7:45"
      * - GPS lost: "Harbour St · GPS lost" / "Alarm at 7:44 at the latest"
      * - waiting: "Harbour St · waiting for the bus" (or "Waiting for bus 2 · Harbour St") / "Alarm set until you're on it"
-     * [quiet] (the quiet-trip note) goes after the second line.
+     * [quiet] (the quiet-trip note) goes after the second line. [nextBus]: while you wait for a bus Plan a trip knows,
+     * its next ones ("NX2 due 7:43, then 7:51", BACKLOG F21), in place of "Alarm set until you're on it".
      */
-    fun of(t: TripService.TripUi, clock: (Long) -> String, quiet: String? = null, nowMs: Long = System.currentTimeMillis()): TripNoteUi {
+    fun of(
+        t: TripService.TripUi, clock: (Long) -> String, quiet: String? = null, nowMs: Long = System.currentTimeMillis(),
+        nextBus: String? = null,
+    ): TripNoteUi {
         val s = t.status
         val aimAt = TripSheetText.aimMs(t, nowMs)?.let(clock)
         val stop = t.legName ?: "Your stop"
@@ -237,8 +241,8 @@ object TripNoteText {
             s.phase == Phase.RINGING -> "Wake up" to "$stop is close"
             s.phase == Phase.AWAKE || s.phase == Phase.DONE -> "Get off at $stop" to "You're awake for this stop"
             gpsLost -> "$stop · GPS lost" to (alarmAt?.let { "Alarm at $it at the latest" } ?: "Check where you are")
-            s.phase == Phase.WAITING && t.legIndex > 0 -> "Waiting for ${t.vehicle()} ${t.legIndex + 1} · $stop" to "Alarm set until you're on it"
-            s.phase == Phase.WAITING -> "$stop · waiting for the ${t.vehicle()}" to "Alarm set until you're on it"
+            s.phase == Phase.WAITING && t.legIndex > 0 -> "Waiting for ${t.vehicle()} ${t.legIndex + 1} · $stop" to (nextBus ?: "Alarm set until you're on it")
+            s.phase == Phase.WAITING -> "$stop · waiting for the ${t.vehicle()}" to (nextBus ?: "Alarm set until you're on it")
             else -> {
                 val eta = s.etaS?.let { "$stop in ${TripSheetText.minutes(it)}" }
                 (eta ?: s.distanceM?.let { "$stop · ${TripService.distance(it)}" } ?: "$stop · finding you") to
