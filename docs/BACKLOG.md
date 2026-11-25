@@ -160,6 +160,7 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
   - [ ] Timed in the PR, by counting screens and taps: home and work by address, then the permissions in one
         flow, each with one plain line why (no "DND", "failsafe"), Samsung's steps only on Samsung. Done so far:
         the order (home and work first, then Setup in the same run, `FirstRun`); counted in PR #91.
+  - [x] Screenshot tests for each step: `home`, `work`, `first-ride`, `setup`, `now`.
   - [ ] Anything that can wait until the first ride does.
   - [ ] Screenshot tests for each step.
 
