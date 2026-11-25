@@ -26,7 +26,7 @@ import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.geometry.LatLng as MLatLng
 
-/** Where Nodstop works: each region's outline, shaded in route blue, framed (BACKLOG, product direction). */
+/** Where Sleepers works: each region's outline, shaded in route blue, framed (BACKLOG, product direction). */
 @Composable
 fun CoverageMap(outlines: List<List<LatLng>>, colors: NColors, modifier: Modifier = Modifier) {
     val density = LocalDensity.current.density

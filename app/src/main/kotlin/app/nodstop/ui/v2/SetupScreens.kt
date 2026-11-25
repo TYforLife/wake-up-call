@@ -113,7 +113,7 @@ fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modi
             ListRow("Important contacts", ui.contacts, onClick = a.contacts, trailing = { Chevron() })
             ListRow("Report a missed alarm", "Shares the trip log, locations hidden", onClick = a.report, trailing = { Chevron() })
             if (ui.liveOff) ListRow("Progress on the lock screen", "Optional, Android 16", trailing = { Pill("Allow", a.live) })
-            ListRow("Where Nodstop works", "Auckland, for now", divider = false, onClick = a.coverage, trailing = { Chevron() })
+            ListRow("Where Sleepers works", "Auckland, for now", divider = false, onClick = a.coverage, trailing = { Chevron() })
         }
         ui.credits?.let { Hint(it, Modifier.fillMaxWidth(), center = true) }
         Hint(
@@ -222,7 +222,7 @@ fun SoundsScreen(ui: SoundsUi, a: SoundsActions, modifier: Modifier = Modifier) 
     }
 }
 
-// ---- Where Nodstop works (from Settings; BACKLOG, product direction) ----
+// ---- Where Sleepers works (from Settings; BACKLOG, product direction) ----
 
 data class CoverageUi(
     /** Each region: its name, its operator and stop count, its welcome. */
@@ -230,13 +230,13 @@ data class CoverageUi(
     val note: String? = null,
 )
 
-/** A map of the regions Nodstop covers, and each one's welcome. [map]: the real map, or a flat box in tests. */
+/** A map of the regions Sleepers covers, and each one's welcome. [map]: the real map, or a flat box in tests. */
 @Composable
 fun CoverageScreen(ui: CoverageUi, back: () -> Unit, map: @Composable (Modifier) -> Unit, modifier: Modifier = Modifier) {
     val c = LocalN.current
     Column(modifier.fillMaxSize().padding(top = 12.dp, bottom = 24.dp)) {
         Box(Modifier.padding(horizontal = 24.dp)) { TitleBar { IconCircle(NIcons.Back, "Back", back) } }
-        Column(Modifier.padding(horizontal = 24.dp)) { ScreenTitle("Where Nodstop works") }
+        Column(Modifier.padding(horizontal = 24.dp)) { ScreenTitle("Where Sleepers works") }
         map(Modifier.fillMaxWidth().height(300.dp).padding(top = 8.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
             ui.regions.forEach { (name, line, welcome) ->

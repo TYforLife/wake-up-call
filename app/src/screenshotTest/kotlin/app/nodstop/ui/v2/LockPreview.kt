@@ -43,7 +43,7 @@ fun LockPreview(note: TripNoteUi, time: String, date: String) {
         ) {
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(c.accent))
-                Text("Nodstop", style = NType.tab.copy(fontSize = 13.sp, fontWeight = NType.button.fontWeight), color = c.fg, modifier = Modifier.padding(start = 6.dp).weight(1f))
+                Text("Sleepers", style = NType.tab.copy(fontSize = 13.sp, fontWeight = NType.button.fontWeight), color = c.fg, modifier = Modifier.padding(start = 6.dp).weight(1f))
                 Text("now", style = NType.tab.copy(fontSize = 13.sp), color = c.muted)
             }
             Text(note.title, style = NType.row, color = c.fg)

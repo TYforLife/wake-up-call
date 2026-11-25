@@ -614,7 +614,7 @@ class TripService : Service() {
                 ctx.startForegroundService(intent)
             } catch (e: IllegalStateException) {
                 // ForegroundServiceStartNotAllowedException: Android won't start it from the background right now.
-                Log.e("Nodstop", "could not start the trip service", e)
+                Log.e("Sleepers", "could not start the trip service", e)
             }
         }
 

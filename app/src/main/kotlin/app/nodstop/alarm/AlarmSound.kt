@@ -29,7 +29,7 @@ object AlarmSound {
         val stored = try {
             file(ctx).takeIf { it.exists() }?.readBytes()?.let(Sounds::decode)
         } catch (e: IOException) {
-            Log.w("Nodstop", "own alarm sound unreadable: the beeps instead", e)
+            Log.w("Sleepers", "own alarm sound unreadable: the beeps instead", e)
             null
         }
         return stored ?: Sounds.builtIn(Sounds.Id.BEEPS)
@@ -43,7 +43,7 @@ object AlarmSound {
             val chirps = listOf(R.raw.pukeko_chirp1, R.raw.pukeko_chirp2, R.raw.pukeko_chirp3).mapNotNull(::raw)
             Sounds.pukeko(bed, chirps, Random.Default)
         } catch (e: IOException) {
-            Log.w("Nodstop", "pūkeko recordings unreadable: the beeps instead", e)
+            Log.w("Sleepers", "pūkeko recordings unreadable: the beeps instead", e)
             null
         }
     }
@@ -68,13 +68,13 @@ object AlarmSound {
             App.instance.settings.setAlarmSound(Sounds.Id.CUSTOM.name, name)
             return Imported.Ok(ready.size / Sounds.RATE.toDouble())
         } catch (e: IOException) {
-            Log.w("Nodstop", "own alarm sound: not imported", e)
+            Log.w("Sleepers", "own alarm sound: not imported", e)
             return Imported.Failed("Couldn't read that file.")
         } catch (e: IllegalArgumentException) {
-            Log.w("Nodstop", "own alarm sound: not imported", e)
+            Log.w("Sleepers", "own alarm sound: not imported", e)
             return Imported.Failed("This phone can't play that file.")
         } catch (e: IllegalStateException) {
-            Log.w("Nodstop", "own alarm sound: not imported", e)
+            Log.w("Sleepers", "own alarm sound: not imported", e)
             return Imported.Failed("This phone can't play that file.")
         } finally {
             ex.release()

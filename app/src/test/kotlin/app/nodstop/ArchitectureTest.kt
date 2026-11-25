@@ -1,5 +1,6 @@
 package app.nodstop
 
+import app.nodstop.ui.v2.Brand
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -126,12 +127,29 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `the app is called Sleepers everywhere people see it (owner, 2026-11-25)`() {
+        val name = Regex("""name="app_name">([^<]*)<""")
+        val main = name.find(File("src/main/res/values/strings.xml").readText())?.groupValues?.get(1)
+        val debug = name.find(File("src/debug/res/values/strings.xml").readText())?.groupValues?.get(1)
+        assertTrue(main == Brand.NAME, "the launcher label is \"$main\", the app's name is \"${Brand.NAME}\".")
+        assertTrue(debug == "${Brand.NAME} dev", "the debug build is \"$debug\": it should be the name plus \" dev\".")
+        // The old name stays out of anything shown or sent: string literals, labels and resources. Code names
+        // (the package, NodstopV2Theme, Theme.Nodstop) aren't seen by anyone.
+        val shown = Regex(""""[^"\n]*\bNodstop\b[^"\n]*"""")
+        val inCode = mains.flatMap(::kt).flatMap { f -> code(f).filter { (_, l) -> shown.containsMatchIn(l) }.map { (i, _) -> "${rel(f)}:${i + 1}" } }
+        val res = File("src/main").walkTopDown().filter { it.isFile && it.extension == "xml" }
+            .flatMap { f -> f.readLines().withIndex().filter { (_, l) -> Regex(""">[^<]*\bNodstop\b|="[^"]*(?<![.\w])Nodstop\b""").containsMatchIn(l) }.map { (i, _) -> "${rel(f)}:${i + 1}" } }
+            .toList()
+        assertTrue(inCode.isEmpty() && res.isEmpty(), "the old name \"Nodstop\" is still shown at ${inCode + res}: use Brand.NAME.")
+    }
+
+    @Test
     fun `no permission Play would refuse (docs-play-declarations)`() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         val refused = listOf("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", "ACCESS_BACKGROUND_LOCATION").filter { "android.permission.$it\"" in manifest }
         assertTrue(
             refused.isEmpty(),
-            "$refused in the manifest. Play restricts these to core functions Nodstop doesn't have: setAlarmClock rings " +
+            "$refused in the manifest. Play restricts these to core functions Sleepers doesn't have: setAlarmClock rings " +
                 "through Doze, and trips start in the foreground. Open App info → Battery instead (docs/play/declarations.md).",
         )
         val askers = kt(app).filter { f -> code(f).any { (_, l) -> "ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" in l } }.map(::rel)

@@ -83,7 +83,7 @@ object Readiness {
         val ch = nm.getNotificationChannel(app.nodstop.Notifications.alarmChannelId(ctx))
         return Check(
             "Alarm notifications", ch != null && ch.importance >= NotificationManager.IMPORTANCE_HIGH,
-            "Turned down or off for Nodstop's alarm: turn it back on.",
+            "Turned down or off for Sleepers' alarm: turn it back on.",
             Fix.Open(
                 Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
                     .putExtra(Settings.EXTRA_CHANNEL_ID, app.nodstop.Notifications.alarmChannelId(ctx)),
@@ -142,7 +142,7 @@ object Readiness {
             ),
             Check(
                 "While you slept (optional)", notificationAccessOk(ctx),
-                "Lets Nodstop read your chat notifications during a trip and show what you missed on the alarm " +
+                "Lets Sleepers read your chat notifications during a trip and show what you missed on the alarm " +
                     "screen. Memory only: never saved, logged or sent anywhere.",
                 Fix.Open(
                     Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)

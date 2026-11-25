@@ -135,7 +135,7 @@ fun ContactsHost(resumeTick: Int, back: () -> Unit) {
 fun reportMissedAlarm(ctx: Context) {
     val app = App.instance
     val text = app.settings.lastRing.value ?: "No ring recorded yet."
-    app.traces.shareIntent(hideLocation = true, text = "Nodstop missed alarm report. $text")?.let { open(ctx, it) }
+    app.traces.shareIntent(hideLocation = true, text = "Sleepers missed alarm report. $text")?.let { open(ctx, it) }
 }
 
 private fun open(ctx: Context, i: Intent) {
@@ -196,7 +196,7 @@ private fun displayName(ctx: Context, uri: Uri): String? =
         if (c.moveToFirst()) c.getString(0) else null
     }
 
-/** Where Nodstop works (BACKLOG, product direction): the covered area from the bundled stops, and each welcome. */
+/** Where Sleepers works (BACKLOG, product direction): the covered area from the bundled stops, and each welcome. */
 @Composable
 fun CoverageHost(back: () -> Unit) {
     val ctx = LocalContext.current

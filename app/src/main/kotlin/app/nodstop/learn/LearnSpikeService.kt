@@ -97,7 +97,7 @@ class LearnSpikeService : Service() {
             client.requestLocationUpdates(req, cb, Looper.getMainLooper())
             location = cb
         } catch (e: SecurityException) {
-            Log.w("Nodstop", "learn spike: no location access", e)
+            Log.w("Sleepers", "learn spike: no location access", e)
             SpikeLog.append(this, SpikeEvent(System.currentTimeMillis(), "note", msg = "no location access"))
         }
     }
@@ -114,7 +114,7 @@ class LearnSpikeService : Service() {
             client.requestActivityTransitionUpdates(ActivityTransitionRequest(transitions), activityIntent(this, REQ_TRANSITIONS))
             client.requestActivityUpdates(ACTIVITY_EVERY_MS, activityIntent(this, REQ_UPDATES))
         } catch (e: SecurityException) {
-            Log.w("Nodstop", "learn spike: no activity recognition", e)
+            Log.w("Sleepers", "learn spike: no activity recognition", e)
         }
     }
 
@@ -127,7 +127,7 @@ class LearnSpikeService : Service() {
             client.removeActivityTransitionUpdates(activityIntent(this, REQ_TRANSITIONS))
             client.removeActivityUpdates(activityIntent(this, REQ_UPDATES))
         } catch (e: SecurityException) {
-            Log.w("Nodstop", "learn spike: activity recognition was taken back", e)
+            Log.w("Sleepers", "learn spike: activity recognition was taken back", e)
         }
         if (SpikeLog.current(this) != null) SpikeLog.append(this, batteryEvent(this, "end"))
         SpikeLog.finish(this)
@@ -156,7 +156,7 @@ class LearnSpikeService : Service() {
             try {
                 ctx.startForegroundService(Intent(ctx, LearnSpikeService::class.java))
             } catch (e: IllegalStateException) {
-                Log.e("Nodstop", "could not start the learn spike", e)
+                Log.e("Sleepers", "could not start the learn spike", e)
             }
         }
 

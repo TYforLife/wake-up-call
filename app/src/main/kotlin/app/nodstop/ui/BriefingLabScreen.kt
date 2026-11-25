@@ -92,7 +92,7 @@ fun BriefingLabScreen(go: (Screen) -> Unit) {
         Section("Model") {
             Text(
                 "Download a Gemma .litertlm file on this phone (Gemma 4 E2B; Gemma 3 1B if that's too slow), then import " +
-                    "it here. Nodstop keeps a copy in its own storage and never downloads anything itself.",
+                    "it here. Sleepers keeps a copy in its own storage and never downloads anything itself.",
                 style = MaterialTheme.typography.bodySmall,
             )
             if (models.isEmpty()) Text("No model yet: the alarm screen shows the plain digest.", style = MaterialTheme.typography.bodySmall)

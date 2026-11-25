@@ -33,7 +33,7 @@ class AlarmScheduler(private val ctx: Context) {
             am.setAlarmClock(AlarmManager.AlarmClockInfo(atMs, showPi()), receiverPi())
             prefs.edit().putLong(KEY_AT, atMs).apply()
         } catch (e: SecurityException) {
-            Log.e("Nodstop", "exact alarm refused", e)
+            Log.e("Sleepers", "exact alarm refused", e)
         }
     }
 

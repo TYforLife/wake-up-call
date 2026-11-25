@@ -286,7 +286,7 @@ class Settings(context: Context) {
         prefs.edit().putBoolean(KEY_DND, on).apply(); _dndDuringTrips.value = on
     }
 
-    /** What Nodstop changed in Do Not Disturb, so it can be put back (also after a crash). */
+    /** What Sleepers changed in Do Not Disturb, so it can be put back (also after a crash). */
     fun dndRecord(): DndRestore.Record? =
         if (!prefs.getBoolean(KEY_DND_SET, false)) null
         else DndRestore.Record(true, prefs.getInt(KEY_DND_PREV, DndRestore.FILTER_ALL))

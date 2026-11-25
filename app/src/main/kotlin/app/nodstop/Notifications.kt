@@ -102,7 +102,7 @@ object Notifications {
 
     /**
      * Makes sure the alarm channel can reach you: high importance, vibrating, and through Do Not Disturb when
-     * Nodstop has that access. Android keeps a channel's settings (and only honours "bypass Do Not Disturb" if
+     * Sleepers has that access. Android keeps a channel's settings (and only honours "bypass Do Not Disturb" if
      * the access existed when it was made), so a channel that falls short is replaced with a fresh one.
      * Never while a ring is showing: its notification lives on the channel.
      */
@@ -160,7 +160,7 @@ object Notifications {
     fun tripStarting(ctx: Context): Notification =
         Notification.Builder(ctx, CH_TRIP)
             .setSmallIcon(R.drawable.ic_tile)
-            .setContentTitle("Nodstop · starting")
+            .setContentTitle("Sleepers · starting")
             .setContentText("Getting GPS…")
             .setOngoing(true)
             .setContentIntent(openApp(ctx))
