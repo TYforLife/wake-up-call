@@ -67,6 +67,8 @@ class NowActions(
     val addRoute: () -> Unit = {},
     val sendReport: () -> Unit = {},
     val dismissLastTrip: () -> Unit = {},
+    /** "Where to?": a one-off trip from one search (BACKLOG F25). */
+    val whereTo: () -> Unit = {},
 )
 
 /** Now, idle: your likely route already picked, one Start (PLAN Run 8, M3). */
@@ -108,6 +110,10 @@ fun NowIdle(ui: NowIdleUi, a: NowActions, modifier: Modifier = Modifier) {
             ui.routes.forEachIndexed { i, r ->
                 RadioRow(r.title, r.problem ?: r.subtitle, r.id == selected?.id, { a.select(r.id) }, divider = i < ui.routes.lastIndex)
             }
+            if (ui.routes.isNotEmpty()) ListRow(
+                "Where to?", "A one-off trip, from one search", onClick = a.whereTo, divider = false,
+                leading = { Icon(NIcons.Search, null, tint = c.fg) }, trailing = { Chevron() },
+            )
             ui.sleep?.let { z ->
                 Spacer(Modifier.height(16.dp))
                 ListRow(z.title, z.line, divider = false)
