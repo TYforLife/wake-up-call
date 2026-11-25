@@ -80,6 +80,13 @@ object TransitData {
         return deps
     }
 
+    /** The index and timetable if this process has already loaded both, without loading them now. */
+    fun loaded(): Pair<TransitIndex, Timetable>? {
+        val ix = cached ?: return null
+        val tt = timetable ?: return null
+        return ix to tt
+    }
+
     /** "Stop and route data: Auckland Transport, CC BY 4.0", or null when there's no data in this build. */
     fun attribution(ctx: Context): String? =
         try { ctx.assets.open("gtfs/meta.txt").bufferedReader().use { it.readLine() } } catch (_: IOException) { null }

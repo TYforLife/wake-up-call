@@ -106,6 +106,8 @@ object Trace {
         fun mv(p: LatLng) = LatLng(p.lat + dLat, p.lng + dLng)
         fun mvLeg(l: Leg) = l.copy(
             dest = mv(l.dest),
+            // The bus's way (BACKLOG F9) is your street too.
+            line = l.line.map(::mv),
             learned = l.learned?.let { le ->
                 le.copy(
                     stop = mv(le.stop),

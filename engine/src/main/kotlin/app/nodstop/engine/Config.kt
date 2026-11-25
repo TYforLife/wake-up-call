@@ -37,6 +37,8 @@ data class Config(
     /** Picking the leg at Start: "at a stop" within this; "between two stops" within this of their line. */
     val pickAtStopM: Double = 300.0,
     val pickNearLineM: Double = 1_500.0,
+    /** On a bus's own line (BACKLOG F9): within this of it. A bus's road is known to a few metres; GPS isn't. */
+    val pickOnBusLineM: Double = 150.0,
     /**
      * A stop the pick skipped is watched for the rest of the picked leg: coming within [skipWatchM] of it (further on
      * a fast bus: the lead + 15 s at its speed), having
