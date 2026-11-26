@@ -172,7 +172,11 @@ its own kind welcome joke (Product direction). Don't start until Tae says the MV
 
 - [ ] **F13. Your bus, live, from AT.** "when AT server isn't down": live when it's up, the timetable and GPS when it
   isn't, and it never makes an alarm later (rule 6). **Waiting on Tae:** a free AT API key, entered in Settings,
-  kept on the phone, never in the repo. Steps, each its own PR:
+  kept on the phone, never in the repo.
+  - 2026-11-24: AT's developer portal gave a server error when he tried to sign up. He'll try again; reminded
+    2026-11-26.
+
+  Steps, each its own PR:
   1. Settings → Live buses: paste the key, and **Check** says whether AT accepts it. CI works without a key; a key
      never goes in the repo, CI or a log.
   2. While you wait: the coming bus on the map, and "871 · 3 min away (live)" instead of the timetable.
