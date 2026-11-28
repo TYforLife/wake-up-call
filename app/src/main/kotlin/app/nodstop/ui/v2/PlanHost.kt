@@ -319,7 +319,7 @@ fun HomeWorkHost(go: (Screen) -> Unit, back: () -> Unit) {
             PlacePickScreen(
                 PlacePickUi(
                     if (home) "Where's home?" else "Where's work?",
-                    if (home) "Type your address. Nodstop finds your buses and every stop to wake you at." else "Then the same for work.",
+                    if (home) "Type your address. Sleepers finds your buses and every stop to wake you at." else "Then the same for work.",
                     query, suggestions, if (home) "I'm home now" else "I'm at work now",
                 ),
                 PlacePickActions(

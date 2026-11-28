@@ -131,7 +131,7 @@ class ArchitectureTest {
         val refused = listOf("REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", "ACCESS_BACKGROUND_LOCATION").filter { "android.permission.$it\"" in manifest }
         assertTrue(
             refused.isEmpty(),
-            "$refused in the manifest. Play restricts these to core functions Nodstop doesn't have: setAlarmClock rings " +
+            "$refused in the manifest. Play restricts these to core functions Sleepers doesn't have: setAlarmClock rings " +
                 "through Doze, and trips start in the foreground. Open App info → Battery instead (docs/play/declarations.md).",
         )
         val askers = kt(app).filter { f -> code(f).any { (_, l) -> "ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" in l } }.map(::rel)

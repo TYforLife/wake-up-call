@@ -76,6 +76,6 @@ object DataExport {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return Intent.createChooser(send, "Save your Nodstop backup")
+        return Intent.createChooser(send, "Save your Sleepers backup")
     }
 }

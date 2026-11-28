@@ -160,7 +160,7 @@ object Notifications {
     fun tripStarting(ctx: Context): Notification =
         Notification.Builder(ctx, CH_TRIP)
             .setSmallIcon(R.drawable.ic_tile)
-            .setContentTitle("Nodstop · starting")
+            .setContentTitle("Sleepers · starting")
             .setContentText("Getting GPS…")
             .setOngoing(true)
             .setContentIntent(openApp(ctx))

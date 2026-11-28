@@ -24,7 +24,7 @@ object FirstRun {
 
 object SetupText {
     /** Alarm sound → Buzz my watch (BACKLOG F3): what the watch's own app needs, in one line. */
-    const val WATCH_STEPS = "Keeps buzzing until you're awake. Turn on Nodstop in the COROS app: Profile → Settings → Notifications."
+    const val WATCH_STEPS = "Keeps buzzing until you're awake. Turn on Sleepers in the COROS app: Profile → Settings → Notifications."
     /** Settings' "Alarm sound" line: the sound's name, or your file's. */
     fun sound(id: String?, customName: String?): String {
         val s = app.nodstop.alarm.Sounds.Id.of(id)
@@ -80,8 +80,8 @@ object SetupText {
 
     /** The Samsung steps no API can check, shown under Setup's rows on a Samsung phone. */
     val SAMSUNG_STEPS = listOf(
-        "Settings → Apps → Nodstop → Battery → Unrestricted",
-        "Settings → Battery → Background usage limits → Never sleeping apps → add Nodstop",
-        "Never Force stop Nodstop: Android cancels its alarms when you do",
+        "Settings → Apps → Sleepers → Battery → Unrestricted",
+        "Settings → Battery → Background usage limits → Never sleeping apps → add Sleepers",
+        "Never Force stop Sleepers: Android cancels its alarms when you do",
     )
 }

@@ -147,9 +147,9 @@ new, or repeats something, add it here in the same PR.
   wants Play updates as often as merges, with no review queue for himself. Internal testing gives him that; the public
   needs a 12-tester, 14-day closed test first. The plain answer and his steps are in `docs/play/README.md`.
 - Every merge to `main` goes to his internal testing track (CI). The `debug-latest` APK is now a separate app,
-  **Nodstop dev** (`app.nodstop.debug`), so trying a PR never touches his Play install.
-- Still his call: the final name and application ID (Nodstop / `app.nodstop`), which can't change after the first
-  upload. Ask once in the report, and don't pick them for him.
+  **Sleepers dev** (`app.sleepers.debug`), so trying a PR never touches his Play install.
+- **The app is called Sleepers, ID `app.sleepers`** (2026-11-28, his choice in Play Console). Every screen and
+  notification says Sleepers. The code package and the repo stay `app.nodstop` / wake-up-call (users never see them).
 
 ## Things he has decided; don't change them unless he asks
 - **App icon:** "I don't like it. Don't change it. I'll tell you when you should address it again." Leave the icon

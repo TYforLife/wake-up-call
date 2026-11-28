@@ -52,7 +52,7 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
         key straight into secrets. `ArchitectureTest` keeps keys out of the repo. The key exists once Tae runs it (step 3).
   - [ ] An **internal testing** track he installs from: no 14-day wait, no review queue to speak of, updates
         through Play. The debug APK keeps working alongside it. CI side done: every merge to `main` uploads to the
-        internal track (`tools/play_upload.sh`), and the debug APK is now `app.nodstop.debug` ("Nodstop dev"), so
+        internal track (`tools/play_upload.sh`), and the debug APK is now `app.sleepers.debug` ("Sleepers dev"), so
         both install side by side. Ticked once Tae has installed from Play (steps 1–8).
   - [x] The Play declarations DESIGN §8 lists are written (`docs/play/declarations.md`): exact alarm and full-screen
         intent (an alarm app), location foreground service (with what the demo video must show). The
@@ -64,8 +64,7 @@ Steps only he can do, the plain answer to "is there no approval?", and the secre
         planning walks on the phone, which is Tae's call.
   - [x] The steps only Tae can do are listed, one line each (`docs/play/README.md`): developer account, identity
         check, and the 12 testers for 14 days a new personal account needs before production.
-- **Needs Tae:** the final name and application ID (DESIGN §9: the ID can't change after the first upload), and a
-  Play developer account.
+- **Name and ID decided** (2026-11-28): **Sleepers**, `app.sleepers`. Play developer account: verified.
 
 ### F29. [ ] Trains and ferries
 "Yes. Add soon." AT's trains and ferries, not just buses.

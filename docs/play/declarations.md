@@ -1,6 +1,6 @@
 # Play Console: App content and declarations (copy from here)
 
-What to answer in Play Console → **App content** (and the release page's permission prompts) for Nodstop. Each answer
+What to answer in Play Console → **App content** (and the release page's permission prompts) for Sleepers. Each answer
 matches the code as it is in `AndroidManifest.xml` and DESIGN §5. If the app changes what it uses, change this page in
 the same PR.
 
@@ -19,7 +19,7 @@ URL: <https://github.com/tyforlife/wake-up-call/blob/main/docs/privacy.md>
 
 ## Data safety
 
-Google's form counts data as "collected" when it is sent off the phone. Nodstop keeps trips, GPS tracks, stops,
+Google's form counts data as "collected" when it is sent off the phone. Sleepers keeps trips, GPS tracks, stops,
 learned rides and captured chat notifications on the phone. A few requests do go out (`docs/privacy.md`):
 
 - map tiles from OpenFreeMap for the area on the screen;
@@ -41,7 +41,7 @@ Over-declaring costs nothing, so declare location fully:
 
 If Play asks for this declaration, pick **Alarm clock** as the core function.
 
-> Nodstop is an alarm clock for bus passengers. Its core function is to wake the user before their stop. The
+> Sleepers is an alarm clock for bus passengers. Its core function is to wake the user before their stop. The
 > wake-up time is scheduled with `AlarmManager.setAlarmClock` and moves as the bus moves, so it must fire exactly
 > on time, including in Doze. A late alarm means a missed stop.
 
@@ -61,13 +61,13 @@ the screen recorder: a **simulated trip** (Settings → Debug) shows everything 
 
 - **Feature:** Trip tracking: "Wake me before my stop".
 - **Description:**
-  > When the user taps Start on a route, Nodstop follows the bus with GPS until the user is off at the last stop.
+  > When the user taps Start on a route, Sleepers follows the bus with GPS until the user is off at the last stop.
   > It must keep running with the screen off, because the user is asleep. Its notification shows the next stop,
   > the distance, and buttons to get off or stop the trip. It starts only from a tap in the app, a Quick Settings
   > tile or a launcher shortcut (all in the foreground). The app doesn't ask for background location.
 - **Impact if deferred or interrupted:** "The alarm would come late or not at all, and the passenger misses their stop."
 - **Video must show:**
-  1. Opening Nodstop and tapping **Start** on a route.
+  1. Opening Sleepers and tapping **Start** on a route.
   2. The trip notification appearing.
   3. Locking the phone, then the lock-screen progress.
   4. The alarm ringing near the stop.
@@ -94,15 +94,15 @@ the screen recorder: a **simulated trip** (Settings → Debug) shows everything 
 
 **Nothing to declare: the app doesn't ask for it.** Google's list of acceptable uses covers VoIP or chat apps that
 can't use FCM, safety apps, task automation and some companion devices. Alarm apps aren't on it. Google also says
-alarms set with `setAlarmClock` "continue to fire normally" in Doze, which is how Nodstop rings. So the exemption
+alarms set with `setAlarmClock` "continue to fire normally" in Doze, which is how Sleepers rings. So the exemption
 isn't part of the core function, and a request would likely be rejected. The Setup row **Keep running** opens
-Nodstop's **App info** instead, where the user taps **Battery → Unrestricted**. On Samsung that is the same switch,
+Sleepers's **App info** instead, where the user taps **Battery → Unrestricted**. On Samsung that is the same switch,
 and `isIgnoringBatteryOptimizations` still reports it, with no permission needed.
 
 ## Notification access (While You Slept, optional)
 
 No Play Console form exists for it. The policy that applies is Play's User Data policy: say what is read and why
-before the user turns it on. The Setup row already does this before it opens the system page: "Lets Nodstop read your
+before the user turns it on. The Setup row already does this before it opens the system page: "Lets Sleepers read your
 chat notifications during a trip and show what you missed on the alarm screen. Memory only: never saved, logged or
 sent anywhere." DESIGN §10 W1–W6, enforced by `NotifyIsolationTest`.
 

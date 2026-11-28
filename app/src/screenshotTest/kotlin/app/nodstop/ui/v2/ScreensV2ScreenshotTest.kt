@@ -275,7 +275,7 @@ class ScreensV2ScreenshotTest {
     @Test fun home() = shot("home") {
         PlacePickScreen(
             PlacePickUi(
-                "Where's home?", "Type your address. Nodstop finds your buses and every stop to wake you at.", "12 Exam",
+                "Where's home?", "Type your address. Sleepers finds your buses and every stop to wake you at.", "12 Exam",
                 listOf(PlaceUi("12 Example Road", "Mount Example", null, PlaceUi.Kind.ADDRESS), PlaceUi("Example Rd", "Stop 1234 · 300 m", null, PlaceUi.Kind.STOP)),
                 "I'm home now",
             ),

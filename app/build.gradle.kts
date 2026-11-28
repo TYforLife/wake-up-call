@@ -25,7 +25,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.nodstop"
+        applicationId = "app.sleepers"
         minSdk = 31
         targetSdk = 36
         versionCode = runNumber
@@ -60,7 +60,7 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
-            // The debug APK installs next to the Play build: its own ID ("Nodstop dev"), so neither replaces the other.
+            // The debug APK installs next to the Play build: its own ID ("Sleepers dev"), so neither replaces the other.
             applicationIdSuffix = ".debug"
         }
         release { signingConfig = signingConfigs.findByName("release") }

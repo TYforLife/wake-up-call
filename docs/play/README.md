@@ -1,4 +1,4 @@
-# Nodstop on Google Play (BACKLOG F35)
+# Sleepers on Google Play (BACKLOG F35)
 
 Tae's first install comes from Play's **internal testing** track. CI does the rest: every merge to `main` builds a signed
 `.aab` and uploads it there (DESIGN §6). Everything below happens on the phone except two steps, which are marked.
@@ -25,8 +25,8 @@ Do them in this order. Each one is a few minutes except step 1, where Google can
 1. **Make a Play developer account.** On the phone, open <https://play.google.com/console/signup>, choose
    **Yourself** (a personal account), pay the one-off US$25, and verify your identity: a photo of your ID, your phone
    number, and possibly the **Play Console app** (from Play) to confirm your device. Wait for the "verified" email.
-2. **Confirm the name and the ID.** Today they are **Nodstop** and **`app.nodstop`**. The ID can never change after
-   step 6. Tell a session "name and ID confirmed", or give new ones (see the end of this page).
+2. **The name and the ID** are **Sleepers** and **`app.sleepers`** (Tae, 2026-11-28). Play Console holds that ID for
+   the app, so a bundle with any other ID is refused.
 3. **Let GitHub make the upload key** (no laptop, and nobody ever sees the key):
    1. GitHub → your photo → **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
       Generate new token**. Name: `nodstop-key`. Expiration: 1 day. Repository access: **Only select repositories →
@@ -40,7 +40,7 @@ Do them in this order. Each one is a few minutes except step 1, where Google can
    green, download `app-release.aab` from
    <https://github.com/tyforlife/wake-up-call/releases/download/play-latest/app-release.aab>.
 5. **Create the app in Play Console** (works in the phone browser; tap **Desktop site** if a page is cramped):
-   **Create app** → name "Nodstop", English, **App**, **Free**, tick the declarations → **Create app**.
+   **Create app** → name "Sleepers", English, **App**, **Free**, tick the declarations → **Create app**.
 6. **First release, by hand** (Play's API can't create an app, so this one upload is yours):
    1. **Test and release → Testing → Internal testing → Testers**: create an email list with your own Gmail. Save.
    2. **Releases → Create new release**. If asked about app signing, keep **Google-generated key**. Upload the
@@ -54,17 +54,17 @@ Do them in this order. Each one is a few minutes except step 1, where Google can
    2. **IAM & Admin → Service accounts → Create service account**, name `github-ci`, **Done**. Open it → **Keys →
       Add key → Create new key → JSON**. A `.json` file downloads.
    3. Play Console → **Users and permissions → Invite new users** → paste the service account's email (it ends in
-      `iam.gserviceaccount.com`) → **App permissions → Nodstop → Release to testing tracks** → **Invite**.
+      `iam.gserviceaccount.com`) → **App permissions → Sleepers → Release to testing tracks** → **Invite**.
    4. The repo → **New repository secret** `PLAY_SERVICE_ACCOUNT_JSON`: open the `.json` file, select all, copy,
       paste. Then delete the file from the phone's Downloads.
 8. **Install from Play.**
-   1. In the Nodstop you use today: **Settings → Debug → Your data → Back up to a file**, and save the file.
-   2. Uninstall that Nodstop. It was signed with the debug key, so Play can't update it.
+   1. In the Sleepers you use today: **Settings → Debug → Your data → Back up to a file**, and save the file.
+   2. Uninstall that Sleepers. It was signed with the debug key, so Play can't update it.
    3. Play Console → **Internal testing → Testers → Copy link**. Open it on the phone, **Accept**, **Install**.
-   4. In the new Nodstop: **Settings → Debug → Your data → Restore from a file**. Allow the Setup rows again.
+   4. In the new Sleepers: **Settings → Debug → Your data → Restore from a file**. Allow the Setup rows again.
 
 From then on, each merge to `main` shows up as a Play update. The `debug-latest` APK keeps working, as a separate app
-called **Nodstop dev** (ID `app.nodstop.debug`), so you can try a PR without touching your Play install.
+called **Sleepers dev** (ID `app.sleepers.debug`), so you can try a PR without touching your Play install.
 
 ## Later: going public
 
@@ -92,7 +92,6 @@ Request upload key reset**, with the new certificate.
 
 ## Name and ID (DESIGN §9)
 
-The application ID is permanent once step 6 is done, and the name shows on Play. Before step 6, check that nobody on
-Play already uses "Nodstop", and that you're happy with `app.nodstop`: it reads like the domain nodstop.app, which you
-don't need to own. Changing either is a one-line change in `app/build.gradle.kts` (`applicationId`) and
-`app/src/main/res/values/strings.xml` (`app_name`). CI reads the ID from the build file.
+**Sleepers**, application ID **`app.sleepers`** (Tae, 2026-11-28). The ID is permanent on Play. The name can change in
+Play Console and in `app/src/main/res/values/strings.xml` (`app_name`). CI reads the ID from `app/build.gradle.kts`.
+The code keeps its package `app.nodstop`, which users never see.
