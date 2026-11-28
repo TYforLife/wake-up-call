@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
-/** BACKLOG F16: "On the 866, at Symonds St about 8:22 · Nodstop". Text only, the sheet's own time. */
+/** BACKLOG F16: "On the 866, at Symonds St about 8:22 · Sleepers". Text only, the sheet's own time. */
 class ShareArrivalTextTest {
     private fun trip(phase: Phase = Phase.RIDING, eta: Double? = 600.0, modes: List<Mode> = emptyList()) = TripService.TripUi(
         "To work", listOf("Symonds St"), listOf(LatLng(-36.85, 174.76)), 0,
@@ -27,7 +27,7 @@ class ShareArrivalTextTest {
 
     @Test
     fun `riding - the bus, the stop and the sheet's time`() {
-        assertEquals("On the 866, at Symonds St about 8:22 · Nodstop", ShareArrivalText.of(trip(), "866", clock, 0))
+        assertEquals("On the 866, at Symonds St about 8:22 · Sleepers", ShareArrivalText.of(trip(), "866", clock, 0))
     }
 
     @Test
@@ -40,10 +40,10 @@ class ShareArrivalTextTest {
 
     @Test
     fun `no bus number, a train, no time yet, waiting`() {
-        assertEquals("On the bus, at Symonds St about 8:22 · Nodstop", ShareArrivalText.of(trip(), null, clock, 0))
-        assertEquals("On the WEST train, at Symonds St about 8:22 · Nodstop", ShareArrivalText.of(trip(modes = listOf(Mode.TRAIN)), "WEST", clock, 0))
-        assertEquals("On the 866 to Symonds St · Nodstop", ShareArrivalText.of(trip(eta = null), "866", clock, 0))
-        assertEquals("Waiting for the 866 to Symonds St · Nodstop", ShareArrivalText.of(trip(Phase.WAITING), "866", clock, 0))
+        assertEquals("On the bus, at Symonds St about 8:22 · Sleepers", ShareArrivalText.of(trip(), null, clock, 0))
+        assertEquals("On the WEST train, at Symonds St about 8:22 · Sleepers", ShareArrivalText.of(trip(modes = listOf(Mode.TRAIN)), "WEST", clock, 0))
+        assertEquals("On the 866 to Symonds St · Sleepers", ShareArrivalText.of(trip(eta = null), "866", clock, 0))
+        assertEquals("Waiting for the 866 to Symonds St · Sleepers", ShareArrivalText.of(trip(Phase.WAITING), "866", clock, 0))
     }
 
     @Test

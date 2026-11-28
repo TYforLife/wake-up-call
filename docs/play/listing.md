@@ -3,17 +3,17 @@
 Internal testing doesn't need a finished listing. Play shows a placeholder to testers. This page is ready for when
 Play Console asks: **Grow users → Store presence → Main store listing**.
 
-- **App name** (30 characters max): Nodstop
-- **Short description** (80 max): Sleep on the bus. Nodstop wakes you just before your stop.
+- **App name** (30 characters max): Sleepers
+- **Short description** (80 max): Sleep on the bus. Sleepers wakes you just before your stop.
 - **Category:** Maps & Navigation
 - **Contact email:** yours (Play shows it publicly)
 - **Privacy policy:** <https://github.com/tyforlife/wake-up-call/blob/main/docs/privacy.md>
 
 **Full description** (4000 max):
 
-> Nod off on the bus. Nodstop wakes you just before your stop.
+> Nod off on the bus. Sleepers wakes you just before your stop.
 >
-> Tap Start and put the phone away. Nodstop follows the bus with GPS and rings in your earbuds, with vibration, about
+> Tap Start and put the phone away. Sleepers follows the bus with GPS and rings in your earbuds, with vibration, about
 > a minute before you need to get off. No typing times: it learns your rides and gets more precise each time.
 >
 > • Made for sleeping: the alarm gets through Mute and Do Not Disturb, and keeps ringing until you hold "I'm awake".

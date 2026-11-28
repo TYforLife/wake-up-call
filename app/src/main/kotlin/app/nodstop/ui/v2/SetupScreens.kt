@@ -113,7 +113,7 @@ fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modi
             ListRow("Important contacts", ui.contacts, onClick = a.contacts, trailing = { Chevron() })
             ListRow("Report a missed alarm", "Shares the trip log, locations hidden", onClick = a.report, trailing = { Chevron() })
             if (ui.liveOff) ListRow("Progress on the lock screen", "Optional, Android 16", trailing = { Pill("Allow", a.live) })
-            ListRow("Where Nodstop works", "Auckland, for now", divider = false, onClick = a.coverage, trailing = { Chevron() })
+            ListRow("Where Sleepers works", "Auckland, for now", divider = false, onClick = a.coverage, trailing = { Chevron() })
         }
         ui.credits?.let { Hint(it, Modifier.fillMaxWidth(), center = true) }
         Hint(
@@ -236,7 +236,7 @@ fun CoverageScreen(ui: CoverageUi, back: () -> Unit, map: @Composable (Modifier)
     val c = LocalN.current
     Column(modifier.fillMaxSize().padding(top = 12.dp, bottom = 24.dp)) {
         Box(Modifier.padding(horizontal = 24.dp)) { TitleBar { IconCircle(NIcons.Back, "Back", back) } }
-        Column(Modifier.padding(horizontal = 24.dp)) { ScreenTitle("Where Nodstop works") }
+        Column(Modifier.padding(horizontal = 24.dp)) { ScreenTitle("Where Sleepers works") }
         map(Modifier.fillMaxWidth().height(300.dp).padding(top = 8.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp)) {
             ui.regions.forEach { (name, line, welcome) ->
