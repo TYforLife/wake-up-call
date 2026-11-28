@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import app.nodstop.App
 import app.nodstop.alarm.AlarmSound
 import app.nodstop.alarm.Sounds
+import app.nodstop.data.AtLive
 import app.nodstop.data.Regions
 import app.nodstop.map.CoverageMap
 import androidx.compose.runtime.LaunchedEffect
@@ -88,7 +89,8 @@ fun SettingsTab(resumeTick: Int, go: (Screen) -> Unit) {
         SettingsUi(quiet, speaker, ask, SetupText.contacts(vips), "Build ${BuildConfig.BUILD_NUMBER} · ${BuildConfig.GIT_SHA}", live?.ok == false,
             credits = remember { app.nodstop.data.TransitData.attribution(ctx) },
             homeWork = remember(resumeTick) { PlanText.homeWork(s.home?.title, s.work?.title) },
-            sound = SetupText.sound(s.alarmSound.collectAsState().value, s.customSoundName)),
+            sound = SetupText.sound(s.alarmSound.collectAsState().value, s.customSoundName),
+            liveBuses = SetupText.liveBuses(s.atKey.collectAsState().value != null)),
         SettingsActions(
             quiet = { on ->
                 s.setDndDuringTrips(on)
@@ -103,6 +105,7 @@ fun SettingsTab(resumeTick: Int, go: (Screen) -> Unit) {
             homeWork = { go(Screen.HomeWork) },
             sound = { go(Screen.Sounds) },
             coverage = { go(Screen.Coverage) },
+            liveBuses = { go(Screen.LiveBuses) },
         ),
         Modifier.statusBarsPadding(),
     )
@@ -212,6 +215,34 @@ fun CoverageHost(back: () -> Unit) {
         ),
         back,
         map = { m -> CoverageMap(outline?.let { listOf(it) } ?: emptyList(), colors, m) },
+        Modifier.statusBarsPadding().navigationBarsPadding(),
+    )
+}
+
+/** Settings → Live buses (BACKLOG F13): save your AT key, check AT takes it. */
+@Composable
+fun LiveBusesHost(back: () -> Unit) {
+    val s = App.instance.settings
+    val key by s.atKey.collectAsState()
+    val scope = rememberCoroutineScope()
+    var note by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
+    fun check(k: String) {
+        checking = true
+        note = null
+        scope.launch {
+            note = SetupText.liveCheck(AtLive.check(k))
+            checking = false
+        }
+    }
+    LiveBusesScreen(
+        LiveBusesUi(key != null, note, checking),
+        LiveBusesActions(
+            back = back,
+            save = { k -> s.setAtKey(k); check(k) },
+            check = { key?.let(::check) },
+            remove = { s.setAtKey(null); note = "Removed. Live buses are off." },
+        ),
         Modifier.statusBarsPadding().navigationBarsPadding(),
     )
 }

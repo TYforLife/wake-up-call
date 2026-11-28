@@ -42,6 +42,7 @@ import app.nodstop.ui.v2.PlanHost
 import app.nodstop.ui.v2.ContactsHost
 import app.nodstop.ui.v2.SoundsHost
 import app.nodstop.ui.v2.CoverageHost
+import app.nodstop.ui.v2.LiveBusesHost
 import app.nodstop.ui.v2.SubScreen
 import app.nodstop.ui.v2.Tab
 import app.nodstop.ui.v2.TabbedShell
@@ -68,6 +69,8 @@ sealed interface Screen {
     data object Board : Screen
     /** Settings → Where Nodstop works. */
     data object Coverage : Screen
+    /** Settings → Live buses (BACKLOG F13). */
+    data object LiveBuses : Screen
     data object Debug : Screen
     data object BriefingLab : Screen
     /** Debug → Learn spike (docs/LEARN.md L0). */
@@ -208,6 +211,7 @@ private fun AppRoot(
         Screen.Contacts -> NodstopV2Theme { SubScreen { ContactsHost(resumeTick, back) } }
         Screen.Sounds -> NodstopV2Theme { SubScreen { SoundsHost(back) } }
         Screen.Coverage -> NodstopV2Theme { SubScreen { CoverageHost(back) } }
+        Screen.LiveBuses -> NodstopV2Theme { SubScreen { LiveBusesHost(back) } }
         Screen.Board -> NodstopV2Theme { SubScreen { app.nodstop.ui.v2.BoardHost(back) } }
         else -> NodstopV2Theme {
             androidx.compose.foundation.layout.Box(Modifier.safeDrawingPadding()) {

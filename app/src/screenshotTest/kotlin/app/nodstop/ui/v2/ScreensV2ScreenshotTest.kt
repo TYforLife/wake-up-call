@@ -228,6 +228,10 @@ class ScreensV2ScreenshotTest {
         )
     }
 
+    @Test fun live_buses() = shot("live-buses") {
+        LiveBusesScreen(LiveBusesUi(hasKey = true, note = "AT took your key: 1,225 buses and trains are live right now."), LiveBusesActions())
+    }
+
     @Test fun sounds() = shot("sounds") {
         SoundsScreen(
             SoundsUi(listOf("Beeps" to false, "Chime" to false, "Rising" to false, "Pūkeko" to true, "Your own sound" to false), "None yet: choose a file below"),

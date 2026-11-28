@@ -238,6 +238,15 @@ class Settings(context: Context) {
 
     fun setAlarmVolume(pct: Int) { val v = pct.coerceIn(10, 100); prefs.edit().putInt("alarm_volume", v).apply(); _alarmVolume.value = v }
 
+    private val _atKey = MutableStateFlow(prefs.getString("at_key", null))
+    /** Your AT API key (BACKLOG F13): on the phone only, sent only to AT, never logged. Null: live buses off. */
+    val atKey: StateFlow<String?> = _atKey
+
+    fun setAtKey(key: String?) {
+        val k = key?.trim()?.takeIf { it.isNotEmpty() }
+        prefs.edit().apply { if (k == null) remove("at_key") else putString("at_key", k) }.apply(); _atKey.value = k
+    }
+
     /** "Arrive by 8:30" remembered for a destination ("work", "home"): seconds after midnight, or null. */
     fun arriveBy(place: String): Int? = prefs.getInt("arrive_by_$place", -1).takeIf { it >= 0 }
 
