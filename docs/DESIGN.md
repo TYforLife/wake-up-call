@@ -3,9 +3,9 @@
 Owner: Tae. Platform: Android (Samsung), Kotlin. Built mostly by Claude Code cloud sessions
 started from a phone. No laptop in the loop: CI builds the APK, the phone downloads it.
 
-Name: **Sleepers** (the owner's choice, 2026-11-25; it was Nodstop). Package and application ID `app.nodstop` until the
-owner says otherwise; the ID can't change after the first Play release. The name people see comes from one place,
-`Brand.NAME`, and `ArchitectureTest` keeps the launcher label equal to it and the old name off every screen.
+Name: **Sleepers** (the owner's choice, 2026-11-25; it was Nodstop), application ID `app.sleepers` on Play
+(2026-11-28). The Kotlin package stays `app.nodstop`. The name people see comes from one place, `Brand.NAME`, and
+`ArchitectureTest` keeps the launcher label equal to it and the old name off every screen.
 
 ---
 
@@ -785,8 +785,8 @@ screen of a first run opens with the icon and the name instead of Back, and one 
   `gradle/libs.versions.toml`.
 - Debug signing: `keystore/debug.keystore` (standard debug credentials) is committed and
   `signingConfigs.debug` points at it, so every CI build installs over the previous one. It is never used for release.
-- The debug build's ID is `app.nodstop.debug`, named **Sleepers dev**, so it installs next to the Play build
-  (`app.nodstop`) instead of replacing it. `ArchitectureTest` checks the suffix, the provider authorities and the name.
+- The debug build's ID is `app.sleepers.debug`, named **Sleepers dev**, so it installs next to the Play build
+  (`app.sleepers`) instead of replacing it. `ArchitectureTest` checks the suffix, the provider authorities and the name.
 - **Play build (BACKLOG F35, `docs/play/`):** `:app:bundleRelease` makes `app-release.aab` on every push. It is signed
   only when CI has the **upload key** from GitHub secrets (`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`,
   alias `upload`), which are decoded to a temporary file for that one step. The key is made by the hand-run
@@ -898,8 +898,8 @@ GPS dead-man's switch stays the guaranteed fallback; ghost buses or a dead feed 
 
 - Donations on the Play Store: put the link on the project page or README rather than in the app.
   Check Play's payments policy before adding any in-app tip button.
-- Application ID (`app.nodstop` until the owner confirms it; the name is Sleepers): the ID can't change after the first
-  upload to Play (`docs/play/README.md`, step 6). Check the name is free on Play first.
+- Name and application ID: decided (Tae, 2026-11-28). The app is **Sleepers**, `app.sleepers` on Play (debug:
+  `app.sleepers.debug`, "Sleepers dev"). The Kotlin package and the repo keep the name `app.nodstop`.
 
 ---
 
