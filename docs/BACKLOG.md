@@ -175,9 +175,12 @@ its own kind welcome joke (Product direction). Don't start until Tae says the MV
   kept on the phone, never in the repo.
   - 2026-11-24: AT's developer portal gave a server error when he tried to sign up. He'll try again; reminded
     2026-11-26.
+  - 2026-11-28: he has the key. It's saved for cloud sessions as a network secret on his environment, never in the
+    repo. AT's feed works: about 1,200 vehicles live, 435 on a trip; about 1,050 trip updates with each trip's delay.
+    Trip IDs match the bundled timetable's.
 
   Steps, each its own PR:
-  1. Settings → Live buses: paste the key, and **Check** says whether AT accepts it. CI works without a key; a key
+  1. [x] Settings → Live buses: paste the key, and **Check** says whether AT accepts it. CI works without a key; a key
      never goes in the repo, CI or a log.
   2. While you wait: the coming bus on the map, and "871 · 3 min away (live)" instead of the timetable.
   3. On the bus: match you to the vehicle that moves with you for about a minute; AT's predicted arrival beside ours.

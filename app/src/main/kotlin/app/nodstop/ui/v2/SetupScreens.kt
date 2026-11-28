@@ -19,6 +19,7 @@ import androidx.compose.material3.SliderDefaults
 import kotlin.math.roundToInt
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -77,6 +78,8 @@ data class SettingsUi(
     val homeWork: String = "Set them to plan your commute",
     /** "Beeps", "Chime", "Your own: wake.mp3". */
     val sound: String = "Beeps",
+    /** "On" or how to turn it on (BACKLOG F13). */
+    val liveBuses: String = "Off: add your AT key",
 )
 
 class SettingsActions(
@@ -90,6 +93,7 @@ class SettingsActions(
     val homeWork: () -> Unit = {},
     val sound: () -> Unit = {},
     val coverage: () -> Unit = {},
+    val liveBuses: () -> Unit = {},
 )
 
 /** Settings: six rows; everything technical is in Debug, behind a long press on the build line (PLAN Run 9, M6). */
@@ -102,6 +106,7 @@ fun SettingsScreen(ui: SettingsUi, a: SettingsActions, modifier: Modifier = Modi
             Spacer(Modifier.height(12.dp))
             ListRow("Home and work", ui.homeWork, onClick = a.homeWork, trailing = { Chevron() })
             ListRow("Alarm sound", ui.sound, onClick = a.sound, trailing = { Chevron() })
+            ListRow("Live buses", ui.liveBuses, onClick = a.liveBuses, trailing = { Chevron() })
             SwitchRow("Quiet other notifications", "While the screen is off, on a trip", ui.quiet, a.quiet)
             SwitchRow("Ring out loud after 60 s", "If vibration didn't wake you", ui.speaker, a.speaker)
             SwitchRow("Ask how the timing was", "After each ring", ui.ask, a.ask)
@@ -242,5 +247,54 @@ fun CoverageScreen(ui: CoverageUi, back: () -> Unit, map: @Composable (Modifier)
             ui.note?.let { Hint(it) }
             Hint("More regions, one at a time.", Modifier.padding(top = 8.dp))
         }
+    }
+}
+
+// ---- Live buses (from Settings, BACKLOG F13) ----
+
+data class LiveBusesUi(
+    /** A key is saved (shown only as dots, never the key). */
+    val hasKey: Boolean,
+    /** What the last Check found, or what to do. */
+    val note: String? = null,
+    val checking: Boolean = false,
+)
+
+class LiveBusesActions(
+    val back: () -> Unit = {},
+    val save: (String) -> Unit = {},
+    val check: () -> Unit = {},
+    val remove: () -> Unit = {},
+)
+
+/** Your AT key for live buses: paste it, check AT takes it. Kept on the phone, sent only to AT. */
+@Composable
+fun LiveBusesScreen(ui: LiveBusesUi, a: LiveBusesActions, modifier: Modifier = Modifier) {
+    val c = LocalN.current
+    var text by remember { mutableStateOf("") }
+    Column(modifier.fillMaxSize().padding(horizontal = 24.dp).padding(top = 12.dp, bottom = 24.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            TitleBar { IconCircle(NIcons.Back, "Back", a.back) }
+            ScreenTitle("Live buses")
+            Lead(
+                "Where your bus is and how late it runs, from Auckland Transport. It needs your own free key: AT's " +
+                    "developer portal → Products → Realtime → Subscribe, then Profile → Primary key.",
+            )
+            Hint("Kept on this phone and sent only to AT. Live times only ever make the alarm earlier; without them it works as now.")
+            Spacer(Modifier.height(16.dp))
+            if (ui.hasKey) {
+                ListRow("Your AT key", "Saved", trailing = { Pill("Remove", a.remove) })
+            } else {
+                OutlinedTextField(
+                    text, { text = it }, label = { Text("Paste your AT key") }, singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = c.fg, focusedLabelColor = c.fg, cursorColor = c.fg),
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { Pill("Save", { if (text.isNotBlank()) { a.save(text); text = "" } }) }
+            }
+            ui.note?.let { Hint(it, Modifier.fillMaxWidth().padding(top = 16.dp)) }
+        }
+        if (ui.hasKey) PrimaryButton(if (ui.checking) "Checking…" else "Check", a.check, enabled = !ui.checking)
     }
 }

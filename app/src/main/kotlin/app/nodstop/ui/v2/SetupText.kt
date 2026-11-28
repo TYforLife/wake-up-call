@@ -31,6 +31,18 @@ object SetupText {
         return if (s == app.nodstop.alarm.Sounds.Id.CUSTOM) "Your own: ${customName ?: "a file"}" else s.label
     }
 
+    /** Settings' "Live buses" line (BACKLOG F13). */
+    fun liveBuses(hasKey: Boolean): String = if (hasKey) "On, with your AT key" else "Off: add your AT key"
+
+    /** What a key check found, in words. */
+    fun liveCheck(c: app.nodstop.data.AtLive.Check): String = when (c) {
+        is app.nodstop.data.AtLive.Check.Ok -> "AT took your key: ${"%,d".format(java.util.Locale.US, c.vehicles)} buses and trains are live right now."
+        app.nodstop.data.AtLive.Check.Rejected ->
+            "AT didn't accept that key. Check it's the Primary key of a Realtime subscription, then remove it and paste it again."
+        is app.nodstop.data.AtLive.Check.Down ->
+            "AT's server isn't answering${c.code?.let { " ($it)" }.orEmpty()}. Your key is saved; check again later. The alarm works without it."
+    }
+
     /** "6,888 stops". */
     fun stops(n: Int): String = "%,d stops".format(java.util.Locale.US, n)
 

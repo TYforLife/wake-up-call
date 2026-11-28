@@ -747,6 +747,12 @@ doesn't flash another colour while it opens.
 - **Settings** (`settings`):
   - Home and work: the two places, and the steps to change them (PLAN Run 13).
   - Alarm sound: the chosen sound, and the list (§5 Ring ladder).
+  - Live buses (BACKLOG F13): your own free AT API key, pasted once.
+    - It's kept in the phone's settings and sent only to AT (`Ocp-Apim-Subscription-Key`). It's never logged and never
+      copied off the phone.
+    - **Check** asks AT's vehicle positions (`AtLive.check`) and says how many vehicles are live, that AT refused the
+      key (401/403), or that AT isn't answering.
+    - Live data may only make an alarm earlier (rule 6). Without the key, or with AT down, everything works as before.
   - Where Nodstop works (last): a map of the covered area (the hull of the bundled AT stops, `Regions.hull`), and
     each region with its operator, stop count and a kind, slightly cheeky welcome (`Regions.all`). Auckland only,
     for now; regions are added one at a time.

@@ -67,4 +67,14 @@ class SetupTextTest {
         assertEquals(FirstRun.Step.SETUP, FirstRun.atLaunch(anyRouteReady = true, setupSeen = false, needsAttention = true), "routes but no permissions")
         assertEquals(FirstRun.Step.NONE, FirstRun.atLaunch(anyRouteReady = true, setupSeen = true, needsAttention = true), "seen once: Now's red row")
     }
+
+    @Test
+    fun `live buses - the Settings line and what a key check says`() {
+        assertEquals("Off: add your AT key", SetupText.liveBuses(false))
+        assertEquals("On, with your AT key", SetupText.liveBuses(true))
+        assertEquals("AT took your key: 1,225 buses and trains are live right now.", SetupText.liveCheck(app.nodstop.data.AtLive.Check.Ok(1_225)))
+        assertTrue(SetupText.liveCheck(app.nodstop.data.AtLive.Check.Rejected).startsWith("AT didn't accept that key"))
+        assertTrue(SetupText.liveCheck(app.nodstop.data.AtLive.Check.Down(503)).contains("(503)"))
+        assertTrue(SetupText.liveCheck(app.nodstop.data.AtLive.Check.Down(null)).contains("isn't answering. Your key is saved"))
+    }
 }
