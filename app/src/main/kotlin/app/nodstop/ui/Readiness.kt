@@ -83,7 +83,7 @@ object Readiness {
         val ch = nm.getNotificationChannel(app.nodstop.Notifications.alarmChannelId(ctx))
         return Check(
             "Alarm notifications", ch != null && ch.importance >= NotificationManager.IMPORTANCE_HIGH,
-            "Turned down or off for Sleepers's alarm: turn it back on.",
+            "Turned down or off for Sleepers' alarm: turn it back on.",
             Fix.Open(
                 Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
                     .putExtra(Settings.EXTRA_CHANNEL_ID, app.nodstop.Notifications.alarmChannelId(ctx)),

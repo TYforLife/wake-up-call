@@ -23,6 +23,8 @@ object FirstRun {
 }
 
 object SetupText {
+    /** The first screen's promise, under the name and above "Where's home?": what the app does, then what to do. */
+    const val WELCOME = "Sleep on the bus. We'll wake you before your stop. Start with your address."
     /** Alarm sound → Buzz my watch (BACKLOG F3): what the watch's own app needs, in one line. */
     const val WATCH_STEPS = "Keeps buzzing until you're awake. Turn on Sleepers in the COROS app: Profile → Settings → Notifications."
     /** Settings' "Alarm sound" line: the sound's name, or your file's. */

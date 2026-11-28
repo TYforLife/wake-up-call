@@ -95,3 +95,8 @@ Request upload key reset**, with the new certificate.
 **Sleepers**, application ID **`app.sleepers`** (Tae, 2026-11-28). The ID is permanent on Play. The name can change in
 Play Console and in `app/src/main/res/values/strings.xml` (`app_name`). CI reads the ID from `app/build.gradle.kts`.
 The code keeps its package `app.nodstop`, which users never see.
+
+## Store pictures
+
+`icon-512.png` (the app icon, 512 x 512) and `feature-graphic.png` (1024 x 500) are made from the app's icon by
+`node docs/design/store.js`. Upload them under **Grow users → Store presence → Main store listing → Graphics**.

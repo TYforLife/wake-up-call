@@ -3,7 +3,7 @@ package app.nodstop.ui
 import android.content.Intent
 
 /**
- * Text shared INTO Nodstop from Google Maps (PLAN Run 12, C1): a place or directions to add as stops. Receiving
+ * Text shared INTO Sleepers from Google Maps (PLAN Run 12, C1): a place or directions to add as stops. Receiving
  * only: nothing here ever sends anything (`NotifyIsolationTest` checks).
  */
 object ShareIn {

@@ -3,7 +3,7 @@ package app.nodstop.data
 import app.nodstop.engine.LatLng
 
 /**
- * Where Nodstop works (BACKLOG, product direction): one region at a time, Auckland first. Each region gets a kind,
+ * Where Sleepers works (BACKLOG, product direction): one region at a time, Auckland first. Each region gets a kind,
  * slightly cheeky welcome. Its outline on the map is the hull of its operator's stops. Pure: tested on the JVM.
  */
 object Regions {

@@ -196,7 +196,7 @@ private fun displayName(ctx: Context, uri: Uri): String? =
         if (c.moveToFirst()) c.getString(0) else null
     }
 
-/** Where Nodstop works (BACKLOG, product direction): the covered area from the bundled stops, and each welcome. */
+/** Where Sleepers works (BACKLOG, product direction): the covered area from the bundled stops, and each welcome. */
 @Composable
 fun CoverageHost(back: () -> Unit) {
     val ctx = LocalContext.current

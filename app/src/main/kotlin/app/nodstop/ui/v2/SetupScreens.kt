@@ -222,7 +222,7 @@ fun SoundsScreen(ui: SoundsUi, a: SoundsActions, modifier: Modifier = Modifier) 
     }
 }
 
-// ---- Where Nodstop works (from Settings; BACKLOG, product direction) ----
+// ---- Where Sleepers works (from Settings; BACKLOG, product direction) ----
 
 data class CoverageUi(
     /** Each region: its name, its operator and stop count, its welcome. */
@@ -230,7 +230,7 @@ data class CoverageUi(
     val note: String? = null,
 )
 
-/** A map of the regions Nodstop covers, and each one's welcome. [map]: the real map, or a flat box in tests. */
+/** A map of the regions Sleepers covers, and each one's welcome. [map]: the real map, or a flat box in tests. */
 @Composable
 fun CoverageScreen(ui: CoverageUi, back: () -> Unit, map: @Composable (Modifier) -> Unit, modifier: Modifier = Modifier) {
     val c = LocalN.current

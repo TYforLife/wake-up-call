@@ -43,7 +43,7 @@ object Sounds {
     private fun n(s: Double) = (RATE * s).toInt()
     private fun clip(x: Double): Short = (x.coerceIn(-1.0, 1.0) * Short.MAX_VALUE).toInt().toShort()
 
-    /** Two short beeps, then a pause: the sound Nodstop always had. */
+    /** Two short beeps, then a pause: the sound Sleepers always had. */
     private fun beeps(): ShortArray {
         val beep = n(0.16)
         val gap = n(0.09)

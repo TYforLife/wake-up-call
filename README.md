@@ -1,8 +1,10 @@
-# Nodstop (wake-up-call)
+<img src="docs/play/icon-512.png" width="72" alt="">
+
+# Sleepers (wake-up-call)
 
 PLEASE LET ME SLEEP ON THE BUS (AT limited)
 
-**Nodstop** = nod off, don't miss your stop. It's an Android app that wakes you 30–60 s before your bus stop, so
+**Sleepers**: sleep on the bus, and it wakes you before your stop. It's an Android app that wakes you 30–60 s before your bus stop, so
 you can sleep on the bus. It's built for Auckland Transport for now, with other regions to come.
 
 **Install the latest debug build** (on the phone):

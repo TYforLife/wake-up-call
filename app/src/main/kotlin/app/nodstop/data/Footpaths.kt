@@ -72,10 +72,10 @@ object Footpaths {
         try {
             WalkGraph.parse(json).from(p, reachM)
         } catch (e: SerializationException) {
-            Log.w("Nodstop", "footpaths: unreadable reply", e)
+            Log.w("Sleepers", "footpaths: unreadable reply", e)
             null
         } catch (e: IllegalArgumentException) {
-            Log.w("Nodstop", "footpaths: unreadable reply", e)
+            Log.w("Sleepers", "footpaths: unreadable reply", e)
             null
         }
     }
@@ -90,7 +90,7 @@ object Footpaths {
         try {
             f.writeText(json)
         } catch (e: IOException) {
-            Log.w("Nodstop", "footpaths: not cached", e)
+            Log.w("Sleepers", "footpaths: not cached", e)
         }
     }
 

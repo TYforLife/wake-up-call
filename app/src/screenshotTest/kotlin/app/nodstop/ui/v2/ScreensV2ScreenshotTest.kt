@@ -272,15 +272,21 @@ class ScreensV2ScreenshotTest {
         )
     }
 
+    /** First run, step 1 (BACKLOG F34): the app's first screen, so it opens with the mark and the name. */
     @Test fun home() = shot("home") {
         PlacePickScreen(
             PlacePickUi(
-                "Where's home?", "Type your address. Sleepers finds your buses and every stop to wake you at.", "12 Exam",
+                "Where's home?", SetupText.WELCOME, "12 Exam",
                 listOf(PlaceUi("12 Example Road", "Mount Example", null, PlaceUi.Kind.ADDRESS), PlaceUi("Example Rd", "Stop 1234 · 300 m", null, PlaceUi.Kind.STOP)),
-                "I'm home now",
+                "I'm home now", brand = true,
             ),
             PlacePickActions(),
         )
+    }
+
+    /** The same first screen at night: the disc turns white and the mark black. */
+    @Test fun home_night() = shot("home-night", dark = true) {
+        PlacePickScreen(PlacePickUi("Where's home?", SetupText.WELCOME, "", emptyList(), "I'm home now", brand = true), PlacePickActions())
     }
 
     /** First run, step 2 (BACKLOG F34): work, the same screen as home. */

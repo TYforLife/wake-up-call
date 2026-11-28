@@ -1,10 +1,11 @@
-# Nodstop: design (v0.2: GPS-only, learns your routes)
+# Sleepers: design (v0.2: GPS-only, learns your routes)
 
 Owner: Tae. Platform: Android (Samsung), Kotlin. Built mostly by Claude Code cloud sessions
 started from a phone. No laptop in the loop: CI builds the APK, the phone downloads it.
 
-Name: **Nodstop** ("nod off, don't miss your stop"), package `app.nodstop`. Final name and
-application ID must be confirmed before the first Play release; the ID can't change after that.
+Name: **Sleepers** (the owner's choice, 2026-11-25; it was Nodstop), application ID `app.sleepers` on Play
+(2026-11-28). The Kotlin package stays `app.nodstop`. The name people see comes from one place, `Brand.NAME`, and
+`ArchitectureTest` keeps the launcher label equal to it and the old name off every screen.
 
 ---
 
@@ -552,9 +553,14 @@ from pure functions with unit tests (`TripSheetText`, `AwakeText`, `RingText`, `
 `StopText`, `SetupText`). Each screen has a screenshot test, `v2_<id>.png` (`ScreensV2ScreenshotTest`). CI pairs
 each one with its mockup (`docs/design/compare.py`) and attaches the pairs to `debug-latest`.
 
-The app icon is a map pin, asleep: black on white, also as the themed icon and the small notification and tile icon.
-One script builds them all (`docs/design/gen_icon.py`). The launch window is white, or black at night, so the app
-doesn't flash another colour while it opens.
+The app icon is a pūkeko nodding off: Auckland's swamp hen (the bird of the pūkeko alarm) asleep on its feet with
+its head drooping, violet-blue with its red shield and legs, on black like the alarm. It is the only place the app
+uses those colours. The same drawing is the themed icon, the splash icon and, as a silhouette with the eye cut out,
+the small notification and tile icon. One script builds them all (`docs/design/gen_icon.py`), and
+`docs/design/store.js` makes the Play icon and feature graphic from it. The launch window is white, or black at
+night, so the app doesn't flash another colour while it opens; its splash icon is the bird on a black disc. The first
+screen of a first run opens with the icon and the name instead of Back, and one line on what the app does
+(`BrandRow`, `SetupText.WELCOME`).
 
 - **Setup** (`setup`): "Before your first ride", one list:
   - Notifications; Over the lock screen (full-screen intent); Exact alarms; Buzz on Mute (Do Not Disturb access);

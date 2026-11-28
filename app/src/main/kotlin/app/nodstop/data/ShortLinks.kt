@@ -47,7 +47,7 @@ object ShortLinks {
                 instanceFollowRedirects = false
                 connectTimeout = 8_000
                 readTimeout = 8_000
-                setRequestProperty("User-Agent", "Nodstop")
+                setRequestProperty("User-Agent", "Sleepers")
             }
             try {
                 val loc = c.getHeaderField("Location")
