@@ -158,8 +158,9 @@ new, or repeats something, add it here in the same PR.
   name: "redesign the logo and some other pieces… I like how the application feels overall… first impression is the
   go or die." He wanted to see the design process and pick a path from it. The first pass (a Z drawn as a ride,
   white on black, branch `design/sleepers-brand`): "I like the process, I don't like the outcome. Park everything.
-  Start again. Same prompt, same process." The second pass's pick: a pūkeko nodding off, on black. If he picks another
-  path from a process page, that one wins.
+  Start again. Same prompt, same process." The second pass's pick, a pūkeko nodding off on black, is the one he
+  approved (2026-11-28: "Out of the list, I love Pukeko the most", then "I approve the A version"). Don't change the
+  icon unless he asks.
 - v2 visual language: black and white, the system font, and one orange accent meaning "trip is live". The map is
   the exception: it should look like Google Maps.
 - One ring path, the dead-man's switch, and "ring earlier, never later" (`CLAUDE.md`). He has never asked to relax
@@ -190,6 +191,9 @@ new, or repeats something, add it here in the same PR.
   keeping how it feels (v2 black and white). "Take time." "Show through your design iteration processes, I might
   select a path." For design work, show the options and the reasons, then the pick; let him choose. He judged the
   outcome, not the process: a clean, abstract mark that's "correct" wasn't enough. Try warmth and character too.
+- **NZ first, dream big** (2026-11-28): "I am trying to build reputation in the NZ scene… I do plan to dream big as
+  well." Keep the Kiwi flavour (the pūkeko, region jokes) and keep anything tied to Auckland Transport in the
+  region-by-region parts (`Regions`), not in the brand, so another region or country is new data, not a rebrand.
 
 ## How to report back to him
 - A few short lines: what changed, what to test on the phone, and the APK link. No walls of text.
